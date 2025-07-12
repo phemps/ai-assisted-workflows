@@ -1,0 +1,555 @@
+#!/bin/bash
+# Claude Code Workflows Installation Script
+# Installs the complete workflow system with commands, scripts, and dependencies
+
+set -euo pipefail
+
+# Script configuration
+SCRIPT_VERSION="1.0.0"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_FILE="/tmp/claude-workflows-install.log"
+
+# Usage and help
+show_usage() {
+    cat << 'EOF'
+Claude Code Workflows Installer
+
+USAGE:
+    ./install.sh [TARGET_PATH] [OPTIONS]
+
+ARGUMENTS:
+    TARGET_PATH     Directory where .claude/ will be created
+                   Examples:
+                     ~/                    (User global: ~/.claude/)
+                     ./myproject           (Project local: ./myproject/.claude/)
+                     /path/to/project      (Custom path: /path/to/project/.claude/)
+                   Default: current directory
+
+OPTIONS:
+    -h, --help      Show this help message
+    -v, --verbose   Enable verbose output
+    -n, --dry-run   Show what would be done without making changes
+    --skip-mcp      Skip MCP tools installation
+    --skip-python   Skip Python dependencies installation
+
+EXAMPLES:
+    # Install in current project (creates ./.claude/)
+    ./install.sh
+
+    # Install globally for user (creates ~/.claude/)
+    ./install.sh ~
+
+    # Install in specific project
+    ./install.sh /path/to/my-project
+
+    # Dry run to see what would happen
+    ./install.sh --dry-run
+
+    # Install without MCP tools
+    ./install.sh --skip-mcp
+
+REQUIREMENTS:
+    - Python 3.7+
+    - Node.js (for MCP tools)
+    - Claude CLI (for MCP tools)
+    - Internet connection for dependencies
+
+EOF
+}
+
+# Global variables
+VERBOSE=false
+DRY_RUN=false
+SKIP_MCP=false
+SKIP_PYTHON=false
+
+# Parse command line arguments
+parse_args() {
+    # Reset TARGET_PATH to empty to detect if user provided one
+    TARGET_PATH=""
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -n|--dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --skip-mcp)
+                SKIP_MCP=true
+                shift
+                ;;
+            --skip-python)
+                SKIP_PYTHON=true
+                shift
+                ;;
+            -*)
+                echo "Unknown option: $1" >&2
+                show_usage
+                exit 1
+                ;;
+            *)
+                if [[ -z "$TARGET_PATH" ]]; then
+                    TARGET_PATH="$1"
+                else
+                    echo "Error: Multiple target paths specified" >&2
+                    exit 1
+                fi
+                shift
+                ;;
+        esac
+    done
+    
+    # Set default if no target path provided
+    if [[ -z "$TARGET_PATH" ]]; then
+        TARGET_PATH="$(pwd)"
+    fi
+}
+
+# Logging functions
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+log_verbose() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        log "$@"
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+    fi
+}
+
+log_error() {
+    echo "[ERROR] $*" | tee -a "$LOG_FILE" >&2
+}
+
+# Platform detection
+detect_platform() {
+    case "$(uname -s)" in
+        Darwin*)
+            PLATFORM="macos"
+            ;;
+        Linux*)
+            PLATFORM="linux"
+            ;;
+        CYGWIN*|MINGW*|MSYS*)
+            PLATFORM="windows"
+            ;;
+        *)
+            log_error "Unsupported platform: $(uname -s)"
+            exit 1
+            ;;
+    esac
+    log_verbose "Detected platform: $PLATFORM"
+}
+
+# Environment validation
+check_python() {
+    log_verbose "Checking Python installation..."
+    
+    if ! command -v python3 &> /dev/null; then
+        log_error "Python 3 is required but not installed"
+        echo "Please install Python 3.7+ and try again"
+        exit 1
+    fi
+    
+    local python_version
+    python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
+    log_verbose "Found Python $python_version"
+    
+    if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)"; then
+        log_error "Python 3.7+ is required, found Python $python_version"
+        exit 1
+    fi
+    
+    if ! command -v pip3 &> /dev/null; then
+        log_error "pip3 is required but not found"
+        echo "Please install pip3 and try again"
+        exit 1
+    fi
+}
+
+check_node() {
+    if [[ "$SKIP_MCP" == "true" ]]; then
+        log_verbose "Skipping Node.js check (MCP installation disabled)"
+        return 0
+    fi
+    
+    log_verbose "Checking Node.js installation..."
+    
+    if ! command -v node &> /dev/null; then
+        log_error "Node.js is required for MCP tools but not installed"
+        echo "Install Node.js from https://nodejs.org or use --skip-mcp to skip MCP tools"
+        exit 1
+    fi
+    
+    local node_version
+    node_version=$(node --version)
+    log_verbose "Found Node.js $node_version"
+}
+
+check_claude_cli() {
+    if [[ "$SKIP_MCP" == "true" ]]; then
+        log_verbose "Skipping Claude CLI check (MCP installation disabled)"
+        return 0
+    fi
+    
+    log_verbose "Checking Claude CLI installation..."
+    
+    if ! command -v claude &> /dev/null; then
+        log_error "Claude CLI is required for MCP tools but not installed"
+        echo "Install Claude CLI from https://claude.ai/code or use --skip-mcp to skip MCP tools"
+        exit 1
+    fi
+    
+    local claude_version
+    claude_version=$(claude --version 2>/dev/null || echo "unknown")
+    log_verbose "Found Claude CLI $claude_version"
+}
+
+# Directory setup with custom paths
+setup_install_dir() {
+    log_verbose "Setting up installation directory..."
+    
+    # Resolve and validate target path
+    if [[ "$TARGET_PATH" == "~" ]]; then
+        TARGET_PATH="$HOME"
+    elif [[ "$TARGET_PATH" == ~* ]]; then
+        TARGET_PATH="${TARGET_PATH/#\~/$HOME}"
+    fi
+    
+    # Convert to absolute path
+    TARGET_PATH=$(realpath "$TARGET_PATH" 2>/dev/null || echo "$TARGET_PATH")
+    
+    # Create target directory if it doesn't exist
+    if [[ ! -d "$TARGET_PATH" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log "Would create directory: $TARGET_PATH"
+        else
+            log_verbose "Creating target directory: $TARGET_PATH"
+            mkdir -p "$TARGET_PATH"
+        fi
+    fi
+    
+    # Set final installation path
+    INSTALL_DIR="$TARGET_PATH/.claude"
+    
+    log "Installation target: $INSTALL_DIR"
+    
+    # Handle existing installation
+    if [[ -d "$INSTALL_DIR" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log "Would handle existing .claude directory at: $INSTALL_DIR"
+            log "Would prompt user for backup/merge/cancel choice"
+        else
+            echo ""
+            echo "Found existing .claude directory at: $INSTALL_DIR"
+            echo "Choose an option:"
+            echo "  1) Backup existing and install fresh"
+            echo "  2) Merge with existing (preserve user customizations)"
+            echo "  3) Cancel installation"
+            echo ""
+            read -p "Enter choice [1-3]: " choice
+            
+            case $choice in
+                1)
+                    local backup_dir="${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+                    log "Backing up existing installation to: $backup_dir"
+                    mv "$INSTALL_DIR" "$backup_dir"
+                    ;;
+                2)
+                    log "Merging with existing installation"
+                    MERGE_MODE=true
+                    ;;
+                3)
+                    log "Installation cancelled by user"
+                    exit 0
+                    ;;
+                *)
+                    log_error "Invalid choice"
+                    exit 1
+                    ;;
+            esac
+        fi
+    fi
+    
+    # Create installation directory
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would create installation directory: $INSTALL_DIR"
+    else
+        mkdir -p "$INSTALL_DIR"
+    fi
+}
+
+# File copy operations
+copy_files() {
+    log_verbose "Copying workflow files..."
+    
+    local source_dir="$SCRIPT_DIR"
+    
+    # Verify source files exist
+    if [[ ! -d "$source_dir/claude" ]]; then
+        log_error "Source directory not found: $source_dir/claude"
+        exit 1
+    fi
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would copy files from $source_dir to $INSTALL_DIR"
+        return 0
+    fi
+    
+    # Copy claude directory
+    log_verbose "Copying claude/ directory..."
+    if [[ "${MERGE_MODE:-false}" == "true" ]]; then
+        # Merge mode: preserve existing files, copy new ones
+        cp -rn "$source_dir/claude"/* "$INSTALL_DIR/" 2>/dev/null || true
+    else
+        # Fresh install: copy everything
+        cp -r "$source_dir/claude"/* "$INSTALL_DIR/"
+    fi
+    
+    # Copy CLAUDE.md if it exists
+    if [[ -f "$source_dir/CLAUDE.md" ]]; then
+        log_verbose "Copying CLAUDE.md..."
+        cp "$source_dir/CLAUDE.md" "$INSTALL_DIR/"
+    fi
+    
+    # Set proper permissions
+    find "$INSTALL_DIR" -name "*.py" -exec chmod +x {} \;
+    find "$INSTALL_DIR" -name "*.sh" -exec chmod +x {} \;
+    
+    log "Files copied successfully"
+}
+
+# Python dependency installation
+install_python_deps() {
+    if [[ "$SKIP_PYTHON" == "true" ]]; then
+        log "Skipping Python dependencies installation"
+        return 0
+    fi
+    
+    log "Installing Python dependencies..."
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would run Python dependency installation"
+        return 0
+    fi
+    
+    local setup_script="$INSTALL_DIR/scripts/setup/install_dependencies.py"
+    
+    if [[ ! -f "$setup_script" ]]; then
+        log_error "Setup script not found: $setup_script"
+        exit 1
+    fi
+    
+    log_verbose "Running installation script..."
+    cd "$INSTALL_DIR"
+    
+    # Run Python dependency installation with automatic 'yes' response
+    if echo "y" | python3 "$setup_script"; then
+        log "Python dependencies installed successfully"
+    else
+        log_error "Python dependencies installation failed"
+        exit 1
+    fi
+}
+
+# MCP tools installation
+install_mcp_tools() {
+    if [[ "$SKIP_MCP" == "true" ]]; then
+        log "Skipping MCP tools installation"
+        return 0
+    fi
+    
+    log "Installing MCP tools..."
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would install MCP tools: sequential-thinking, context7"
+        return 0
+    fi
+    
+    local mcp_failed=false
+    
+    # Install sequential-thinking
+    log_verbose "Installing sequential-thinking MCP tool..."
+    if claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking 2>/dev/null; then
+        log_verbose "sequential-thinking installed successfully"
+    else
+        log_error "Failed to install sequential-thinking MCP tool"
+        mcp_failed=true
+    fi
+    
+    # Install filesystem (for context7-like functionality)
+    log_verbose "Installing filesystem MCP tool..."
+    if claude mcp add filesystem -s user -- npx -y @modelcontextprotocol/server-filesystem "$HOME" 2>/dev/null; then
+        log_verbose "filesystem MCP tool installed successfully"
+    else
+        log_error "Failed to install filesystem MCP tool"
+        mcp_failed=true
+    fi
+    
+    # Install browser tools (for magic-like functionality)
+    log_verbose "Installing browser tools MCP tool..."
+    if claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer 2>/dev/null; then
+        log_verbose "browser tools MCP tool installed successfully"
+    else
+        log_error "Failed to install browser tools MCP tool"
+        mcp_failed=true
+    fi
+    
+    if [[ "$mcp_failed" == "true" ]]; then
+        log "Some MCP tools failed to install. You can install them manually later using:"
+        echo "  claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking"
+        echo "  claude mcp add filesystem -s user -- npx -y @modelcontextprotocol/server-filesystem \$HOME"
+        echo "  claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer"
+    else
+        log "MCP tools installed successfully"
+    fi
+}
+
+# Installation verification
+verify_installation() {
+    log "Verifying installation..."
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would verify installation"
+        return 0
+    fi
+    
+    if [[ "$DRY_RUN" != "true" ]]; then
+        local test_script="$INSTALL_DIR/scripts/setup/test_install.py"
+        
+        # Test Python dependencies
+        if [[ "$SKIP_PYTHON" != "true" ]] && [[ -f "$test_script" ]]; then
+            log_verbose "Testing Python dependencies..."
+            cd "$INSTALL_DIR"
+            if python3 "$test_script" >> "$LOG_FILE" 2>&1; then
+                log_verbose "Python dependencies verification passed"
+            else
+                log_error "Python dependencies verification failed"
+                exit 1
+            fi
+        fi
+    fi
+    
+    # Test MCP tools
+    if [[ "$DRY_RUN" != "true" ]] && [[ "$SKIP_MCP" != "true" ]]; then
+        log_verbose "Testing MCP tools..."
+        if claude mcp list 2>/dev/null | grep -q "sequential-thinking"; then
+            log_verbose "MCP tools verification passed"
+        else
+            log "Warning: MCP tools verification failed (this is non-critical)"
+        fi
+    fi
+    
+    # Test file structure
+    if [[ "$DRY_RUN" != "true" ]]; then
+        local required_dirs=("commands" "scripts")
+        for dir in "${required_dirs[@]}"; do
+            if [[ ! -d "$INSTALL_DIR/$dir" ]]; then
+                log_error "Required directory missing: $INSTALL_DIR/$dir"
+                exit 1
+            fi
+        done
+    fi
+    
+    log "Installation verification completed successfully"
+}
+
+# Display post-installation information
+show_completion() {
+    echo ""
+    echo "🎉 Claude Code Workflows installation completed successfully!"
+    echo ""
+    echo "Installation location: $INSTALL_DIR"
+    echo ""
+    echo "Available commands (18 total):"
+    echo "  Analysis: analyze-security, analyze-architecture, analyze-performance, etc."
+    echo "  Building: build-feature, build-prototype, build-tdd, build-plan"
+    echo "  Planning: plan-architecture, plan-feature, plan-datamodel, etc."
+    echo "  Fixing:  fix-bug, fix-performance, fix-test"
+    echo ""
+    echo "Usage examples:"
+    echo "  /analyze-security   (run security analysis)"
+    echo "  /build-feature     (create new feature)"
+    echo "  /plan-architecture (design system architecture)"
+    echo ""
+    
+    if [[ "$SKIP_MCP" != "true" ]]; then
+        echo "MCP Tools available:"
+        echo "  --seq (sequential thinking for complex analysis)"
+        echo "  --c7  (context7 for framework documentation)"
+        echo "  --magic (UI components for prototyping)"
+        echo ""
+    fi
+    
+    echo "For more information:"
+    echo "  View commands: ls $INSTALL_DIR/commands/"
+    echo "  Documentation: cat $INSTALL_DIR/CLAUDE.md"
+    echo "  Log file: $LOG_FILE"
+    echo ""
+}
+
+# Error handling and cleanup
+cleanup() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        log_error "Installation failed with exit code $exit_code"
+        echo ""
+        echo "Installation failed. Check the log file for details: $LOG_FILE"
+        echo ""
+        echo "Common solutions:"
+        echo "  1. Ensure Python 3.7+ is installed"
+        echo "  2. Check internet connectivity"
+        echo "  3. Run with --skip-mcp if MCP tools are causing issues"
+        echo "  4. Run with --skip-python if Python deps are causing issues"
+        echo ""
+    fi
+}
+
+# Main installation function
+main() {
+    parse_args "$@"
+    
+    # Set up error handling
+    trap cleanup EXIT
+    
+    # Initialize log file
+    echo "Claude Code Workflows Installation Log" > "$LOG_FILE"
+    echo "Started: $(date)" >> "$LOG_FILE"
+    echo "Arguments: $*" >> "$LOG_FILE"
+    echo "" >> "$LOG_FILE"
+    
+    log "Starting Claude Code Workflows installation (v$SCRIPT_VERSION)"
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "DRY RUN MODE - no changes will be made"
+    fi
+    
+    # Run installation steps
+    detect_platform
+    check_python
+    check_node
+    check_claude_cli
+    setup_install_dir
+    copy_files
+    install_python_deps
+    install_mcp_tools
+    verify_installation
+    
+    if [[ "$DRY_RUN" != "true" ]]; then
+        show_completion
+    else
+        log "Dry run completed - no changes were made"
+    fi
+}
+
+# Run main function with all arguments
+main "$@"

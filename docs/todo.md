@@ -1,3 +1,3 @@
-- review plan-datamodel.md with user
 - review plan-feature.md with user
 - review plan-refactor with user
+- all plan commands should have a final step, where by if the user confirms they are happy with the final approach chosen, the plan task list should be transfered to a todo.md file, within the ./docs folder if it exists.

@@ -4,11 +4,11 @@ Comprehensive hybrid AI-automation system that combines Claude Code's reasoning 
 
 ## Purpose
 
-Production-ready workflow automation platform that enhances Claude Code with measurable, automated analysis capabilities. Features 15 specialized commands and 23 Python scripts providing comprehensive code analysis across security, performance, architecture, and quality dimensions.
+Production-ready workflow automation platform that enhances Claude Code with measurable, automated analysis capabilities. Features 14 specialized commands and 23 Python scripts providing comprehensive code analysis across security, performance, architecture, and quality dimensions.
 
 ## Features
 
-- **15 Specialized Workflow Commands**: Organized across analyze, build, plan, and fix categories
+- **14 Specialized Workflow Commands**: Organized across analyze, build, plan, and fix categories
 - **Automated OWASP Top 10 Security Coverage**: Vulnerability scanning, input validation, authentication checks
 - **Performance Analysis**: Bottleneck detection, database profiling, frontend optimization
 - **Architecture Assessment**: Coupling analysis, pattern evaluation, scalability checks
@@ -32,9 +32,8 @@ Production-ready workflow automation platform that enhances Claude Code with mea
 - **build-prototype**: Rapid prototyping and proof-of-concept development
 - **build-tdd**: Test-driven development workflow with comprehensive testing
 
-### Plan Commands (4)
+### Plan Commands (3)
 - **plan-solution**: Technical challenge solving with research-driven solution design
-- **plan-feature**: Feature specification and requirement analysis
 - **plan-ux-prd**: UX-focused product requirements documentation with interface specifications
 - **plan-refactor**: Code refactoring strategy and implementation planning
 
@@ -47,10 +46,10 @@ Production-ready workflow automation platform that enhances Claude Code with mea
 
 ```
 claude/
-├── commands/           # 15 workflow command definitions
+├── commands/           # 14 workflow command definitions
 │   ├── analyze-*.md   # Analysis workflow commands (6)
 │   ├── build-*.md     # Build workflow commands (2)
-│   ├── plan-*.md      # Planning workflow commands (4)
+│   ├── plan-*.md      # Planning workflow commands (3)
 │   └── fix-*.md       # Fix workflow commands (3)
 └── scripts/           # Automated analysis scripts (23 total)
     ├── analyze/       # Analysis automation (16 scripts)
@@ -153,4 +152,4 @@ Use with security analysis commands to validate detection capabilities.
 
 ## Status
 
-**Production Ready**: Fully implemented workflow system with comprehensive analysis capabilities, proven effectiveness across security, performance, architecture, and quality analysis domains. All 15 commands operational with supporting automation scripts and cross-platform compatibility.
+**Production Ready**: Fully implemented workflow system with comprehensive analysis capabilities, proven effectiveness across security, performance, architecture, and quality analysis domains. All 14 commands operational with supporting automation scripts and cross-platform compatibility.

@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 > **Hybrid AI-Automation System for Claude Code**  
-> 15 specialized workflow commands + 23 Python analysis scripts = Production-ready development automation
+> 14 specialized workflow commands + 23 Python analysis scripts = Production-ready development automation
 
 Transform your Claude Code experience with measurable, automated analysis across **security (OWASP Top 10)**, **performance**, **architecture**, and **code quality**. Get professional-grade insights in seconds, not hours.
 
@@ -115,12 +115,11 @@ The installer automatically detects existing `.claude` directories and offers:
 | **`/build-prototype`** | Rapid prototyping | Fast iteration, proof-of-concept development |
 | **`/build-tdd`** | Test-driven development | Comprehensive testing workflow, coverage tracking |
 
-### 📐 Plan Commands (4)
+### 📐 Plan Commands (3)
 
 | Command | Purpose | Key Features |
 |---------|---------|--------------|
 | **`/plan-solution`** | Technical challenge solving | Research-driven solution design with 3 options |
-| **`/plan-feature`** | Feature specification | Requirements analysis, user story development |
 | **`/plan-ux-prd`** | UX-focused product requirements | User experience design, interface specifications |
 | **`/plan-refactor`** | Refactoring strategy | Code improvement planning, risk assessment |
 
@@ -279,7 +278,7 @@ python3 .claude/scripts/run_all_analysis.py
 ```
 claudeworkflows/
 ├── claude/                  # Core workflow system
-│   ├── commands/           # 15 workflow commands  
+│   ├── commands/           # 14 workflow commands  
 │   └── scripts/           # Analysis automation scripts
 ├── install.sh             # Installation system
 ├── test_codebase/         # Vulnerable test application

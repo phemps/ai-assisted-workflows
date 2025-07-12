@@ -81,15 +81,14 @@ Use Context7 to research and implement industry-proven refactoring patterns:
 
 **Automated Testing Plan:**
 ```bash
-# Use existing analysis scripts for testing planning
-python claude/scripts/analyze/code_quality/complexity_metrics.py --target . --test-coverage
-python claude/scripts/analyze/performance/check_bottlenecks.py --target . --baseline
-# Note: Manual test planning required - automated test generation scripts not yet implemented
+# Testing analysis and planning
+python claude/scripts/analyze/code_quality/test_coverage_analysis.py --target . --refactor-areas
+python claude/scripts/analyze/performance/performance_baseline.py --benchmark-current
 ```
 
 **Testing Framework:**
 - **Baseline Establishment**: Automated performance and functionality baselines before refactoring
-- **Regression Test Suite**: Comprehensive test generation for all affected functionality
+- **Regression Test Planning**: Identify critical features and functions requiring regression test coverage
 - **Integration Testing**: API contract validation and system integration verification
 - **Performance Testing**: Before/after performance comparison with automated benchmarking
 - **Rollback Testing**: Automated rollback procedure validation and safety net verification
@@ -99,6 +98,7 @@ python claude/scripts/analyze/performance/check_bottlenecks.py --target . --base
 - Performance regression detection and alerting
 - Functional parity verification through automated testing
 - User acceptance testing strategy for critical business functions
+- **Regression Test Coverage Planning**: Identify and document critical features requiring regression test coverage based on refactoring scope
 
 ## Enhanced Optional Flags
 
@@ -139,6 +139,7 @@ python claude/scripts/analyze/performance/check_bottlenecks.py --target . --base
 - **Migration Strategy**: [Context7-informed approach]
 - **Implementation Phases**: [Detailed timeline with milestones]
 - **Testing Strategy**: [Comprehensive validation plan]
+- **Regression Test Requirements**: [Critical features needing regression test coverage]
 - **Risk Mitigation**: [Safety nets and rollback procedures]
 
 Are you satisfied with this refactoring plan and ready to proceed? If yes, I'll transfer the implementation tasks to your project's todo.md file for tracking."

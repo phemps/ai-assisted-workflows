@@ -97,6 +97,27 @@ class TestCoverageAnalyzer:
                 'coverage_files': ['coverage/', 'clover.xml'],
                 'exclude_dirs': ['vendor/', 'coverage/'],
             },
+            'cpp': {
+                'test_patterns': [r'.*_test\.cpp$', r'.*_test\.cc$', r'test.*\.cpp$', r'tests/.*\.cpp$'],
+                'source_patterns': [r'.*\.cpp$', r'.*\.cc$', r'.*\.cxx$', r'.*\.c\+\+$'],
+                'coverage_tools': ['gcov', 'lcov', 'llvm-cov'],
+                'coverage_files': ['coverage.info', 'coverage/', 'coverage.xml'],
+                'exclude_dirs': ['build/', 'cmake-build-*/', '.vs/', 'Debug/', 'Release/'],
+            },
+            'swift': {
+                'test_patterns': [r'.*Tests\.swift$', r'.*Test\.swift$', r'Tests/.*\.swift$'],
+                'source_patterns': [r'.*\.swift$'],
+                'coverage_tools': ['swift test', 'xccov'],
+                'coverage_files': ['.build/debug/codecov/', 'DerivedData/'],
+                'exclude_dirs': ['.build/', 'DerivedData/', 'Packages/'],
+            },
+            'kotlin': {
+                'test_patterns': [r'.*Test\.kt$', r'.*Tests\.kt$', r'src/test/.*\.kt$'],
+                'source_patterns': [r'.*\.kt$', r'.*\.kts$'],
+                'coverage_tools': ['jacoco', 'kover'],
+                'coverage_files': ['build/reports/jacoco/', 'build/reports/kover/'],
+                'exclude_dirs': ['build/', '.gradle/', 'out/'],
+            },
         }
         
         # Generic test indicators (language-agnostic)
@@ -125,9 +146,11 @@ class TestCoverageAnalyzer:
                     '.cs': 'csharp',
                     '.rb': 'ruby',
                     '.php': 'php',
-                    '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp',
-                    '.c': 'c',
-                    '.h': 'c', '.hpp': 'cpp',
+                    '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp',
+                    '.c': 'cpp',  # Treat C as C++ for simplicity
+                    '.h': 'cpp', '.hpp': 'cpp',
+                    '.swift': 'swift',
+                    '.kt': 'kotlin', '.kts': 'kotlin',
                 }
                 
                 if suffix in ext_map:
@@ -198,6 +221,10 @@ class TestCoverageAnalyzer:
             'tarpaulin.toml': 'tarpaulin',
             'phpunit.xml': 'phpunit',
             'Gemfile': 'simplecov',
+            'CMakeLists.txt': 'gcov/lcov',
+            'Package.swift': 'swift test',
+            'build.gradle.kts': 'jacoco/kover',
+            'gradle.properties': 'jacoco/kover',
         }
         
         for config_file, tool in coverage_indicators.items():

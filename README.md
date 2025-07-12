@@ -15,8 +15,8 @@ Transform your Claude Code experience with measurable, automated analysis across
 ### Prerequisites
 
 - **Python 3.7+** (automation scripts)
-- **Claude CLI** (MCP tool integration)
-- **Node.js** (any version, for MCP tools)
+- **Claude CLI** (MCP tool integration, optional)
+- **Node.js** (any version, for MCP tools, optional)
 
 ### Installation Options
 
@@ -34,6 +34,70 @@ Transform your Claude Code experience with measurable, automated analysis across
 ./install.sh --dry-run     # Preview changes
 ./install.sh --skip-mcp    # Skip MCP tools if no Claude CLI
 ./install.sh --verbose     # Debug output
+```
+
+### Python Libraries Installed
+
+**Security Analysis:**
+- `bandit` - Security linting and vulnerability detection
+- `safety` - Known vulnerability scanning against CVE database  
+- `semgrep` - Static analysis security scanner
+
+**Performance Analysis:**
+- `psutil` - System and process monitoring utilities
+- `memory-profiler` - Memory usage profiling and tracking
+- `py-spy` - Python profiler for performance analysis (Unix only)
+
+**Code Quality Analysis:**
+- `flake8` - Python style guide enforcement (PEP 8)
+- `pylint` - Comprehensive code analysis and linting
+- `radon` - Code complexity metrics (cyclomatic, halstead)
+- `lizard` - Advanced complexity analysis for multiple languages
+- `vulture` - Dead code detection and cleanup
+- `mccabe` - Complexity checker for functions
+
+**Architecture Analysis:**
+- `pydeps` - Dependency analysis and visualization
+- `networkx` - Graph analysis for architectural patterns
+
+**Multi-Language Testing Framework Detection:**
+- `pytest` - Python testing framework detection and performance benchmarks
+- `pytest-cov` - Test coverage analysis across multiple programming languages
+
+**Development Tools:**
+- `black` - Opinionated code formatting
+- `isort` - Import statement organization
+
+**Core Dependencies:**
+- `requests` - HTTP requests for external API integrations
+- `python-dotenv` - Environment variable management
+
+### MCP Tools (Optional Enhancement)
+
+When Claude CLI is available, these MCP tools are automatically installed to enhance workflow capabilities:
+
+**Available MCP Tools:**
+- **`sequential-thinking`** - Multi-step reasoning and analysis breakdown (enables `--seq` flag)
+- **`filesystem`** - Advanced file operations and project navigation
+- **`puppeteer`** - Browser automation for web analysis and testing
+
+**MCP Tool Benefits:**
+- **Context7** - Framework-specific best practices and contextually accurate language detection (React, Vue, Django, Spring, etc.) via `--c7` flag
+- **Magic UI** - Pre-built component library access via `--magic` flag  
+- **Sequential Thinking** - Complex problem breakdown via `--seq` flag
+- **Browser Tools** - Automated web testing and analysis capabilities
+
+**Context7 ensures our analysis scripts provide contextually correct results** by understanding:
+- Framework conventions (React hooks, Django models, Spring annotations)
+- Language-specific patterns (Go interfaces, Rust ownership, TypeScript generics)
+- Build tool configurations (Maven, Gradle, npm, Cargo)
+
+```bash
+# Install with MCP tools (requires Claude CLI + Node.js)
+./install.sh
+
+# Install without MCP tools (Python scripts only)
+./install.sh --skip-mcp
 ```
 
 ### Handling Existing Installations
@@ -131,6 +195,29 @@ claude/scripts/analyze/
 ```
 
 **Dependencies:** 20+ production-ready packages including bandit, safety, psutil, flake8, pylint, radon, lizard, vulture, pydeps, and networkx.
+
+## 🌐 Programming Language Support
+
+### Universal Analysis (All Languages)
+**Security:** Vulnerability scanning, secret detection, authentication analysis  
+**Architecture:** Dependency analysis, coupling detection, scalability assessment  
+**Code Quality:** Complexity metrics (via Lizard), dead code detection
+
+### Language-Specific Analysis
+**Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin
+
+| Language | Test Coverage | Performance Baseline | Import Analysis | Bottleneck Detection |
+|----------|---------------|---------------------|-----------------|---------------------|
+| **Python** | ✅ pytest, coverage | ✅ cProfile, memory-profiler | ✅ import patterns | ✅ AST analysis |
+| **JavaScript** | ✅ jest, nyc, c8 | ✅ npm scripts, profiling | ✅ import/require | ✅ performance patterns |
+| **TypeScript** | ✅ jest, nyc, c8 | ✅ npm scripts, profiling | ✅ import patterns | ✅ performance patterns |
+| **Java** | ✅ junit, jacoco | ✅ maven/gradle, JFR | ✅ import statements | ✅ performance patterns |
+| **Go** | ✅ go test, coverage | ✅ go build, benchmarks | ⚠️ Basic | ✅ performance patterns |
+| **Rust** | ✅ cargo test, tarpaulin | ✅ cargo bench, flamegraph | ⚠️ Basic | ✅ performance patterns |
+| **C#** | ✅ dotnet test, coverlet | ✅ dotnet build, profiling | ✅ using statements | ✅ performance patterns |
+| **Others** | ⚠️ Basic detection | ⚠️ Basic detection | ❌ | ✅ file pattern analysis |
+
+**Context7 Integration:** Use `--c7` flag with any analysis command for framework-specific best practices and contextually accurate language detection.
 
 ## 🤝 Contributing
 

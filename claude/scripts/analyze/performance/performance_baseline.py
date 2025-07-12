@@ -74,6 +74,36 @@ class PerformanceBaseliner:
                 'test_runner': ['dotnet', 'test', '--configuration', 'Release'],
                 'benchmark': ['dotnet', 'run', '--configuration', 'Release', '--project', 'Benchmarks'],
             },
+            'ruby': {
+                'test_runner': ['bundle', 'exec', 'rspec', '--format', 'json'],
+                'benchmark': ['ruby', '-r', 'benchmark'],
+                'profiler': ['ruby-prof'],
+                'memory_profiler': ['ruby', '-r', 'memory_profiler'],
+            },
+            'php': {
+                'test_runner': ['vendor/bin/phpunit', '--log-json'],
+                'benchmark': ['php', '-d', 'memory_limit=-1'],
+                'profiler': ['xdebug'],
+                'memory_usage': ['php', '-d', 'xdebug.profiler_enable=1'],
+            },
+            'cpp': {
+                'test_runner': ['ctest', '--output-on-failure'],
+                'benchmark': ['cmake', '--build', 'build', '--target', 'benchmark'],
+                'profiler': ['perf', 'record'],
+                'memory_profiler': ['valgrind', '--tool=massif'],
+            },
+            'swift': {
+                'test_runner': ['swift', 'test', '--enable-code-coverage'],
+                'benchmark': ['swift', 'run', '--configuration', 'release'],
+                'profiler': ['instruments', '-t', 'Time Profiler'],
+                'memory_profiler': ['instruments', '-t', 'Allocations'],
+            },
+            'kotlin': {
+                'test_runner': ['gradle', 'test', '--info'],
+                'benchmark': ['gradle', 'jmh'],
+                'profiler': ['gradle', 'profileTest'],
+                'memory_profiler': ['gradle', 'test', '-Dorg.gradle.jvmargs=-XX:+HeapDumpOnOutOfMemoryError'],
+            },
         }
         
         # Performance metrics to capture
@@ -107,6 +137,10 @@ class PerformanceBaseliner:
                     '.cs': 'csharp',
                     '.rb': 'ruby',
                     '.php': 'php',
+                    '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.c++': 'cpp',
+                    '.c': 'cpp', '.h': 'cpp', '.hpp': 'cpp',
+                    '.swift': 'swift',
+                    '.kt': 'kotlin', '.kts': 'kotlin',
                 }
                 
                 if suffix in ext_map:
@@ -199,6 +233,11 @@ class PerformanceBaseliner:
                 'go': [['go', 'build', './...'], ['go', 'mod', 'tidy']],
                 'rust': [['cargo', 'check'], ['cargo', 'build', '--release']],
                 'csharp': [['dotnet', 'build'], ['dotnet', 'restore']],
+                'ruby': [['bundle', 'install'], ['bundle', 'exec', 'rake']],
+                'php': [['composer', 'install'], ['composer', 'dump-autoload']],
+                'cpp': [['cmake', '-S', '.', '-B', 'build'], ['cmake', '--build', 'build']],
+                'swift': [['swift', 'build'], ['swift', 'package', 'resolve']],
+                'kotlin': [['gradle', 'build'], ['gradle', 'assemble']],
             }
             
             if lang in build_commands:
@@ -256,6 +295,9 @@ class PerformanceBaseliner:
             '*.csproj': 'csharp',
             'Gemfile': 'ruby',
             'composer.json': 'php',
+            'CMakeLists.txt': 'cpp',
+            'Package.swift': 'swift',
+            'build.gradle.kts': 'kotlin',
         }
         
         found_dependencies = {}

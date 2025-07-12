@@ -81,10 +81,10 @@ Use Context7 to research and implement industry-proven refactoring patterns:
 
 **Automated Testing Plan:**
 ```bash
-# Testing analysis and planning
-python claude/scripts/analyze/code_quality/test_coverage_analysis.py --target . --refactor-areas
-python claude/scripts/test/regression_suite_generator.py --migration-scope
-python claude/scripts/test/performance_baseline.py --benchmark-current
+# Use existing analysis scripts for testing planning
+python claude/scripts/analyze/code_quality/complexity_metrics.py --target . --test-coverage
+python claude/scripts/analyze/performance/check_bottlenecks.py --target . --baseline
+# Note: Manual test planning required - automated test generation scripts not yet implemented
 ```
 
 **Testing Framework:**

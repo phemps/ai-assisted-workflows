@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 > **Hybrid AI-Automation System for Claude Code**  
-> 18 specialized workflow commands + 23 Python analysis scripts = Production-ready development automation
+> 16 specialized workflow commands + 23 Python analysis scripts = Production-ready development automation
 
 Transform your Claude Code experience with measurable, automated analysis across **security (OWASP Top 10)**, **performance**, **architecture**, and **code quality**. Get professional-grade insights in seconds, not hours.
 
@@ -108,20 +108,18 @@ The installer automatically detects existing `.claude` directories and offers:
 | **`/analyze-root-cause`** | Debug investigation | Error patterns, execution tracing, change analysis |
 | **`/analyze-ux`** | User experience review | Accessibility evaluation, usability assessment |
 
-### 🏗️ Build Commands (4)
+### 🏗️ Build Commands (2)
 
 | Command | Purpose | Key Features |
 |---------|---------|--------------|
-| **`/build-feature`** | Production-ready development | Pattern following, test coverage >80%, quality gates |
 | **`/build-prototype`** | Rapid prototyping | Fast iteration, proof-of-concept development |
 | **`/build-tdd`** | Test-driven development | Comprehensive testing workflow, coverage tracking |
-| **`/build-plan`** | Technical specification | Implementation planning, architecture design |
 
 ### 📐 Plan Commands (5)
 
 | Command | Purpose | Key Features |
 |---------|---------|--------------|
-| **`/plan-architecture`** | System design planning | Technical architecture, scalability planning |
+| **`/plan-solution`** | Technical challenge solving | Research-driven solution design with 3 options |
 | **`/plan-feature`** | Feature specification | Requirements analysis, user story development |
 | **`/plan-datamodel`** | Database design | Schema design, relationship mapping |
 | **`/plan-prd`** | Product requirements | Documentation, stakeholder alignment |
@@ -150,11 +148,11 @@ Enhance any command with optional flags:
 # Security analysis with framework best practices
 /analyze-security --c7
 
-# Feature development with UI components and step-by-step planning
-/build-feature --magic --seq
+# Test-driven development with UI components and step-by-step planning
+/build-tdd --magic --seq
 
-# Architecture planning with comprehensive analysis
-/plan-architecture --c7 --seq
+# Technical challenge solving with research and options
+/plan-solution --c7 --seq
 ```
 
 ## 🔒 Security Analysis Showcase
@@ -282,7 +280,7 @@ python3 .claude/scripts/run_all_analysis.py
 ```
 claudeworkflows/
 ├── claude/                  # Core workflow system
-│   ├── commands/           # 18 workflow commands  
+│   ├── commands/           # 16 workflow commands  
 │   └── scripts/           # Analysis automation scripts
 ├── install.sh             # Installation system
 ├── test_codebase/         # Vulnerable test application

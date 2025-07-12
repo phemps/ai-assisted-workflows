@@ -1,0 +1,40 @@
+# Analyze Code Quality Command
+
+**Mindset**: "Quality first" - Systematic code quality assessment with measurable metrics and improvement recommendations.
+
+## Behavior
+
+Comprehensive code quality analysis combining automated metrics with architectural assessment for maintainable, readable code.
+
+### Code Quality Assessment Areas
+
+- **Complexity Metrics**: Cyclomatic complexity, function length, parameter count analysis
+- **Code Patterns**: Design pattern compliance and anti-pattern identification
+- **Maintainability**: Code readability, documentation quality, and structure assessment
+- **Technical Debt**: Code smells, duplication, and refactoring opportunities
+- **SOLID Principles**: Single responsibility, open-closed, Liskov substitution compliance
+- **Testing Quality**: Test coverage, test quality, and testability assessment
+
+## Script Integration
+
+Execute code quality analysis scripts via Bash tool for measurable quality metrics:
+
+```bash
+# Code quality and complexity analysis
+python claude/scripts/analyze/code_quality/complexity_lizard.py --target . --format json
+python claude/scripts/analyze/code_quality/complexity_metrics.py --target . --format json
+```
+
+## Optional Flags
+
+--c7: Use when evaluating if specific code implementations follow current best practices for your framework/language (e.g., React hooks patterns, Python PEP standards, Go idiomatic code)
+--seq: Use when code quality issues are complex or interconnected - breaks analysis into actionable steps like 'assess complexity metrics', 'check SOLID compliance', 'evaluate test coverage', 'identify refactoring opportunities'
+
+## Output Requirements
+
+- Code quality metrics report with complexity analysis
+- Technical debt assessment with prioritized improvement opportunities
+- Best practices compliance evaluation with specific recommendations
+- Quality improvement roadmap with implementation guidance
+
+$ARGUMENTS

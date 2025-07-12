@@ -1,5 +1,3 @@
-- review build-plan.md with user
 - review plan-datamodel.md with user
 - review plan-feature.md with user
-- review plan-prd.md with user
 - review plan-refactor with user

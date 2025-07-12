@@ -122,7 +122,7 @@ The installer automatically detects existing `.claude` directories and offers:
 | **`/plan-solution`** | Technical challenge solving | Research-driven solution design with 3 options |
 | **`/plan-feature`** | Feature specification | Requirements analysis, user story development |
 | **`/plan-datamodel`** | Database design | Schema design, relationship mapping |
-| **`/plan-prd`** | Product requirements | Documentation, stakeholder alignment |
+| **`/plan-ux-prd`** | UX-focused product requirements | User experience design, interface specifications |
 | **`/plan-refactor`** | Refactoring strategy | Code improvement planning, risk assessment |
 
 ### 🔧 Fix Commands (3)

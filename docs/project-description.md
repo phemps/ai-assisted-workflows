@@ -36,7 +36,7 @@ Production-ready workflow automation platform that enhances Claude Code with mea
 - **plan-architecture**: System design and technical architecture planning
 - **plan-feature**: Feature specification and requirement analysis
 - **plan-datamodel**: Database schema and data architecture design
-- **plan-prd**: Product requirements documentation and planning
+- **plan-ux-prd**: UX-focused product requirements documentation with interface specifications
 - **plan-refactor**: Code refactoring strategy and implementation planning
 
 ### Fix Commands (3)

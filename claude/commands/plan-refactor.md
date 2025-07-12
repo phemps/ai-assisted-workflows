@@ -130,10 +130,9 @@ python claude/scripts/test/performance_baseline.py --benchmark-current
 - Script-based technical debt quantification and prioritization
 - Automated dependency and impact analysis
 
-## Plan Transfer Integration
+## Task List Transfer
 
-**Final Confirmation Step:**
-After completing the refactoring strategy, present the comprehensive plan to the user:
+**Final Step:** After completing the refactoring strategy, present the comprehensive plan to the user:
 
 "**Refactoring Plan Summary:**
 - **Technical Debt Identified**: [Automated analysis summary]
@@ -142,20 +141,37 @@ After completing the refactoring strategy, present the comprehensive plan to the
 - **Testing Strategy**: [Comprehensive validation plan]
 - **Risk Mitigation**: [Safety nets and rollback procedures]
 
-Are you satisfied with this refactoring plan? If confirmed, I will transfer the implementation tasks to your project's todo.md file for execution tracking."
+Are you satisfied with this refactoring plan and ready to proceed? If yes, I'll transfer the implementation tasks to your project's todo.md file for tracking."
 
-**Todo.md Integration:**
-Upon user confirmation, automatically transfer the refactoring plan to docs/todo.md:
-```bash
-# Transfer approved refactoring plan to todo tracking
-python claude/scripts/utils/plan_to_todo.py --plan-file refactor_plan.md --target docs/todo.md --format actionable
+**If user confirms:**
+1. Check if `./docs/todo.md` exists
+2. If it exists, append the refactoring tasks from the plan
+3. If it doesn't exist, create it with the refactoring tasks
+4. Format tasks as actionable items with clear phases and milestones
+5. Confirm to user that tasks have been added to todo.md
+
+**Task Format Example:**
+```markdown
+## [System/Component] Refactoring Tasks
+
+### Phase 1: Pre-refactoring Preparation
+- [ ] Create comprehensive test baseline for affected areas
+- [ ] Document current system behavior and dependencies
+- [ ] Set up feature flags for gradual rollout
+- [ ] Establish performance benchmarks
+
+### Phase 2: Core Refactoring
+- [ ] Refactor [high-priority component] using [pattern]
+- [ ] Migrate [legacy system] to [modern approach]
+- [ ] Update [database/API] following migration strategy
+- [ ] Implement rollback procedures
+
+### Phase 3: Validation & Optimization
+- [ ] Run full regression test suite
+- [ ] Validate performance improvements
+- [ ] Complete security vulnerability remediation
+- [ ] Update documentation and knowledge base
 ```
-
-**Task Generation:**
-- Convert strategy phases into actionable development tasks
-- Include testing checkpoints and validation milestones
-- Add dependency tracking and prerequisite identification
-- Generate timeline estimates based on complexity analysis
 
 ## Output Requirements
 

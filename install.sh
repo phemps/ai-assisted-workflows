@@ -288,6 +288,45 @@ setup_install_dir() {
     fi
 }
 
+# Handle claude.md merging or copying
+handle_claude_md() {
+    local source_dir="$1"
+    local source_claude_md="$source_dir/claude/claude.md"
+    local target_claude_md="$INSTALL_DIR/claude.md"
+    
+    # Check if our source claude.md exists
+    if [[ ! -f "$source_claude_md" ]]; then
+        log_verbose "No claude.md found in source, skipping"
+        return 0
+    fi
+    
+    if [[ -f "$target_claude_md" ]]; then
+        # Target claude.md exists, append our content as a new section
+        log_verbose "Existing claude.md found, appending Claude Code Workflows section..."
+        
+        # Check if our section already exists
+        if grep -q "Build Approach Flags for claude enhanced workflows" "$target_claude_md" 2>/dev/null; then
+            log_verbose "Claude Code Workflows section already exists, skipping merge"
+            return 0
+        fi
+        
+        # Append our content as a new section
+        {
+            echo ""
+            echo "---"
+            echo ""
+            cat "$source_claude_md"
+        } >> "$target_claude_md"
+        
+        log "Appended Claude Code Workflows section to existing claude.md"
+    else
+        # No existing claude.md, copy ours
+        log_verbose "No existing claude.md found, copying ours..."
+        cp "$source_claude_md" "$target_claude_md"
+        log "Copied claude.md to installation directory"
+    fi
+}
+
 # File copy operations
 copy_files() {
     log_verbose "Copying workflow files..."
@@ -320,6 +359,9 @@ copy_files() {
         log_verbose "Copying CLAUDE.md..."
         cp "$source_dir/CLAUDE.md" "$INSTALL_DIR/"
     fi
+    
+    # Handle claude.md merging or copying
+    handle_claude_md "$source_dir"
     
     # Set proper permissions
     find "$INSTALL_DIR" -name "*.py" -exec chmod +x {} \;
@@ -451,10 +493,19 @@ verify_installation() {
     
     # Test file structure
     if [[ "$DRY_RUN" != "true" ]]; then
-        local required_dirs=("commands" "scripts")
+        local required_dirs=("commands" "scripts" "rules")
         for dir in "${required_dirs[@]}"; do
             if [[ ! -d "$INSTALL_DIR/$dir" ]]; then
                 log_error "Required directory missing: $INSTALL_DIR/$dir"
+                exit 1
+            fi
+        done
+        
+        # Test that rule files exist
+        local required_rule_files=("rules/prototype.md" "rules/tdd.md")
+        for rule_file in "${required_rule_files[@]}"; do
+            if [[ ! -f "$INSTALL_DIR/$rule_file" ]]; then
+                log_error "Required rule file missing: $INSTALL_DIR/$rule_file"
                 exit 1
             fi
         done
@@ -470,16 +521,16 @@ show_completion() {
     echo ""
     echo "Installation location: $INSTALL_DIR"
     echo ""
-    echo "Available commands (18 total):"
+    echo "Available commands (12 total):"
     echo "  Analysis: analyze-security, analyze-architecture, analyze-performance, etc."
-    echo "  Building: build-feature, build-prototype, build-tdd, build-plan"
-    echo "  Planning: plan-architecture, plan-feature, plan-datamodel, etc."
+    echo "  Planning: plan-solution, plan-ux-prd, plan-refactor"
     echo "  Fixing:  fix-bug, fix-performance, fix-test"
+    echo "  Build Flags: --prototype, --tdd (via claude.md)"
     echo ""
     echo "Usage examples:"
     echo "  /analyze-security   (run security analysis)"
-    echo "  /build-feature     (create new feature)"
-    echo "  /plan-architecture (design system architecture)"
+    echo "  /plan-solution     (solve technical challenges)"
+    echo "  /fix-bug --tdd     (test-driven bug fixing)"
     echo ""
     
     if [[ "$SKIP_MCP" != "true" ]]; then

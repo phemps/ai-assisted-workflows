@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 > **Hybrid AI-Automation System for Claude Code**  
-> 14 specialized workflow commands + 23 Python analysis scripts = Production-ready development automation
+> 12 specialized workflow commands + 23 Python analysis scripts + claude.md build switches = Production-ready development automation
 
 Transform your Claude Code experience with measurable, automated analysis across **security (OWASP Top 10)**, **performance**, **architecture**, and **code quality**. Get professional-grade insights in seconds, not hours.
 
@@ -108,12 +108,12 @@ The installer automatically detects existing `.claude` directories and offers:
 | **`/analyze-root-cause`** | Debug investigation | Error patterns, execution tracing, change analysis |
 | **`/analyze-ux`** | User experience review | Accessibility evaluation, usability assessment |
 
-### 🏗️ Build Commands (2)
+### 🏗️ Build Approach Flags (claude.md)
 
-| Command | Purpose | Key Features |
+| Flag | Purpose | Key Features |
 |---------|---------|--------------|
-| **`/build-prototype`** | Rapid prototyping | Fast iteration, proof-of-concept development |
-| **`/build-tdd`** | Test-driven development | Comprehensive testing workflow, coverage tracking |
+| **`--prototype`** | Rapid prototyping approach | Fast iteration, proof-of-concept development (universal flag) |
+| **`--tdd`** | Test-driven development approach | Comprehensive testing workflow, coverage tracking (universal flag) |
 
 ### 📐 Plan Commands (3)
 
@@ -135,19 +135,56 @@ The installer automatically detects existing `.claude` directories and offers:
 
 Enhance any command with optional flags:
 
-| Flag | Tool | When to Use |
+| Flag | Tool/Approach | When to Use |
 |------|------|-------------|
 | **`--c7`** | Context7 | Framework-specific best practices (React, Vue, Django, etc.) |
 | **`--seq`** | Sequential Thinking | Complex multi-step analysis breakdown |
 | **`--magic`** | Magic UI | Pre-built UI components for rapid prototyping |
+| **`--prototype`** | Rapid Prototyping | Quick proof-of-concept development with minimal setup |
+| **`--tdd`** | Test-Driven Development | Systematic test-first development with quality gates |
+
+### 🚀 Build Approach Flags
+
+#### --prototype Flag
+Use `--prototype` when you need rapid proof-of-concept development:
+- Leverages existing component libraries and frameworks
+- Uses mock data instead of full implementations
+- Focuses on demonstrating core functionality
+- Minimal setup for quick iteration cycles
+
+```bash
+# Quick prototype with UI components
+/plan-solution --prototype --magic
+
+# Research-backed rapid prototyping  
+/analyze-architecture --prototype --c7
+```
+
+#### --tdd Flag
+Use `--tdd` for systematic test-driven development:
+- Enforces test-first development approach
+- Ensures minimum 80% code coverage
+- Follows Red-Green-Refactor cycle
+- Comprehensive test documentation
+
+```bash
+# Test-driven bug fixing
+/fix-bug --tdd
+
+# TDD with framework best practices
+/plan-solution --tdd --c7
+
+# Structured TDD for complex features
+/plan-solution --tdd --seq
+```
 
 **Example Usage:**
 ```bash
 # Security analysis with framework best practices
 /analyze-security --c7
 
-# Test-driven development with UI components and step-by-step planning
-/build-tdd --magic --seq
+# Feature planning with test-driven development and UI components
+/plan-solution --tdd --magic --seq
 
 # Technical challenge solving with research and options
 /plan-solution --c7 --seq
@@ -278,7 +315,8 @@ python3 .claude/scripts/run_all_analysis.py
 ```
 claudeworkflows/
 ├── claude/                  # Core workflow system
-│   ├── commands/           # 14 workflow commands  
+│   ├── commands/           # 12 workflow commands
+│   ├── claude.md           # Global build switches  
 │   └── scripts/           # Analysis automation scripts
 ├── install.sh             # Installation system
 ├── test_codebase/         # Vulnerable test application

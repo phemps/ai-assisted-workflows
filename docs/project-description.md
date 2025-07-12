@@ -4,11 +4,11 @@ Comprehensive hybrid AI-automation system that combines Claude Code's reasoning 
 
 ## Purpose
 
-Production-ready workflow automation platform that enhances Claude Code with measurable, automated analysis capabilities. Features 14 specialized commands and 23 Python scripts providing comprehensive code analysis across security, performance, architecture, and quality dimensions.
+Production-ready workflow automation platform that enhances Claude Code with measurable, automated analysis capabilities. Features 12 specialized commands, claude.md build switches, and 23 Python scripts providing comprehensive code analysis across security, performance, architecture, and quality dimensions.
 
 ## Features
 
-- **14 Specialized Workflow Commands**: Organized across analyze, build, plan, and fix categories
+- **12 Specialized Workflow Commands + claude.md Build Switches**: Organized across analyze, plan, and fix categories with global build switches
 - **Automated OWASP Top 10 Security Coverage**: Vulnerability scanning, input validation, authentication checks
 - **Performance Analysis**: Bottleneck detection, database profiling, frontend optimization
 - **Architecture Assessment**: Coupling analysis, pattern evaluation, scalability checks
@@ -28,9 +28,9 @@ Production-ready workflow automation platform that enhances Claude Code with mea
 - **analyze-root-cause**: Debug issue investigation with trace analysis and error patterns
 - **analyze-ux**: User experience and accessibility evaluation
 
-### Build Commands (2)
-- **build-prototype**: Rapid prototyping and proof-of-concept development
-- **build-tdd**: Test-driven development workflow with comprehensive testing
+### Build Switches (claude.md)
+- **--prototype**: Rapid prototyping and proof-of-concept development via global claude.md switches
+- **--tdd**: Test-driven development workflow with comprehensive testing via global claude.md switches
 
 ### Plan Commands (3)
 - **plan-solution**: Technical challenge solving with research-driven solution design
@@ -46,11 +46,11 @@ Production-ready workflow automation platform that enhances Claude Code with mea
 
 ```
 claude/
-├── commands/           # 14 workflow command definitions
+├── commands/           # 12 workflow command definitions
 │   ├── analyze-*.md   # Analysis workflow commands (6)
-│   ├── build-*.md     # Build workflow commands (2)
 │   ├── plan-*.md      # Planning workflow commands (3)
 │   └── fix-*.md       # Fix workflow commands (3)
+├── claude.md           # Global build switches (--prototype, --tdd)
 └── scripts/           # Automated analysis scripts (23 total)
     ├── analyze/       # Analysis automation (16 scripts)
     │   ├── security/  # OWASP Top 10 security analysis (4)
@@ -152,4 +152,4 @@ Use with security analysis commands to validate detection capabilities.
 
 ## Status
 
-**Production Ready**: Fully implemented workflow system with comprehensive analysis capabilities, proven effectiveness across security, performance, architecture, and quality analysis domains. All 14 commands operational with supporting automation scripts and cross-platform compatibility.
+**Production Ready**: Fully implemented workflow system with comprehensive analysis capabilities, proven effectiveness across security, performance, architecture, and quality analysis domains. All 12 commands plus claude.md build switches operational with supporting automation scripts and cross-platform compatibility.

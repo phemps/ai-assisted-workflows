@@ -23,7 +23,7 @@ Transform your Claude Code experience with measurable, automated analysis across
 - **Context7 MCP** best practice documentation to support code generation
 - **Sequential thinking MCP** use to breakdown complext tasks (can augment or cheaper alternative for non reasoning models)
 
-- **Todo workflow** CC command from (badlogic)[https://github.com/badlogic/claude-commands/blob/main/todo.md] - pairs well with the workflows, particularly /plan-\* as they produce todo.md lists. Its a more efficent version of CC plan mode/todos
+- **Todo workflow** CC command from [badlogic](https://github.com/badlogic/claude-commands/blob/main/todo.md) - pairs well with the workflows, particularly /plan-\* as they produce todo.md lists. It's a more efficient version of CC plan mode/todos
 
 ### Installation Options
 

@@ -475,6 +475,95 @@ copy_files() {
     log "Files copied successfully"
 }
 
+# Create installation log for uninstall tracking
+create_installation_log() {
+    log "Creating installation log for uninstall tracking..."
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would create installation log"
+        return 0
+    fi
+    
+    local log_file="$INSTALL_DIR/installation-log.txt"
+    local requirements_file="$INSTALL_DIR/scripts/setup/requirements.txt"
+    
+    # Create log file with header
+    cat > "$log_file" << EOF
+# Claude Code Workflows Installation Log
+# DO NOT DELETE - Used by uninstall script to determine safe removal
+# Generated on: $(date)
+# Installation directory: $INSTALL_DIR
+
+[PRE_EXISTING_PYTHON_PACKAGES]
+EOF
+    
+    # Check which Python packages were already installed
+    if [[ -f "$requirements_file" ]]; then
+        while IFS= read -r line; do
+            # Skip empty lines and comments
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            # Extract package name (everything before ==, >=, etc.)
+            local pkg=$(echo "$line" | sed 's/[>=<].*//' | tr -d ' ')
+            if [[ -n "$pkg" ]] && python3 -m pip show "$pkg" &>/dev/null; then
+                echo "$pkg" >> "$log_file"
+                log_verbose "Pre-existing Python package: $pkg"
+            fi
+        done < "$requirements_file"
+    fi
+    
+    # Check which MCP servers were already installed
+    cat >> "$log_file" << EOF
+
+[PRE_EXISTING_MCP_SERVERS]
+EOF
+    
+    if command -v claude &> /dev/null; then
+        # Check our MCP servers
+        local our_mcp_servers=("sequential-thinking" "filesystem" "puppeteer")
+        for server in "${our_mcp_servers[@]}"; do
+            if claude mcp list 2>/dev/null | grep -q "^$server"; then
+                echo "$server" >> "$log_file"
+                log_verbose "Pre-existing MCP server: $server"
+            fi
+        done
+    fi
+    
+    # Initialize sections for newly installed items
+    cat >> "$log_file" << EOF
+
+[NEWLY_INSTALLED_PYTHON_PACKAGES]
+
+[NEWLY_INSTALLED_MCP_SERVERS]
+EOF
+    
+    log_verbose "Installation log created: installation-log.txt"
+}
+
+# Update installation log with newly installed items
+update_installation_log() {
+    local item_type="$1"
+    local item_name="$2"
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        return 0
+    fi
+    
+    local log_file="$INSTALL_DIR/installation-log.txt"
+    
+    if [[ ! -f "$log_file" ]]; then
+        return 0
+    fi
+    
+    # Add item to appropriate section
+    if [[ "$item_type" == "python" ]]; then
+        sed -i "/^\[NEWLY_INSTALLED_PYTHON_PACKAGES\]/a $item_name" "$log_file"
+    elif [[ "$item_type" == "mcp" ]]; then
+        sed -i "/^\[NEWLY_INSTALLED_MCP_SERVERS\]/a $item_name" "$log_file"
+    fi
+    
+    log_verbose "Added to installation log: $item_type - $item_name"
+}
+
 # Python dependency installation
 install_python_deps() {
     if [[ "$SKIP_PYTHON" == "true" ]]; then
@@ -496,12 +585,43 @@ install_python_deps() {
         exit 1
     fi
     
+    # Get list of packages that will be installed
+    local requirements_file="$INSTALL_DIR/scripts/setup/requirements.txt"
+    local packages_to_check=()
+    
+    if [[ -f "$requirements_file" ]]; then
+        while IFS= read -r line; do
+            # Skip empty lines and comments
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            # Extract package name (everything before ==, >=, etc.)
+            local pkg=$(echo "$line" | sed 's/[>=<].*//' | tr -d ' ')
+            [[ -n "$pkg" ]] && packages_to_check+=("$pkg")
+        done < "$requirements_file"
+    fi
+    
     log_verbose "Running installation script..."
     cd "$INSTALL_DIR"
     
     # Run Python dependency installation with automatic 'yes' response
     if echo "y" | python3 "$setup_script"; then
         log "Python dependencies installed successfully"
+        
+        # Check which packages are now installed and update log for newly installed ones
+        for pkg in "${packages_to_check[@]}"; do
+            if python3 -m pip show "$pkg" &>/dev/null; then
+                # Check if this package was pre-existing by reading the installation log
+                local log_file="$INSTALL_DIR/installation-log.txt"
+                if [[ -f "$log_file" ]]; then
+                    # Check if package is NOT in the pre-existing list
+                    if ! grep -A 100 "^\[PRE_EXISTING_PYTHON_PACKAGES\]" "$log_file" | grep -q "^$pkg$"; then
+                        update_installation_log "python" "$pkg"
+                    fi
+                else
+                    # No log file, assume it's newly installed
+                    update_installation_log "python" "$pkg"
+                fi
+            fi
+        done
     else
         log_error "Python dependencies installation failed"
         exit 1
@@ -528,6 +648,7 @@ install_mcp_tools() {
     log_verbose "Installing sequential-thinking MCP tool..."
     if claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking 2>/dev/null; then
         log_verbose "sequential-thinking installed successfully"
+        update_installation_log "mcp" "sequential-thinking"
     else
         log_error "Failed to install sequential-thinking MCP tool"
         mcp_failed=true
@@ -537,6 +658,7 @@ install_mcp_tools() {
     log_verbose "Installing filesystem MCP tool..."
     if claude mcp add filesystem -s user -- npx -y @modelcontextprotocol/server-filesystem "$HOME" 2>/dev/null; then
         log_verbose "filesystem MCP tool installed successfully"
+        update_installation_log "mcp" "filesystem"
     else
         log_error "Failed to install filesystem MCP tool"
         mcp_failed=true
@@ -546,6 +668,7 @@ install_mcp_tools() {
     log_verbose "Installing browser tools MCP tool..."
     if claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer 2>/dev/null; then
         log_verbose "browser tools MCP tool installed successfully"
+        update_installation_log "mcp" "puppeteer"
     else
         log_error "Failed to install browser tools MCP tool"
         mcp_failed=true
@@ -719,6 +842,7 @@ main() {
     check_claude_cli
     setup_install_dir
     copy_files
+    create_installation_log
     install_python_deps
     install_mcp_tools
     verify_installation

@@ -9,9 +9,9 @@
 - add a windows powershell verison of install script
 - review the rules in the wip folder
 - add browsertools mcp testing support
-- create an uninstall script that reverses the install process but asks for confirmation at each point i.e. remove scripts? remove python libraries (list them)? remove mcp servers (list them)? The mcp server list should be backed up before hand.
 - explore vs extension that offers a better monitoring of tasks being edited, with an opportunity to view the snapshot using the claude code 2sdk.
 - knowledge graph visual representation of test coverage vs bespoke code vs external dependencies
 - % analysis how far off pattern a file is
 - feature pathing - show chain of events with params (input / output), test gaps, pattern deviation
 - add rules to reduce output that isnt contributing to task execution, there are too many descriptive items without purpose added to generated files that just adds bloat.
+- understand why file system mcp is listed in the mcp dependencies, either in the install, readme or both - determine if its actually used at all in our workflow framework and if not remove mention of it throughout the project.

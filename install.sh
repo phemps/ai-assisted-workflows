@@ -556,9 +556,14 @@ update_installation_log() {
     
     # Add item to appropriate section
     if [[ "$item_type" == "python" ]]; then
-        sed -i "/^\[NEWLY_INSTALLED_PYTHON_PACKAGES\]/a $item_name" "$log_file"
+        echo "$item_name" >> "$log_file"
     elif [[ "$item_type" == "mcp" ]]; then
-        sed -i "/^\[NEWLY_INSTALLED_MCP_SERVERS\]/a $item_name" "$log_file"
+        # Find the line number of the section and insert after it
+        local line_num=$(grep -n "^\[NEWLY_INSTALLED_MCP_SERVERS\]" "$log_file" | cut -d: -f1)
+        if [[ -n "$line_num" ]]; then
+            sed -i '' "${line_num}a\\
+$item_name" "$log_file"
+        fi
     fi
     
     log_verbose "Added to installation log: $item_type - $item_name"

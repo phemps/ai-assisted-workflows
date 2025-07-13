@@ -14,6 +14,12 @@ DRY_RUN="false"
 VERBOSE="false"
 TARGET_PATH=""
 
+# Global arrays for installation log tracking
+PRE_EXISTING_PYTHON=()
+NEWLY_INSTALLED_PYTHON=()
+PRE_EXISTING_MCP=()
+NEWLY_INSTALLED_MCP=()
+
 # Usage and help
 show_usage() {
     cat << 'EOF'
@@ -557,9 +563,9 @@ remove_python_packages() {
     local unknown=()
     
     for pkg in "${installed_packages[@]}"; do
-        if [[ " ${PRE_EXISTING_PYTHON[*]} " =~ " $pkg " ]]; then
+        if [[ ${#PRE_EXISTING_PYTHON[@]} -gt 0 ]] && [[ " ${PRE_EXISTING_PYTHON[*]} " =~ " $pkg " ]]; then
             pre_existing+=("$pkg")
-        elif [[ " ${NEWLY_INSTALLED_PYTHON[*]} " =~ " $pkg " ]]; then
+        elif [[ ${#NEWLY_INSTALLED_PYTHON[@]} -gt 0 ]] && [[ " ${NEWLY_INSTALLED_PYTHON[*]} " =~ " $pkg " ]]; then
             newly_installed+=("$pkg")
         else
             unknown+=("$pkg")
@@ -605,9 +611,9 @@ remove_python_packages() {
     for pkg in "${installed_packages[@]}"; do
         # Show appropriate warning based on package status
         local warning=""
-        if [[ " ${PRE_EXISTING_PYTHON[*]} " =~ " $pkg " ]]; then
+        if [[ ${#PRE_EXISTING_PYTHON[@]} -gt 0 ]] && [[ " ${PRE_EXISTING_PYTHON[*]} " =~ " $pkg " ]]; then
             warning=" (⚠️  PRE-EXISTING - likely used elsewhere)"
-        elif [[ " ${NEWLY_INSTALLED_PYTHON[*]} " =~ " $pkg " ]]; then
+        elif [[ ${#NEWLY_INSTALLED_PYTHON[@]} -gt 0 ]] && [[ " ${NEWLY_INSTALLED_PYTHON[*]} " =~ " $pkg " ]]; then
             warning=" (📦 newly installed by workflows)"
         fi
         
@@ -672,9 +678,9 @@ remove_mcp_servers() {
     local unknown_servers=()
     
     for server in "${installed_servers[@]}"; do
-        if [[ " ${PRE_EXISTING_MCP[*]} " =~ " $server " ]]; then
+        if [[ ${#PRE_EXISTING_MCP[@]} -gt 0 ]] && [[ " ${PRE_EXISTING_MCP[*]} " =~ " $server " ]]; then
             pre_existing_servers+=("$server")
-        elif [[ " ${NEWLY_INSTALLED_MCP[*]} " =~ " $server " ]]; then
+        elif [[ ${#NEWLY_INSTALLED_MCP[@]} -gt 0 ]] && [[ " ${NEWLY_INSTALLED_MCP[*]} " =~ " $server " ]]; then
             newly_installed_servers+=("$server")
         else
             unknown_servers+=("$server")
@@ -720,9 +726,9 @@ remove_mcp_servers() {
     for server in "${installed_servers[@]}"; do
         # Show appropriate warning based on server status
         local warning=""
-        if [[ " ${PRE_EXISTING_MCP[*]} " =~ " $server " ]]; then
+        if [[ ${#PRE_EXISTING_MCP[@]} -gt 0 ]] && [[ " ${PRE_EXISTING_MCP[*]} " =~ " $server " ]]; then
             warning=" (⚠️  PRE-EXISTING - likely used elsewhere)"
-        elif [[ " ${NEWLY_INSTALLED_MCP[*]} " =~ " $server " ]]; then
+        elif [[ ${#NEWLY_INSTALLED_MCP[@]} -gt 0 ]] && [[ " ${NEWLY_INSTALLED_MCP[*]} " =~ " $server " ]]; then
             warning=" (🔧 newly installed by workflows)"
         fi
         

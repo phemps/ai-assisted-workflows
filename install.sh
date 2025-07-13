@@ -239,7 +239,16 @@ setup_install_dir() {
     fi
     
     # Set final installation path
-    INSTALL_DIR="$TARGET_PATH/.claude"
+    # Check if TARGET_PATH already ends with .claude
+    if [[ "$TARGET_PATH" == */.claude ]]; then
+        # User already specified .claude in the path
+        INSTALL_DIR="$TARGET_PATH"
+        log_verbose "Target path already ends with .claude, using it directly"
+    else
+        # Append .claude to the path
+        INSTALL_DIR="$TARGET_PATH/.claude"
+        log_verbose "Appending .claude to target path"
+    fi
     
     log "Installation target: $INSTALL_DIR"
     
@@ -247,33 +256,47 @@ setup_install_dir() {
     if [[ -d "$INSTALL_DIR" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log "Would handle existing .claude directory at: $INSTALL_DIR"
-            log "Would prompt user for backup/merge/cancel choice"
+            log "Would create automatic backup before proceeding"
+            log "Would prompt user for fresh install/merge/workflows-only/cancel choice"
         else
+            # Always create a backup first
+            local backup_dir="${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
+            log "Creating automatic backup of existing installation to: $backup_dir"
+            cp -r "$INSTALL_DIR" "$backup_dir"
+            
             echo ""
             echo "Found existing .claude directory at: $INSTALL_DIR"
-            echo "Choose an option:"
-            echo "  1) Backup existing and install fresh"
-            echo "  2) Merge with existing (preserve user customizations)"
-            echo "  3) Cancel installation"
+            echo "Automatic backup created at: $backup_dir"
             echo ""
-            read -p "Enter choice [1-3]: " choice
+            echo "Choose an option:"
+            echo "  1) Fresh install (replace existing)"
+            echo "  2) Merge with existing (preserve user customizations)"
+            echo "  3) Update workflows only (overwrite commands & scripts, preserve everything else)"
+            echo "  4) Cancel installation (backup remains)"
+            echo ""
+            read -p "Enter choice [1-4]: " choice
             
             case $choice in
                 1)
-                    local backup_dir="${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
-                    log "Backing up existing installation to: $backup_dir"
-                    mv "$INSTALL_DIR" "$backup_dir"
+                    log "Proceeding with fresh installation"
+                    rm -rf "$INSTALL_DIR"
                     ;;
                 2)
                     log "Merging with existing installation"
                     MERGE_MODE=true
                     ;;
                 3)
+                    log "Updating workflows only (commands & scripts)"
+                    UPDATE_WORKFLOWS_ONLY=true
+                    ;;
+                4)
                     log "Installation cancelled by user"
+                    echo "Your backup is preserved at: $backup_dir"
                     exit 0
                     ;;
                 *)
                     log_error "Invalid choice"
+                    echo "Your backup is preserved at: $backup_dir"
                     exit 1
                     ;;
             esac
@@ -348,7 +371,89 @@ copy_files() {
     log_verbose "Copying claude/ directory..."
     if [[ "${MERGE_MODE:-false}" == "true" ]]; then
         # Merge mode: preserve existing files, copy new ones
+        log "Merge mode: preserving existing files while adding new ones..."
+        
+        # Track what's being preserved vs added
+        local preserved_count=0
+        local added_count=0
+        local custom_commands=()
+        
+        # Check for custom commands
+        if [[ -d "$INSTALL_DIR/commands" ]]; then
+            for cmd in "$INSTALL_DIR/commands"/*; do
+                if [[ -f "$cmd" ]]; then
+                    local cmd_name=$(basename "$cmd")
+                    if ! [[ -f "$source_dir/claude/commands/$cmd_name" ]]; then
+                        custom_commands+=("$cmd_name")
+                    fi
+                fi
+            done
+        fi
+        
+        # Copy with no-clobber
         cp -rn "$source_dir/claude"/* "$INSTALL_DIR/" 2>/dev/null || true
+        
+        # Report custom commands preserved
+        if [[ ${#custom_commands[@]} -gt 0 ]]; then
+            echo "  Preserved custom commands:"
+            for cmd in "${custom_commands[@]}"; do
+                echo "    - $cmd"
+            done
+        fi
+        
+        echo "  Merge complete. Existing files preserved, new files added."
+    elif [[ "${UPDATE_WORKFLOWS_ONLY:-false}" == "true" ]]; then
+        # Update workflows only: update built-in commands and scripts, preserve custom commands and everything else
+        log "Updating workflows only: built-in commands and scripts directories..."
+        
+        # Preserve custom commands, update built-in commands
+        if [[ -d "$source_dir/claude/commands" ]]; then
+            log "  Updating commands directory (preserving custom commands)..."
+            local custom_commands=()
+            
+            # Identify custom commands
+            if [[ -d "$INSTALL_DIR/commands" ]]; then
+                for cmd in "$INSTALL_DIR/commands"/*; do
+                    if [[ -f "$cmd" ]]; then
+                        local cmd_name=$(basename "$cmd")
+                        if ! [[ -f "$source_dir/claude/commands/$cmd_name" ]]; then
+                            custom_commands+=("$cmd_name")
+                            # Backup custom command temporarily
+                            cp "$cmd" "$cmd.custom_backup"
+                        fi
+                    fi
+                done
+            fi
+            
+            # Replace commands directory with new version
+            rm -rf "$INSTALL_DIR/commands"
+            cp -r "$source_dir/claude/commands" "$INSTALL_DIR/"
+            
+            # Restore custom commands
+            for cmd in "${custom_commands[@]}"; do
+                if [[ -f "$INSTALL_DIR/commands/$cmd.custom_backup" ]]; then
+                    mv "$INSTALL_DIR/commands/$cmd.custom_backup" "$INSTALL_DIR/commands/$cmd"
+                    log_verbose "    Restored custom command: $cmd"
+                fi
+            done
+            
+            # Report preserved custom commands
+            if [[ ${#custom_commands[@]} -gt 0 ]]; then
+                echo "    Preserved custom commands:"
+                for cmd in "${custom_commands[@]}"; do
+                    echo "      - $cmd"
+                done
+            fi
+        fi
+        
+        # Update scripts directory (no custom preservation needed here)
+        if [[ -d "$source_dir/claude/scripts" ]]; then
+            log "  Updating scripts directory..."
+            rm -rf "$INSTALL_DIR/scripts"
+            cp -r "$source_dir/claude/scripts" "$INSTALL_DIR/"
+        fi
+        
+        echo "  Workflow update complete. Built-in commands and scripts updated, custom commands and other files preserved."
     else
         # Fresh install: copy everything
         cp -r "$source_dir/claude"/* "$INSTALL_DIR/"
@@ -509,6 +614,29 @@ verify_installation() {
                 exit 1
             fi
         done
+        
+        # Verify custom commands preservation if in merge mode
+        if [[ "${MERGE_MODE:-false}" == "true" ]]; then
+            log_verbose "Verifying custom commands preservation..."
+            local custom_commands_found=0
+            
+            if [[ -d "$INSTALL_DIR/commands" ]]; then
+                for cmd in "$INSTALL_DIR/commands"/*; do
+                    if [[ -f "$cmd" ]]; then
+                        local cmd_name=$(basename "$cmd")
+                        # Check if this is a custom command (not in source)
+                        if ! [[ -f "$SCRIPT_DIR/claude/commands/$cmd_name" ]]; then
+                            log_verbose "  Custom command preserved: $cmd_name"
+                            ((custom_commands_found++))
+                        fi
+                    fi
+                done
+            fi
+            
+            if [[ $custom_commands_found -gt 0 ]]; then
+                log "Verified: $custom_commands_found custom command(s) preserved"
+            fi
+        fi
     fi
     
     log "Installation verification completed successfully"

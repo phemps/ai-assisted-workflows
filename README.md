@@ -15,7 +15,7 @@ Transform your Claude Code experience with measurable, automated analysis across
 ### Prerequisites
 
 - **Python 3.7+** (automation scripts)
-- **Claude Code**
+- **Claude Code CLI**
 - **Node.js** (any version, for MCP tools, optional)
 
 ### Recommended Optionals
@@ -38,9 +38,11 @@ Transform your Claude Code experience with measurable, automated analysis across
 ./install.sh /my/project/path
 
 # Advanced options
-./install.sh --dry-run     # Preview changes
-./install.sh --skip-mcp    # Skip MCP tools if no Claude CLI
-./install.sh --verbose     # Debug output
+./install.sh --dry-run       # Preview changes without making modifications
+./install.sh --verbose      # Enable detailed debug output
+./install.sh --skip-mcp     # Skip MCP tools installation (Python scripts only)
+./install.sh --skip-python  # Skip Python dependencies installation
+./install.sh --help         # Show detailed help and usage information
 ```
 
 ### Handling Existing .Claude Installations

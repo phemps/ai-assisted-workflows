@@ -149,6 +149,35 @@ When Claude CLI is available, these MCP tools are automatically installed to enh
 ./install.sh --skip-mcp
 ```
 
+### Uninstalling
+
+To safely remove Claude Code Workflows components while preserving your .claude directory:
+
+```bash
+# Preview what would be removed (recommended first step)
+./uninstall.sh --dry-run
+
+# Uninstall from current directory
+./uninstall.sh
+
+# Uninstall from specific path
+./uninstall.sh /path/to/installation
+
+# Verbose output for detailed logging
+./uninstall.sh --verbose
+```
+
+**Smart Uninstall Features:**
+- **📦 Safe Removal**: Only removes workflow components, preserves .claude structure and user files
+- **⚠️ Dependency Tracking**: Distinguishes pre-existing vs newly installed Python packages/MCP servers
+- **💾 Automatic Backups**: Creates backups of MCP configuration and claude.md before changes
+- **🧹 Thorough Cleanup**: Removes __pycache__ folders and empty directories
+- **📝 Installation Log**: Uses installation-log.txt to provide intelligent removal warnings
+
+The uninstaller will interactively prompt for each Python package and MCP server removal, showing whether each item was:
+- **🔧 Newly installed** by Claude Code Workflows (safer to remove)
+- **⚠️ Pre-existing** before installation (likely used by other projects - caution advised)
+
 ## 🎯 Commands Reference
 
 ### 🔍 Analysis Commands (6)

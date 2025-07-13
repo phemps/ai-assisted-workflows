@@ -125,7 +125,6 @@ When Claude CLI is available, these MCP tools are automatically installed to enh
 **Available MCP Tools:**
 
 - **`sequential-thinking`** - Multi-step reasoning and analysis breakdown (enables `--seq` flag)
-- **`filesystem`** - Advanced file operations and project navigation
 - **`puppeteer`** - Browser automation for web analysis and testing
 
 **MCP Tool Benefits:**

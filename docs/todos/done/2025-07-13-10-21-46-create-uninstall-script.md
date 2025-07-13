@@ -1,6 +1,6 @@
 # create an uninstall script that reverses the install process but asks for confirmation at each point i.e. remove scripts? remove python libraries (list them)? remove mcp servers (list them)? The mcp server list should be backed up before hand.
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2025-07-13T10:21:46
 **Started:** 2025-07-13T10:26:32
 **Agent PID:** 36629

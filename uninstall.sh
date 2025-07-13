@@ -647,7 +647,6 @@ remove_mcp_servers() {
     # List of MCP servers we install
     local our_mcp_servers=(
         "sequential-thinking"
-        "filesystem"
         "puppeteer"
     )
     

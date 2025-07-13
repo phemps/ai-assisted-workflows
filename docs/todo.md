@@ -14,4 +14,4 @@
 - % analysis how far off pattern a file is
 - feature pathing - show chain of events with params (input / output), test gaps, pattern deviation
 - add rules to reduce output that isnt contributing to task execution, there are too many descriptive items without purpose added to generated files that just adds bloat.
-- understand why file system mcp is listed in the mcp dependencies, either in the install, readme or both - determine if its actually used at all in our workflow framework and if not remove mention of it throughout the project.
+- ensure puppeter is not used anywhere in the framework

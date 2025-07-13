@@ -519,7 +519,7 @@ EOF
     
     if command -v claude &> /dev/null; then
         # Check our MCP servers
-        local our_mcp_servers=("sequential-thinking" "filesystem" "puppeteer")
+        local our_mcp_servers=("sequential-thinking" "puppeteer")
         for server in "${our_mcp_servers[@]}"; do
             if claude mcp list 2>/dev/null | grep -q "^$server"; then
                 echo "$server" >> "$log_file"
@@ -654,16 +654,6 @@ install_mcp_tools() {
         mcp_failed=true
     fi
     
-    # Install filesystem (for context7-like functionality)
-    log_verbose "Installing filesystem MCP tool..."
-    if claude mcp add filesystem -s user -- npx -y @modelcontextprotocol/server-filesystem "$HOME" 2>/dev/null; then
-        log_verbose "filesystem MCP tool installed successfully"
-        update_installation_log "mcp" "filesystem"
-    else
-        log_error "Failed to install filesystem MCP tool"
-        mcp_failed=true
-    fi
-    
     # Install browser tools (for magic-like functionality)
     log_verbose "Installing browser tools MCP tool..."
     if claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer 2>/dev/null; then
@@ -677,7 +667,6 @@ install_mcp_tools() {
     if [[ "$mcp_failed" == "true" ]]; then
         log "Some MCP tools failed to install. You can install them manually later using:"
         echo "  claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking"
-        echo "  claude mcp add filesystem -s user -- npx -y @modelcontextprotocol/server-filesystem \$HOME"
         echo "  claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer"
     else
         log "MCP tools installed successfully"

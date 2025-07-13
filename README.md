@@ -15,8 +15,15 @@ Transform your Claude Code experience with measurable, automated analysis across
 ### Prerequisites
 
 - **Python 3.7+** (automation scripts)
-- **Claude CLI** (MCP tool integration, optional)
+- **Claude Code**
 - **Node.js** (any version, for MCP tools, optional)
+
+### Recommended Optionals
+
+- **Context7 MCP** best practice documentation to support code generation
+- **Sequential thinking MCP** use to breakdown complext tasks (can augment or cheaper alternative for non reasoning models)
+
+- **Todo workflow** CC command from (badlogic)[https://github.com/badlogic/claude-commands/blob/main/todo.md] - pairs well with the workflows, particularly /plan-\* as they produce todo.md lists. Its a more efficent version of CC plan mode/todos
 
 ### Installation Options
 
@@ -36,19 +43,33 @@ Transform your Claude Code experience with measurable, automated analysis across
 ./install.sh --verbose     # Debug output
 ```
 
+### Handling Existing .Claude Installations
+
+**Automatic Backup:** All installation options automatically create a timestamped backup of your existing installation before making any changes.
+
+The installer automatically detects existing `.claude` directories and the interactive terminal install will offer four options:
+
+1. **Fresh Install:** install fresh (complete replacement)
+2. **Merge:** Preserve user customizations while adding new features (no overwrites)
+3. **Update Workflows Only:** Update built-in commands and scripts while preserving custom commands and all other files (recommended for updates)
+4. **Cancel:** Exit without changes
+
 ### Python Libraries Installed
 
 **Security Analysis:**
+
 - `bandit` - Security linting and vulnerability detection
-- `safety` - Known vulnerability scanning against CVE database  
+- `safety` - Known vulnerability scanning against CVE database
 - `semgrep` - Static analysis security scanner
 
 **Performance Analysis:**
+
 - `psutil` - System and process monitoring utilities
 - `memory-profiler` - Memory usage profiling and tracking
 - `py-spy` - Python profiler for performance analysis (Unix only)
 
 **Code Quality Analysis:**
+
 - `flake8` - Python style guide enforcement (PEP 8)
 - `pylint` - Comprehensive code analysis and linting
 - `radon` - Code complexity metrics (cyclomatic, halstead)
@@ -57,18 +78,22 @@ Transform your Claude Code experience with measurable, automated analysis across
 - `mccabe` - Complexity checker for functions
 
 **Architecture Analysis:**
+
 - `pydeps` - Dependency analysis and visualization
 - `networkx` - Graph analysis for architectural patterns
 
 **Multi-Language Testing Framework Detection:**
+
 - `pytest` - Python testing framework detection and performance benchmarks
 - `pytest-cov` - Test coverage analysis across multiple programming languages
 
 **Development Tools:**
+
 - `black` - Opinionated code formatting
 - `isort` - Import statement organization
 
 **Core Dependencies:**
+
 - `requests` - HTTP requests for external API integrations
 - `python-dotenv` - Environment variable management
 
@@ -77,17 +102,20 @@ Transform your Claude Code experience with measurable, automated analysis across
 When Claude CLI is available, these MCP tools are automatically installed to enhance workflow capabilities:
 
 **Available MCP Tools:**
+
 - **`sequential-thinking`** - Multi-step reasoning and analysis breakdown (enables `--seq` flag)
 - **`filesystem`** - Advanced file operations and project navigation
 - **`puppeteer`** - Browser automation for web analysis and testing
 
 **MCP Tool Benefits:**
+
 - **Context7** - Framework-specific best practices and contextually accurate language detection (React, Vue, Django, Spring, etc.) via `--c7` flag
-- **Magic UI** - Pre-built component library access via `--magic` flag  
+- **Magic UI** - Pre-built component library access via `--magic` flag
 - **Sequential Thinking** - Complex problem breakdown via `--seq` flag
 - **Browser Tools** - Automated web testing and analysis capabilities
 
 **Context7 ensures our analysis scripts provide contextually correct results** by understanding:
+
 - Framework conventions (React hooks, Django models, Spring annotations)
 - Language-specific patterns (Go interfaces, Rust ownership, TypeScript generics)
 - Build tool configurations (Maven, Gradle, npm, Cargo)
@@ -99,19 +127,6 @@ When Claude CLI is available, these MCP tools are automatically installed to enh
 # Install without MCP tools (Python scripts only)
 ./install.sh --skip-mcp
 ```
-
-### Handling Existing Installations
-
-The installer automatically detects existing `.claude` directories and offers four options:
-
-1. **Fresh Install:** Backup existing and install fresh (complete replacement)
-2. **Merge:** Preserve user customizations while adding new features (no overwrites)
-3. **Update Workflows Only:** Update built-in commands and scripts while preserving custom commands and all other files (recommended for updates)
-4. **Cancel:** Exit without changes
-
-**Automatic Backup:** All installation options automatically create a timestamped backup of your existing installation before making any changes.
-
-**Smart Path Handling:** If you specify a path ending with `.claude` (e.g., `/path/to/.claude`), the installer uses that path directly instead of creating a nested `.claude/.claude` directory.
 
 ## 🎯 Commands Reference
 
@@ -204,23 +219,25 @@ claude/scripts/analyze/
 ## 🌐 Programming Language Support
 
 ### Universal Analysis (All Languages)
+
 **Security:** Vulnerability scanning, secret detection, authentication analysis  
 **Architecture:** Dependency analysis, coupling detection, scalability assessment  
 **Code Quality:** Complexity metrics (via Lizard), dead code detection
 
 ### Language-Specific Analysis
+
 **Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin
 
-| Language | Test Coverage | Performance Baseline | Import Analysis | Bottleneck Detection |
-|----------|---------------|---------------------|-----------------|---------------------|
-| **Python** | ✅ pytest, coverage | ✅ cProfile, memory-profiler | ✅ import patterns | ✅ AST analysis |
-| **JavaScript** | ✅ jest, nyc, c8 | ✅ npm scripts, profiling | ✅ import/require | ✅ performance patterns |
-| **TypeScript** | ✅ jest, nyc, c8 | ✅ npm scripts, profiling | ✅ import patterns | ✅ performance patterns |
-| **Java** | ✅ junit, jacoco | ✅ maven/gradle, JFR | ✅ import statements | ✅ performance patterns |
-| **Go** | ✅ go test, coverage | ✅ go build, benchmarks | ⚠️ Basic | ✅ performance patterns |
-| **Rust** | ✅ cargo test, tarpaulin | ✅ cargo bench, flamegraph | ⚠️ Basic | ✅ performance patterns |
-| **C#** | ✅ dotnet test, coverlet | ✅ dotnet build, profiling | ✅ using statements | ✅ performance patterns |
-| **Others** | ⚠️ Basic detection | ⚠️ Basic detection | ❌ | ✅ file pattern analysis |
+| Language       | Test Coverage            | Performance Baseline         | Import Analysis      | Bottleneck Detection     |
+| -------------- | ------------------------ | ---------------------------- | -------------------- | ------------------------ |
+| **Python**     | ✅ pytest, coverage      | ✅ cProfile, memory-profiler | ✅ import patterns   | ✅ AST analysis          |
+| **JavaScript** | ✅ jest, nyc, c8         | ✅ npm scripts, profiling    | ✅ import/require    | ✅ performance patterns  |
+| **TypeScript** | ✅ jest, nyc, c8         | ✅ npm scripts, profiling    | ✅ import patterns   | ✅ performance patterns  |
+| **Java**       | ✅ junit, jacoco         | ✅ maven/gradle, JFR         | ✅ import statements | ✅ performance patterns  |
+| **Go**         | ✅ go test, coverage     | ✅ go build, benchmarks      | ⚠️ Basic             | ✅ performance patterns  |
+| **Rust**       | ✅ cargo test, tarpaulin | ✅ cargo bench, flamegraph   | ⚠️ Basic             | ✅ performance patterns  |
+| **C#**         | ✅ dotnet test, coverlet | ✅ dotnet build, profiling   | ✅ using statements  | ✅ performance patterns  |
+| **Others**     | ⚠️ Basic detection       | ⚠️ Basic detection           | ❌                   | ✅ file pattern analysis |
 
 **Context7 Integration:** Use `--c7` flag with any analysis command for framework-specific best practices and contextually accurate language detection.
 

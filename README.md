@@ -125,14 +125,13 @@ When Claude CLI is available, these MCP tools are automatically installed to enh
 **Available MCP Tools:**
 
 - **`sequential-thinking`** - Multi-step reasoning and analysis breakdown (enables `--seq` flag)
-- **`puppeteer`** - Browser automation for web analysis and testing
+- **`context7`** - Framework documentation and best practices (enables `--c7` flag)
 
 **MCP Tool Benefits:**
 
 - **Context7** - Framework-specific best practices and contextually accurate language detection (React, Vue, Django, Spring, etc.) via `--c7` flag
 - **Magic UI** - Pre-built component library access via `--magic` flag
 - **Sequential Thinking** - Complex problem breakdown via `--seq` flag
-- **Browser Tools** - Automated web testing and analysis capabilities
 
 **Context7 ensures our analysis scripts provide contextually correct results** by understanding:
 

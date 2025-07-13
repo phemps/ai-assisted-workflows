@@ -1,0 +1,12 @@
+- add code templating system, global respoistory that defines the best practic approach for a given implementation of a technology, that has a header description and glob based file association. Then add a rule to claude.md that whenever context7 or other alternative to research best practices for a technology is used that part of the task must include adding a new template file to the global repository. The goal is that a tool research call should never happen more than once for a give technology as we should have a template file ready to use after the first instance. Also use claude.md to implement the glob based lookup when creating or editing files.
+- create a more comprehensive test system, we need a docker image for each of the programming languages we support with a test codebase for each (search github for suitable existing codebases that are designed for testing for faults or use the tech we wish to test against). Then create a python test suite for checking our language specific scripts against the appropriate docker environment and project. This is to expand our testing beyond our current mac os support.
+- take the counter pose mcp /Users/adamjackson/LocalDev/counter-pose-mcp and add a global switch for critical thinking --critique, we also need to register counter-pose-mcp with an official package library.
+- update readme to include references to todo project
+- add playwright mcp support with e2e testing workflow
+- orchestrator with git worktrees and parallise the /todo workflow
+- add an init project workflow for using my starter project templates
+- check the install script handles updates
+- add a windows powershell verison of install script
+- install needs to check whether the .claude folder is included in the user specified folder, in which case it should use that as the target and not create a .claude folder
+- review the rules in the wip folder
+- add browsertools mcp testing support

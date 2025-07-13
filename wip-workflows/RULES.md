@@ -85,7 +85,7 @@ Integration: /user:scan --validate→execute | Risky→checkpoint | Failed→rol
 ### Tools & MCP
 ```yaml
 Native: Appropriate tool|Batch|Validate|Handle failures|Native>MCP(simple)
-MCP: C7→Docs | Seq→Complex | Pup→Browser | Magic→UI | Monitor tokens
+MCP: C7→Docs | Seq→Complex | Monitor tokens
 ```
 
 ### Performance [H:8]

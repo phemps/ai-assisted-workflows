@@ -13,6 +13,6 @@
 - knowledge graph visual representation of test coverage vs bespoke code vs external dependencies
 - % analysis how far off pattern a file is
 - feature pathing - show chain of events with params (input / output), test gaps, pattern deviation
-- add rules to reduce output that isnt contributing to task execution, there are too many descriptive items without purpose added to generated files that just adds bloat.
+- add rules to reduce output that isnt contributing to task execution, there are too many descriptive items without purpose added to generated files that just adds bloat. As an example in the analyze-security.md the symbols legend section, im not sure they are used or even useful over and above the severity levels section, feels superfluous.
 - add short, concise manual install steps to the installation section, where to copy things, commands to use to install mcp, commands to install dependencies
-- check for use of magic mcp in framework, dont believe it is so the references to --magic should be removed from install, uninstall and readme.
+- security workflow enhancement, add a new phase that assesses the scripts objectives and approach against the code implementation you are assessing and understand if there are any gaps in the security assessment and plan and carry out your own set of actions to compliment the process. This enhancement is specific to the security workflow, but i think adding such a phase (understanding workflow intentions vs reality of the codebase resulting in possible gaps to cover) should be potentially added to each workflow in teh analyze commands.

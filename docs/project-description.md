@@ -14,7 +14,7 @@ Production-ready workflow automation platform that enhances Claude Code with mea
 - **Architecture Assessment**: Coupling analysis, pattern evaluation, scalability checks
 - **Code Quality Metrics**: Complexity analysis, dead code detection, style enforcement
 - **Hybrid AI+Automation**: Combines Claude Code reasoning with measurable script outputs
-- **MCP Tool Integration**: Context7 (--c7), Sequential thinking (--seq), Magic UI (--magic)
+- **MCP Tool Integration**: Context7 (--c7), Sequential thinking (--seq)
 - **Cross-platform Compatibility**: Windows, macOS, Linux support with platform detection
 - **Token-efficient Design**: Just-in-time loading pattern optimized for Claude Code
 
@@ -115,7 +115,6 @@ python ../run_all_analysis.py
 Commands support optional enhancement flags:
 - `--c7`: Context7 for framework-specific documentation and best practices
 - `--seq`: Sequential thinking for complex multi-step analysis breakdown
-- `--magic`: 21st Century UI components for rapid prototyping and design
 
 ## Automated Analysis Capabilities
 

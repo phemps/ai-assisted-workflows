@@ -782,7 +782,6 @@ show_completion() {
         echo "MCP Tools available:"
         echo "  --seq (sequential thinking for complex analysis)"
         echo "  --c7  (context7 for framework documentation)"
-        echo "  --magic (UI components for prototyping)"
         echo ""
     fi
     

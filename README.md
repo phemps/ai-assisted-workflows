@@ -130,7 +130,6 @@ When Claude CLI is available, these MCP tools are automatically installed to enh
 **MCP Tool Benefits:**
 
 - **Context7** - Framework-specific best practices and contextually accurate language detection (React, Vue, Django, Spring, etc.) via `--c7` flag
-- **Magic UI** - Pre-built component library access via `--magic` flag
 - **Sequential Thinking** - Complex problem breakdown via `--seq` flag
 
 **Context7 ensures our analysis scripts provide contextually correct results** by understanding:
@@ -215,7 +214,6 @@ Enhance any command with these flags (defined in claude.md):
 | **`--tdd`**       | Test-driven development    | Systematic test-first development with quality gates         |
 | **`--c7`**        | Context7 integration       | Framework-specific best practices (React, Vue, Django, etc.) |
 | **`--seq`**       | Sequential thinking        | Complex multi-step analysis breakdown                        |
-| **`--magic`**     | Magic UI components        | Pre-built UI components for rapid prototyping                |
 
 **Example Usage:**
 
@@ -223,11 +221,11 @@ Enhance any command with these flags (defined in claude.md):
 # Security analysis with framework best practices
 /analyze-security --c7
 
-# Feature planning with test-driven development and UI components
-/plan-solution --tdd --magic --seq
+# Feature planning with test-driven development and sequential analysis
+/plan-solution --tdd --seq
 
 # Rapid prototype development
-/plan-solution --prototype --magic
+/plan-solution --prototype
 ```
 
 ## 🔒 Security Analysis

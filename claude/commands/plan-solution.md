@@ -34,12 +34,20 @@ Please provide your technical challenge and any relevant constraints, or confirm
 ### Phase 1: Current System Analysis
 
 Execute existing architecture analysis to understand current context:
+
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Analyze current system architecture and constraints
-python claude/scripts/analyze/architecture/pattern_evaluation.py --target . --format json
-python claude/scripts/analyze/architecture/scalability_check.py --target . --format json  
-python claude/scripts/analyze/architecture/coupling_analysis.py --target . --format json
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/pattern_evaluation.py . --output-format json
+python [SCRIPT_PATH]/scalability_check.py . --output-format json  
+python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/analyze/architecture/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 **Analysis Integration:**
 - Identify current architectural patterns and constraints

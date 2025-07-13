@@ -10,13 +10,20 @@ Comprehensive refactoring strategy combining automated code analysis, proven mig
 
 Execute comprehensive code analysis using existing automation scripts for token-efficient technical debt identification:
 
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Comprehensive analysis for refactoring planning
-python claude/scripts/run_all_analysis.py --target . --format json --refactor-mode
-python claude/scripts/analyze/code_quality/complexity_metrics.py --target . --hotspots
-python claude/scripts/analyze/architecture/coupling_analysis.py --target . --refactor-candidates
-python claude/scripts/analyze/performance/check_bottlenecks.py --target . --optimization-targets
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/run_all_analysis.py . --output-format json
+python [SCRIPT_PATH]/complexity_metrics.py . --output-format json
+python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
+python [SCRIPT_PATH]/check_bottlenecks.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/*.py` and `**/scripts/analyze/*/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 **Analysis Integration:**
 - Execute pre-analysis to identify technical debt hotspots and refactoring candidates
@@ -81,9 +88,9 @@ Use Context7 to research and implement industry-proven refactoring patterns:
 
 **Automated Testing Plan:**
 ```bash
-# Testing analysis and planning
-python claude/scripts/analyze/code_quality/test_coverage_analysis.py --target . --refactor-areas
-python claude/scripts/analyze/performance/performance_baseline.py --benchmark-current
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/test_coverage_analysis.py . --output-format json
+python [SCRIPT_PATH]/performance_baseline.py . --output-format json
 ```
 
 **Testing Framework:**

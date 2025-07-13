@@ -19,11 +19,18 @@ Comprehensive code quality analysis combining automated metrics with architectur
 
 Execute code quality analysis scripts via Bash tool for measurable quality metrics:
 
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Code quality and complexity analysis
-python claude/scripts/analyze/code_quality/complexity_lizard.py --target . --format json
-python claude/scripts/analyze/code_quality/complexity_metrics.py --target . --format json
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/complexity_lizard.py . --output-format json
+python [SCRIPT_PATH]/complexity_metrics.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/analyze/code_quality/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 ## Optional Flags
 

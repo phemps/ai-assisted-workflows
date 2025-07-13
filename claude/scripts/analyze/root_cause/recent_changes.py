@@ -299,12 +299,17 @@ class ChangeAnalyzer:
 
 def main():
     """Main execution function."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Analyze recent code changes and their patterns')
+    parser.add_argument('target_path', nargs='?', default=os.getcwd(), help='Repository path to analyze (default: current directory)')
+    parser.add_argument('--output-format', choices=['json', 'console'], default='json', help='Output format (default: json)')
+    
+    args = parser.parse_args()
     start_time = time.time()
     
     # Get repository path
-    repo_path = Path(os.getcwd())
-    if len(sys.argv) > 1:
-        repo_path = Path(sys.argv[1])
+    repo_path = Path(args.target_path)
     
     # Configuration from environment variables
     days_back = int(os.environ.get('DAYS_BACK', '30'))
@@ -323,7 +328,13 @@ def main():
             severity=Severity.INFO
         )
         result.add_finding(finding_obj)
-        print(result.to_json())
+        result.set_execution_time(start_time)
+        
+        # Output based on format choice
+        if args.output_format == 'console':
+            print(ResultFormatter.format_console_output(result))
+        else:  # json (default)
+            print(result.to_json())
         return
     
     # Analyze recent commits
@@ -433,8 +444,11 @@ def main():
     }
     result.metadata.update(metadata)
     
-    # Output results
-    print(result.to_json())
+    # Output based on format choice
+    if args.output_format == 'console':
+        print(ResultFormatter.format_console_output(result))
+    else:  # json (default)
+        print(result.to_json())
 
 if __name__ == "__main__":
     main()

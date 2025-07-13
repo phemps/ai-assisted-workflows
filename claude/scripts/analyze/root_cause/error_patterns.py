@@ -318,12 +318,17 @@ class ErrorPatternAnalyzer:
 
 def main():
     """Main execution function."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Analyze error patterns and debug traces in codebase')
+    parser.add_argument('target_path', nargs='?', default=os.getcwd(), help='Directory path to analyze (default: current directory)')
+    parser.add_argument('--output-format', choices=['json', 'console'], default='json', help='Output format (default: json)')
+    
+    args = parser.parse_args()
     start_time = time.time()
     
     # Get target directory
-    target_dir = Path(os.getcwd())
-    if len(sys.argv) > 1:
-        target_dir = Path(sys.argv[1])
+    target_dir = Path(args.target_path)
     
     # Initialize analyzer
     analyzer = ErrorPatternAnalyzer()
@@ -408,8 +413,11 @@ def main():
         "high_issues": len([f for f in all_findings if f.get('severity') == 'high'])
     })
     
-    # Output results
-    print(result.to_json())
+    # Output based on format choice
+    if args.output_format == 'console':
+        print(ResultFormatter.format_console_output(result))
+    else:  # json (default)
+        print(result.to_json())
 
 if __name__ == "__main__":
     main()

@@ -167,6 +167,13 @@ class HighLevelTracer:
 
 def main():
     """Main execution function."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Analyze execution patterns and dependencies for debugging')
+    parser.add_argument('target_path', nargs='?', default=os.getcwd(), help='Path to analyze (default: current directory)')
+    parser.add_argument('--output-format', choices=['json', 'console'], default='json', help='Output format (default: json)')
+    
+    args = parser.parse_args()
     start_time = time.time()
     
     try:
@@ -175,7 +182,7 @@ def main():
         log_debug("Starting trace execution analysis", config)
         
         # Get and validate target directory
-        target_path = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+        target_path = args.target_path
         is_valid, error_msg, target_dir = validate_target_directory(target_path)
         
         if not is_valid:
@@ -255,8 +262,11 @@ def main():
         if 'config' in locals():
             log_debug(f"Error during analysis: {str(e)}", config)
     
-    # Output results
-    print(result.to_json())
+    # Output based on format choice
+    if args.output_format == 'console':
+        print(ResultFormatter.format_console_output(result))
+    else:  # json (default)
+        print(result.to_json())
 
 if __name__ == "__main__":
     main()

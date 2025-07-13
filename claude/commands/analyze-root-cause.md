@@ -23,13 +23,21 @@ Comprehensive root cause analysis combining automated investigation tools with s
 
 ## Script Integration
 Execute root cause analysis scripts via Bash tool for systematic investigation:
+
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Root cause investigation and analysis
-python claude/scripts/analyze/root_cause/trace_execution.py --target . --format json
-python claude/scripts/analyze/root_cause/recent_changes.py --target . --timeframe 7d --format json
-python claude/scripts/analyze/root_cause/error_patterns.py --target . --format json
-python claude/scripts/analyze/root_cause/simple_trace.py --target . --format json
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/trace_execution.py . --output-format json
+python [SCRIPT_PATH]/recent_changes.py . --output-format json
+python [SCRIPT_PATH]/error_patterns.py . --output-format json
+python [SCRIPT_PATH]/simple_trace.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/analyze/root_cause/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 ## Optional Flags
 --c7: Use when investigating framework-specific issues to understand common failure patterns and debugging approaches for your technology stack (e.g., React debugging tools, Python traceback analysis, Node.js memory leak detection)

@@ -426,39 +426,35 @@ class ComplexityAnalyzer:
 
 def main():
     """Main function for command-line usage."""
-    if len(sys.argv) < 2:
-        print("Usage: python complexity_metrics.py <target_path> [options]")
-        print("Options:")
-        print("  --summary: Limit output to top 10 critical/high findings for large codebases")
-        print("  --min-severity <level>: Minimum severity level (critical|high|medium|low) [default: low]")
-        sys.exit(1)
+    import argparse
     
-    target_path = sys.argv[1]
-    summary_mode = False
-    min_severity = "low"
+    parser = argparse.ArgumentParser(description='Analyze code complexity metrics and quality issues')
+    parser.add_argument('target_path', help='Path to analyze')
+    parser.add_argument('--output-format', choices=['json', 'console', 'summary'], 
+                       default='json', help='Output format (default: json)')
+    parser.add_argument('--summary', action='store_true',
+                       help='Limit output to top 10 critical/high findings for large codebases')
+    parser.add_argument('--min-severity', choices=['critical', 'high', 'medium', 'low'],
+                       default='low', help='Minimum severity level (default: low)')
     
-    # Parse arguments
-    for i, arg in enumerate(sys.argv[2:], 2):
-        if arg == "--summary":
-            summary_mode = True
-        elif arg == "--min-severity" and i + 1 < len(sys.argv):
-            min_severity = sys.argv[i + 1].lower()
-            if min_severity not in ["critical", "high", "medium", "low"]:
-                print("Error: min-severity level must be one of: critical, high, medium, low")
-                sys.exit(1)
+    args = parser.parse_args()
     
     analyzer = ComplexityAnalyzer()
-    result = analyzer.analyze(target_path)
+    result = analyzer.analyze(args.target_path)
     
     # Auto-enable summary mode for large result sets
-    if len(result.findings) > 50 and not summary_mode:
+    if len(result.findings) > 50 and not args.summary:
         print(f"⚠️ Large result set detected ({len(result.findings)} findings). Consider using --summary flag.", file=sys.stderr)
     
-    # Output JSON result
-    print(result.to_json(summary_mode=summary_mode, min_severity=min_severity))
-    
-    # Also print console summary to stderr for human readability
-    print(ResultFormatter.format_console_output(result), file=sys.stderr)
+    # Output based on format choice
+    if args.output_format == 'console':
+        print(ResultFormatter.format_console_output(result))
+    elif args.output_format == 'summary':
+        print(result.to_json(summary_mode=True, min_severity=args.min_severity))
+    else:  # json (default)
+        print(result.to_json(summary_mode=args.summary, min_severity=args.min_severity))
+        # Also print console summary to stderr for human readability
+        print(ResultFormatter.format_console_output(result), file=sys.stderr)
 
 if __name__ == "__main__":
     main()

@@ -261,33 +261,31 @@ class LizardComplexityAnalyzer:
 
 def main():
     """Main function for command-line usage."""
-    if len(sys.argv) < 2:
-        print("Usage: python complexity_lizard.py <target_path> [options]")
-        print("Options:")
-        print("  --summary: Show only high/critical findings")
-        print("  --min-severity <level>: Minimum severity (critical|high|medium|low)")
-        print("\nNote: Requires 'lizard' to be installed: pip install lizard")
-        sys.exit(1)
+    import argparse
     
-    target_path = sys.argv[1]
-    summary_mode = False
-    min_severity = "low"
+    parser = argparse.ArgumentParser(description='Analyze code complexity using Lizard')
+    parser.add_argument('target_path', help='Path to analyze')
+    parser.add_argument('--output-format', choices=['json', 'console', 'summary'], 
+                       default='json', help='Output format (default: json)')
+    parser.add_argument('--summary', action='store_true',
+                       help='Show only high/critical findings')
+    parser.add_argument('--min-severity', choices=['critical', 'high', 'medium', 'low'],
+                       default='low', help='Minimum severity level (default: low)')
     
-    # Parse arguments
-    for i, arg in enumerate(sys.argv[2:], 2):
-        if arg == "--summary":
-            summary_mode = True
-        elif arg == "--min-severity" and i + 1 < len(sys.argv):
-            min_severity = sys.argv[i + 1].lower()
+    args = parser.parse_args()
     
     analyzer = LizardComplexityAnalyzer()
-    result = analyzer.analyze(target_path)
+    result = analyzer.analyze(args.target_path)
     
-    # Output JSON result
-    print(result.to_json(summary_mode=summary_mode, min_severity=min_severity))
-    
-    # Print console summary to stderr
-    print(ResultFormatter.format_console_output(result), file=sys.stderr)
+    # Output based on format choice
+    if args.output_format == 'console':
+        print(ResultFormatter.format_console_output(result))
+    elif args.output_format == 'summary':
+        print(result.to_json(summary_mode=True, min_severity=args.min_severity))
+    else:  # json (default)
+        print(result.to_json(summary_mode=args.summary, min_severity=args.min_severity))
+        # Print console summary to stderr for human readability
+        print(ResultFormatter.format_console_output(result), file=sys.stderr)
 
 if __name__ == "__main__":
     main()

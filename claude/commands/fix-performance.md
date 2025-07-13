@@ -40,12 +40,20 @@ Systematic performance issue resolution combining automated bottleneck detection
 
 ## Script Integration
 Execute performance analysis scripts via Bash tool for systematic bottleneck detection:
+
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Performance bottleneck and optimization analysis
-python claude/scripts/analyze/performance/check_bottlenecks.py --target . --format json
-python claude/scripts/analyze/performance/analyze_frontend.py --target . --format json
-python claude/scripts/analyze/performance/profile_database.py --target . --format json
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/check_bottlenecks.py . --output-format json
+python [SCRIPT_PATH]/analyze_frontend.py . --output-format json
+python [SCRIPT_PATH]/profile_database.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/analyze/performance/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 ## Optional Flags
 --c7: Use to discover proven optimization strategies for your specific bottleneck type and technology stack (e.g., React.memo patterns, database query optimization, caching strategies)

@@ -33,12 +33,20 @@ Systematic bug diagnosis and resolution using structured debugging methodology w
 
 ## Script Integration
 Execute debugging analysis scripts via Bash tool for systematic issue analysis:
+
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Automated debugging assistance
-python claude/scripts/analyze/root_cause/trace_execution.py --target . --issue "$ISSUE_DESCRIPTION"
-python claude/scripts/analyze/root_cause/recent_changes.py --target . --timeframe 7d
-python claude/scripts/analyze/root_cause/error_patterns.py --target . --format json
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/trace_execution.py . --output-format json
+python [SCRIPT_PATH]/recent_changes.py . --output-format json
+python [SCRIPT_PATH]/error_patterns.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/analyze/root_cause/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 ## Optional Flags
 --seq: Use for difficult bugs requiring systematic investigation - creates a structured approach: 'reproduce bug consistently', 'isolate variables', 'analyze root cause', 'implement targeted fix', 'verify solution and prevent regression'

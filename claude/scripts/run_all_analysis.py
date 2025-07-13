@@ -22,7 +22,9 @@ class AnalysisRunner:
     """Run all analysis scripts and combine results."""
     
     def __init__(self):
-        self.script_dir = PathUtils.get_analyze_script_dir()
+        # Use the current script's location to find the analyze directory
+        current_script_dir = Path(__file__).parent
+        self.script_dir = current_script_dir / "analyze"
         self.scripts = {
             "security_auth": "security/check_auth.py",
             "security_vulnerabilities": "security/scan_vulnerabilities.py", 
@@ -214,44 +216,56 @@ class AnalysisRunner:
 
 def main():
     """Main function for command-line usage."""
-    if len(sys.argv) < 2:
-        print("Usage: python run_all_analysis.py <target_path> [options]")
-        print("Options:")
-        print("  --verbose: Include detailed results (default is summary mode)")
-        print("  --min-severity <level>: Minimum severity level (critical|high|medium|low) [default: low]")
-        sys.exit(1)
+    import argparse
     
-    target_path = sys.argv[1]
-    summary_mode = True
-    min_severity = "low"
+    parser = argparse.ArgumentParser(description='Run comprehensive code analysis across multiple dimensions')
+    parser.add_argument('target_path', help='Path to analyze')
+    parser.add_argument('--output-format', choices=['json', 'console'], 
+                       default='json', help='Output format (default: json)')
+    parser.add_argument('--verbose', action='store_true',
+                       help='Include detailed results (default is summary mode)')
+    parser.add_argument('--min-severity', choices=['critical', 'high', 'medium', 'low'],
+                       default='low', help='Minimum severity level (default: low)')
     
-    # Parse arguments
-    for i, arg in enumerate(sys.argv[2:], 2):
-        if arg == "--verbose":
-            summary_mode = False
-        elif arg == "--min-severity" and i + 1 < len(sys.argv):
-            min_severity = sys.argv[i + 1].lower()
-            if min_severity not in ["critical", "high", "medium", "low"]:
-                print("Error: min-severity level must be one of: critical, high, medium, low")
-                sys.exit(1)
+    args = parser.parse_args()
+    
+    summary_mode = not args.verbose  # Inverse logic: verbose=False means summary_mode=True
     
     runner = AnalysisRunner()
-    report = runner.run_all_analyses(target_path, summary_mode, min_severity)
+    report = runner.run_all_analyses(args.target_path, summary_mode, args.min_severity)
     
-    # Output combined report with proper error handling for broken pipe
-    try:
-        print(json.dumps(report, indent=2))
-        sys.stdout.flush()
-    except BrokenPipeError:
-        # Handle broken pipe gracefully (e.g., when output is piped to head)
+    # Output based on format choice
+    if args.output_format == 'console':
+        # Simple console output for the combined report
+        print(f"=== COMPREHENSIVE ANALYSIS REPORT ===")
+        print(f"Target: {args.target_path}")
+        print(f"Timestamp: {report.get('timestamp', 'unknown')}")
+        print(f"Scripts run: {report.get('scripts_run', 0)}")
+        print(f"Success: {report.get('overall_success', False)}")
+        
+        # Show combined summary
+        summary = report.get('combined_summary', {})
+        total_findings = sum(summary.values())
+        print(f"Total findings: {total_findings}")
+        for severity in ['critical', 'high', 'medium', 'low', 'info']:
+            count = summary.get(severity, 0)
+            if count > 0:
+                print(f"  {severity.upper()}: {count}")
+    else:  # json (default)
+        # Output combined report with proper error handling for broken pipe
         try:
-            sys.stdout.close()
-        except:
-            pass
-        try:
-            sys.stderr.close()
-        except:
-            pass
+            print(json.dumps(report, indent=2))
+            sys.stdout.flush()
+        except BrokenPipeError:
+            # Handle broken pipe gracefully (e.g., when output is piped to head)
+            try:
+                sys.stdout.close()
+            except:
+                pass
+            try:
+                sys.stderr.close()
+            except:
+                pass
 
 if __name__ == "__main__":
     main()

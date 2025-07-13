@@ -7,12 +7,20 @@ Comprehensive system architecture evaluation combining automated analysis with d
 
 ### Automated Architecture Analysis
 Execute architecture analysis scripts via Bash tool for measurable design metrics:
+
+**Note**: LLM must locate the script installation directory dynamically using Glob tool to find script paths, then execute with correct absolute paths.
+
 ```bash
-# Architecture pattern and scalability analysis
-python claude/scripts/analyze/architecture/pattern_evaluation.py --target . --format json
-python claude/scripts/analyze/architecture/scalability_check.py --target . --format json
-python claude/scripts/analyze/architecture/coupling_analysis.py --target . --format json
+# Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/pattern_evaluation.py . --output-format json
+python [SCRIPT_PATH]/scalability_check.py . --output-format json
+python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
 ```
+
+**Script Location Process:**
+1. Use Glob tool to find script paths: `**/scripts/analyze/architecture/*.py`
+2. Verify script availability and determine correct absolute paths
+3. Execute scripts with resolved paths
 
 ### Architecture Assessment Areas
 - **Service Boundaries**: Microservice decomposition and responsibility definition

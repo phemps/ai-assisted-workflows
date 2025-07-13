@@ -86,8 +86,27 @@ The installer automatically detects existing `.claude` directories and the inter
 
 **Multi-Language Testing Framework Detection:**
 
-- `pytest` - Python testing framework detection and performance benchmarks
-- `pytest-cov` - Test coverage analysis across multiple programming languages
+- `pytest` - Python testing framework and coverage analysis
+- `pytest-cov` - Python test coverage measurement
+- `jest` - JavaScript/TypeScript testing framework and coverage
+- `nyc` - JavaScript/TypeScript code coverage tool
+- `c8` - JavaScript/TypeScript native V8 coverage
+- `jacoco` - Java code coverage library
+- `cobertura` - Java/C# XML-based coverage reporting
+- `go test` - Go built-in testing and coverage
+- `tarpaulin` - Rust code coverage tool
+- `grcov` - Rust coverage data collection
+- `coverlet` - .NET Core coverage framework
+- `dotcover` - JetBrains .NET coverage tool
+- `simplecov` - Ruby code coverage analysis
+- `phpunit` - PHP testing framework with coverage
+- `xdebug` - PHP debugger and coverage tool
+- `gcov` - GNU coverage testing tool (C/C++)
+- `lcov` - Linux Test Project coverage visualization
+- `llvm-cov` - LLVM coverage mapping tool
+- `swift test` - Swift package manager testing
+- `xccov` - Xcode command-line coverage tool
+- `kover` - Kotlin code coverage engine
 
 **Development Tools:**
 

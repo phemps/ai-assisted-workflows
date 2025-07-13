@@ -15,7 +15,7 @@ Transform your Claude Code experience with measurable, automated analysis across
 ### Prerequisites
 
 - **Python 3.7+** (automation scripts)
-- **Claude Code CLI**
+- **Claude Code CLI** (claude code base + mcp tools)
 - **Node.js** (any version, for MCP tools, optional)
 
 ### Recommended Optionals

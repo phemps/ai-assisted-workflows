@@ -28,10 +28,10 @@ Transform your Claude Code experience with measurable, automated analysis across
 ### Installation Options
 
 ```bash
-# Current directory (creates ./.claude/)
+# Current directory (uses ./.claude/)
 ./install.sh
 
-# User global (creates ~/.claude/)
+# User global (uses ~/.claude/)
 ./install.sh ~
 
 # Custom location

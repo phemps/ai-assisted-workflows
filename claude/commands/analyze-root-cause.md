@@ -31,7 +31,6 @@ Execute root cause analysis scripts via Bash tool for systematic investigation:
 python [SCRIPT_PATH]/trace_execution.py . --output-format json
 python [SCRIPT_PATH]/recent_changes.py . --output-format json
 python [SCRIPT_PATH]/error_patterns.py . --output-format json
-python [SCRIPT_PATH]/simple_trace.py . --output-format json
 ```
 
 **Script Location Process:**

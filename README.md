@@ -102,11 +102,16 @@ When Claude CLI is available, these MCP tools are automatically installed to enh
 
 ### Handling Existing Installations
 
-The installer automatically detects existing `.claude` directories and offers:
+The installer automatically detects existing `.claude` directories and offers four options:
 
-- **Backup & Replace:** Saves your old setup, installs fresh
-- **Merge:** Preserves customizations, adds new features
-- **Cancel:** Exit without changes
+1. **Fresh Install:** Backup existing and install fresh (complete replacement)
+2. **Merge:** Preserve user customizations while adding new features (no overwrites)
+3. **Update Workflows Only:** Update built-in commands and scripts while preserving custom commands and all other files (recommended for updates)
+4. **Cancel:** Exit without changes
+
+**Automatic Backup:** All installation options automatically create a timestamped backup of your existing installation before making any changes.
+
+**Smart Path Handling:** If you specify a path ending with `.claude` (e.g., `/path/to/.claude`), the installer uses that path directly instead of creating a nested `.claude/.claude` directory.
 
 ## 🎯 Commands Reference
 

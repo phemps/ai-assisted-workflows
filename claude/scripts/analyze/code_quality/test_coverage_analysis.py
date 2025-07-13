@@ -465,15 +465,35 @@ class TestCoverageAnalyzer:
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python test_coverage_analysis.py <target_path>", file=sys.stderr)
-        sys.exit(1)
+    import argparse
     
-    target_path = sys.argv[1]
+    parser = argparse.ArgumentParser(description='Analyze test coverage across multiple programming languages and frameworks')
+    parser.add_argument('target_path', help='Path to analyze')
+    parser.add_argument('--output-format', choices=['json', 'console'], 
+                       default='json', help='Output format (default: json)')
+    
+    args = parser.parse_args()
+    
     analyzer = TestCoverageAnalyzer()
-    result = analyzer.analyze(target_path)
+    result_dict = analyzer.analyze(args.target_path)
     
-    print(json.dumps(result, indent=2, default=str))
+    if args.output_format == 'console':
+        # Simple console output
+        if result_dict.get('success', False):
+            print(f"Test Coverage Analysis Results for: {args.target_path}")
+            print(f"Analysis Type: {result_dict.get('analysis_type', 'unknown')}")
+            print(f"Execution Time: {result_dict.get('execution_time', 0)}s")
+            print(f"\nFindings: {len(result_dict.get('findings', []))}")
+            for finding in result_dict.get('findings', []):
+                title = finding.get('title', 'Unknown')
+                description = finding.get('description', '')
+                severity = finding.get('severity', 'unknown')
+                print(f"  - {title}: {description} [{severity}]")
+        else:
+            error_msg = result_dict.get('error_message', 'Unknown error')
+            print(f"Error: {error_msg}")
+    else:  # json (default)
+        print(json.dumps(result_dict, indent=2, default=str))
 
 
 if __name__ == "__main__":

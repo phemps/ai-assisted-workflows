@@ -155,6 +155,23 @@ test_script "$SCRIPT_BASE/analyze/security/validate_inputs.py" \
     "validate_inputs.py" \
     "Input validation analysis"
 
+# Test newly migrated additional scripts
+test_script "$SCRIPT_BASE/analyze/security/detect_secrets.py" \
+    "detect_secrets.py" \
+    "Hardcoded secrets and credentials detection"
+
+test_script "$SCRIPT_BASE/analyze/root_cause/simple_trace.py" \
+    "simple_trace.py" \
+    "Simple execution tracing for root cause analysis"
+
+test_script "$SCRIPT_BASE/analyze/code_quality/test_coverage_analysis.py" \
+    "test_coverage_analysis.py" \
+    "Test coverage analysis across multiple languages"
+
+test_script "$SCRIPT_BASE/analyze/performance/performance_baseline.py" \
+    "performance_baseline.py" \
+    "Performance baseline establishment for refactoring"
+
 # Test migrated Run All Analysis script (special case - different output format)
 echo -e "${YELLOW}Testing: run_all_analysis.py${NC}"
 echo "Description: Comprehensive code analysis across multiple dimensions"

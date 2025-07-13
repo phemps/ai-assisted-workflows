@@ -89,7 +89,8 @@ Use Context7 to research and implement industry-proven refactoring patterns:
 **Automated Testing Plan:**
 ```bash
 # Example execution format (LLM will determine actual paths):
-# Note: Test coverage and performance baseline scripts require manual analysis
+python [SCRIPT_PATH]/test_coverage_analysis.py . --output-format json
+python [SCRIPT_PATH]/performance_baseline.py . --output-format json
 ```
 
 **Testing Framework:**

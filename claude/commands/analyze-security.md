@@ -14,6 +14,7 @@ Execute security analysis scripts via Bash tool for measurable vulnerability det
 
 ```bash
 # Example execution format (LLM will determine actual paths):
+python [SCRIPT_PATH]/detect_secrets.py . --output-format json
 python [SCRIPT_PATH]/scan_vulnerabilities.py . --output-format json  
 python [SCRIPT_PATH]/check_auth.py . --output-format json
 python [SCRIPT_PATH]/validate_inputs.py . --output-format json

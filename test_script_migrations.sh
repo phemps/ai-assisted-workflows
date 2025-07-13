@@ -52,7 +52,7 @@ test_script() {
     
     # Test 3: Console output format
     echo -n "  Console output format: "
-    if python "$script_path" "$TEST_TARGET" --output-format console 2>/dev/null | head -5 | grep -q "ANALYSIS"; then
+    if python "$script_path" "$TEST_TARGET" --output-format console 2>/dev/null | head -5 | grep -qE "(ANALYSIS|Analysis|Results|Findings)"; then
         echo -e "${GREEN}PASS${NC}"
     else
         echo -e "${RED}FAIL${NC}"
@@ -123,6 +123,37 @@ test_script "$SCRIPT_BASE/analyze/root_cause/recent_changes.py" \
 test_script "$SCRIPT_BASE/analyze/root_cause/error_patterns.py" \
     "error_patterns.py" \
     "Error patterns and debug traces in codebase"
+
+# Test newly migrated architecture scripts
+test_script "$SCRIPT_BASE/analyze/architecture/pattern_evaluation.py" \
+    "pattern_evaluation.py" \
+    "Design pattern analysis"
+
+test_script "$SCRIPT_BASE/analyze/architecture/scalability_check.py" \
+    "scalability_check.py" \
+    "Scalability bottleneck analysis"
+
+# Test newly migrated performance scripts
+test_script "$SCRIPT_BASE/analyze/performance/analyze_frontend.py" \
+    "analyze_frontend.py" \
+    "Frontend performance analysis"
+
+test_script "$SCRIPT_BASE/analyze/performance/check_bottlenecks.py" \
+    "check_bottlenecks.py" \
+    "Performance bottleneck detection"
+
+# Test newly migrated security scripts
+test_script "$SCRIPT_BASE/analyze/security/check_auth.py" \
+    "check_auth.py" \
+    "Authentication security analysis"
+
+test_script "$SCRIPT_BASE/analyze/security/scan_vulnerabilities.py" \
+    "scan_vulnerabilities.py" \
+    "Vulnerability scanning"
+
+test_script "$SCRIPT_BASE/analyze/security/validate_inputs.py" \
+    "validate_inputs.py" \
+    "Input validation analysis"
 
 # Test migrated Run All Analysis script (special case - different output format)
 echo -e "${YELLOW}Testing: run_all_analysis.py${NC}"

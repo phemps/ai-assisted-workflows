@@ -456,7 +456,7 @@ def main():
     parser.add_argument('target_path', help='Path to analyze')
     parser.add_argument('--min-severity', choices=['low', 'medium', 'high', 'critical'],
                        default='low', help='Minimum severity level to report')
-    parser.add_argument('--output-format', choices=['json', 'text'], 
+    parser.add_argument('--output-format', choices=['json', 'console'], 
                        default='json', help='Output format')
     
     args = parser.parse_args()
@@ -464,10 +464,8 @@ def main():
     analyzer = AuthSecurityAnalyzer()
     result = analyzer.analyze_auth_security(args.target_path, args.min_severity)
     
-    if args.output_format == 'json':
-        print(json.dumps(result, indent=2))
-    else:
-        # Simple text output
+    if args.output_format == 'console':
+        # Simple console output
         if result.get('success', False):
             print(f"Authentication Security Analysis Results for: {args.target_path}")
             print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
@@ -482,6 +480,8 @@ def main():
         else:
             error_msg = result.get('error_message', 'Unknown error')
             print(f"Error: {error_msg}")
+    else:  # json (default)
+        print(json.dumps(result, indent=2))
 
 
 if __name__ == '__main__':

@@ -15,3 +15,4 @@
 - feature pathing - show chain of events with params (input / output), test gaps, pattern deviation
 - review workflows for unneeded bloat and add rules to reduce output that isnt contributing to task execution, there are too many descriptive items without purpose added to generated files that just adds bloat. As an example in the analyze-security.md the symbols legend section, im not sure they are used or even useful over and above the severity levels section, feels superfluous.
 - add short, concise manual install steps to the installation section, where to copy things, commands to use to install mcp, commands to install dependencies
+- for all scripts with bash command calls to scripts, use the llm script path locator approach that used in the analyze-security.md

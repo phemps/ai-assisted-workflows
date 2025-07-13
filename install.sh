@@ -430,15 +430,15 @@ copy_files() {
             cp -r "$source_dir/claude/commands" "$INSTALL_DIR/"
             
             # Restore custom commands
-            for cmd in "${custom_commands[@]}"; do
-                if [[ -f "$INSTALL_DIR/commands/$cmd.custom_backup" ]]; then
-                    mv "$INSTALL_DIR/commands/$cmd.custom_backup" "$INSTALL_DIR/commands/$cmd"
-                    log_verbose "    Restored custom command: $cmd"
-                fi
-            done
-            
-            # Report preserved custom commands
             if [[ ${#custom_commands[@]} -gt 0 ]]; then
+                for cmd in "${custom_commands[@]}"; do
+                    if [[ -f "$INSTALL_DIR/commands/$cmd.custom_backup" ]]; then
+                        mv "$INSTALL_DIR/commands/$cmd.custom_backup" "$INSTALL_DIR/commands/$cmd"
+                        log_verbose "    Restored custom command: $cmd"
+                    fi
+                done
+                
+                # Report preserved custom commands
                 echo "    Preserved custom commands:"
                 for cmd in "${custom_commands[@]}"; do
                     echo "      - $cmd"

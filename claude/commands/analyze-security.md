@@ -27,12 +27,47 @@ python claude/scripts/analyze/security/validate_inputs.py --target . --format js
 - **Risk Assessment**: Identify assets, threats, vulnerabilities in business context
 - **Data Flow Security**: Analyze security between components and external interfaces
 
+### Security Coverage Gap Assessment & Autonomous Action
+- **Script vs. Codebase Reality Assessment**: Analyze script outputs against actual codebase architecture, technology stack, and implementation patterns to identify coverage gaps
+- **Technology-Specific Security Analysis**: Identify framework-specific security requirements not covered by generic scripts (e.g., Django CSRF middleware, React XSS protections, Express.js security headers, JWT implementation patterns)
+- **Business Logic Security Deep Dive**: Examine authorization flows, data access patterns, and privilege escalation paths that scripts cannot detect
+- **Infrastructure & Deployment Security**: Assess configuration files, environment variables, container security, and deployment patterns for security misconfigurations
+- **Autonomous Complementary Actions**: Perform additional security analysis tasks identified during gap assessment, including:
+  - Custom vulnerability pattern searches based on identified technology stack
+  - Configuration security validation for detected frameworks
+  - Data flow security analysis for identified sensitive data paths
+  - Authorization matrix validation for detected user roles and permissions
+
 ## Analysis Process
 1. **Run scripts** to identify measurable security issues
 2. **Analyze outputs** in context of business requirements  
-3. **Evaluate risks** through architectural review
-4. **Prioritize findings** by business impact and exploitability
-5. **Generate report** combining automated + contextual analysis
+3. **Security Coverage Gap Assessment & Autonomous Action** - Assess script effectiveness against codebase reality and perform complementary security analysis
+4. **Evaluate risks** through architectural review
+5. **Prioritize findings** by business impact and exploitability
+6. **Generate report** combining automated + contextual + autonomous analysis
+
+### Gap Assessment Instructions
+The LLM must autonomously:
+
+**Phase 3A: Coverage Gap Identification**
+- Compare script patterns against detected codebase patterns to identify blind spots
+- Identify technology stack specific security requirements (frameworks, libraries, patterns)
+- Assess script pattern effectiveness against actual code implementations
+- Document specific gaps between script objectives and codebase security reality
+
+**Phase 3B: Autonomous Security Actions**
+- Perform targeted Grep searches for technology-specific vulnerability patterns not covered by scripts
+- Analyze configuration files for security misconfigurations (docker, nginx, package.json, requirements.txt)
+- Examine environment variable usage and secret management patterns
+- Validate authorization and authentication implementation patterns against best practices
+- Search for business logic vulnerabilities in identified critical data flows
+- Assess API security implementations (rate limiting, input validation, output encoding)
+
+**Phase 3C: Enhanced Finding Generation**
+- Generate additional security findings from autonomous analysis
+- Correlate script findings with autonomous analysis results
+- Identify compound security risks not detectable by individual script analysis
+- Document technology-specific security recommendations
 
 ## Optional Flags
 --c7: Use when you need to verify your security implementations against current OWASP Top 10 guidelines and framework-specific security patterns (e.g., Django CSRF middleware configuration, Express.js helmet security headers)
@@ -46,6 +81,8 @@ python claude/scripts/analyze/security/validate_inputs.py --target . --format js
 
 ## Output Requirements
 - Risk-rated vulnerability report with script outputs
+- Coverage gap assessment with autonomous analysis results
+- Technology-specific security findings and recommendations
 - Contextual analysis with business impact assessment
 - Prioritized remediation roadmap with implementation guidance
 - Code examples and security control recommendations
@@ -53,9 +90,10 @@ python claude/scripts/analyze/security/validate_inputs.py --target . --format js
 ## Symbol Legend
 - 🤖 Automated script analysis
 - 🧠 LLM contextual analysis
+- 🔍 LLM autonomous gap assessment and action
 - 🚨 Critical security flaw requiring immediate attention
 - ⚠️ Security concern requiring assessment and remediation
 - ✅ Security control properly implemented
-- 🔍 Requires deeper investigation and analysis
+- 📋 Coverage gap identified requiring complementary analysis
 
 $ARGUMENTS

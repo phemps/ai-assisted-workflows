@@ -15,3 +15,4 @@
 - feature pathing - show chain of events with params (input / output), test gaps, pattern deviation
 - add rules to reduce output that isnt contributing to task execution, there are too many descriptive items without purpose added to generated files that just adds bloat.
 - ensure puppeter is not used anywhere in the framework
+- add short, concise manual install steps to the installation section, where to copy things, commands to use to install mcp, commands to install dependencies

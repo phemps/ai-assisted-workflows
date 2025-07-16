@@ -198,7 +198,7 @@ python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
 "Are you satisfied with this solution approach and ready to proceed with implementation? If yes, I'll transfer the implementation roadmap to your project's todo.md file for tracking."
 
 **If user confirms:**
-1. Check if `./docs/todo.md` exists
+1. Check if `./todos/todos.md` exists
 2. If it exists, append the implementation tasks from the roadmap
 3. If it doesn't exist, create it with the implementation tasks
 4. Format tasks as actionable items with clear deliverables

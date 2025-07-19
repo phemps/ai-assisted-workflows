@@ -1,4 +1,3 @@
-
 - review plan-solution.v0.7.md file
 - add the header comment in all the command files to include a label and versioning number as per the plan-solution-.v0.7.md file
 - add code templating system, global respoistory that defines the best practic approach for a given implementation of a technology, that has a header description and glob based file association. Then add a rule to claude.md that whenever context7 or other alternative to research best practices for a technology is used that part of the task must include adding a new template file to the global repository. The goal is that a tool research call should never happen more than once for a give technology as we should have a template file ready to use after the first instance. Also use claude.md to implement the glob based lookup when creating or editing files.

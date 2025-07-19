@@ -165,13 +165,15 @@ To safely remove Claude Code Workflows components while preserving your .claude 
 ```
 
 **Smart Uninstall Features:**
+
 - **📦 Safe Removal**: Only removes workflow components, preserves .claude structure and user files
 - **⚠️ Dependency Tracking**: Distinguishes pre-existing vs newly installed Python packages/MCP servers
 - **💾 Automatic Backups**: Creates backups of MCP configuration and claude.md before changes
-- **🧹 Thorough Cleanup**: Removes __pycache__ folders and empty directories
+- **🧹 Thorough Cleanup**: Removes **pycache** folders and empty directories
 - **📝 Installation Log**: Uses installation-log.txt to provide intelligent removal warnings
 
 The uninstaller will interactively prompt for each Python package and MCP server removal, showing whether each item was:
+
 - **🔧 Newly installed** by Claude Code Workflows (safer to remove)
 - **⚠️ Pre-existing** before installation (likely used by other projects - caution advised)
 
@@ -286,6 +288,71 @@ claude/scripts/analyze/
 | **Others**     | ⚠️ Basic detection       | ⚠️ Basic detection           | ❌                   | ✅ file pattern analysis |
 
 **Context7 Integration:** Use `--c7` flag with any analysis command for framework-specific best practices and contextually accurate language detection.
+
+## 🔧 Development Monitoring
+
+### Overview
+
+The `setup-dev-monitoring` command establishes comprehensive development monitoring infrastructure for any project structure through LLM-driven analysis and cross-platform automation. This workflow provides centralized logging, server start/stop control, and key event capture for LLM integration - inspired by @mitsuhiko's development workflow approach.
+
+### Key Benefits
+
+**Centralized Development Control:**
+
+- **Unified logging** - All development services (frontend, backend, databases) log to a single aggregated file
+- **Service orchestration** - Start/stop all development services with simple commands
+- **Status monitoring** - Quick health checks across all project components
+- **Event capture** - Key development events automatically formatted for LLM analysis
+
+**LLM Integration Advantages:**
+
+- **Context-rich debugging** - Claude can read unified logs to understand full system state
+- **Intelligent troubleshooting** - Complete request/response flows captured for analysis
+- **Automated issue detection** - Patterns across services identified through log analysis
+- **Streamlined workflows** - No need to manually gather logs from multiple terminals
+
+### Setup Process
+
+The setup command uses intelligent project analysis to automatically:
+
+1. **Discover project components** - Analyzes structure to identify all runnable services
+2. **Install monitoring dependencies** - Cross-platform installation of required tools
+3. **Generate orchestration files** - Creates Makefile and Procfile for service management
+4. **Configure log aggregation** - Sets up unified logging with service-specific labels
+5. **Validate setup** - Tests monitoring infrastructure before completion
+
+### Usage
+
+```bash
+# Setup monitoring for current project
+/setup-dev-monitoring
+```
+
+### Generated Commands added to project Claude.md
+
+After setup, your project gains these development commands:
+
+```bash
+# Start all development services with unified logging
+make dev
+
+# Access aggregated logs for debugging and LLM analysis
+make tail-log
+
+# Check service health and status
+make status
+
+# Stop all development services
+make stop
+
+# Code quality and testing
+make lint
+make test
+make format
+make clean
+```
+
+**Note:** Claude follows strict service management policies - it can read logs and check status, but users must manually run `make dev` and `make stop` commands for security.
 
 ## 🤝 Contributing
 

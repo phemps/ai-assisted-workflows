@@ -66,10 +66,18 @@ You are an expert product manager and UX/UI specialist with deep expertise in cr
      "brief_description": "string",
      "overview": "string",
      "features": {
-       "must_have": [{ "name": "string", "description": "string" }],
-       "should_have": [{ "name": "string", "description": "string" }],
-       "could_have": [{ "name": "string", "description": "string" }],
-       "wont_have": [{ "name": "string", "description": "string" }]
+       "must_have": [
+         { "ref": "string", "name": "string", "description": "string" }
+       ],
+       "should_have": [
+         { "ref": "string", "name": "string", "description": "string" }
+       ],
+       "could_have": [
+         { "ref": "string", "name": "string", "description": "string" }
+       ],
+       "wont_have": [
+         { "ref": "string", "name": "string", "description": "string" }
+       ]
      },
      "personas": [
        {
@@ -93,17 +101,4 @@ You are an expert product manager and UX/UI specialist with deep expertise in cr
    - [ ] User personas include screen usage patterns
    - [ ] UX specifications detailed enough for design teams
 
-**STOP** → "PRD generated with quality validation complete. Ready to transfer implementation tasks to todos.md? (y/n)"
-
-6. **Task Transfer to Implementation Tracking**
-   - Check if `./todos/todos.md` exists
-   - Append implementation tasks:
-     - [ ] Design core screen architecture following PRD specifications
-     - [ ] Create wireframes for Must Have features with UX flow validation
-     - [ ] Develop design system components per PRD guidelines
-     - [ ] Design user onboarding experience flows
-     - [ ] Create mockups for Should Have features based on priority
-     - [ ] Conduct usability testing against PRD requirements
-     - [ ] Validate accessibility compliance per specified standards
-
-**STOP** → "Implementation tasks transferred to todos.md. PRD creation workflow complete."
+**STOP** → "PRD generated with quality validation complete."

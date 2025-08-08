@@ -1,0 +1,94 @@
+{{ header }}
+// File: {{ file.path }}
+// Kind: {{ file.kind }}
+// Stack: nextjs-app-router
+
+import { NextResponse } from 'next/server'
+
+{# Optional guidance toggles come from file.options; safe defaults if absent #}
+{% set opts = file.options | default({}) %}
+{% set use_zod = opts.validation == 'zod' %}
+{% set use_next_auth = opts.auth == 'next-auth' %}
+{% set use_queue = opts.queue in ['cloudflare-queues', 'queue'] %}
+
+{% for fn in file.functions %}
+/**
+ * Handler: {{ fn.name }} (id: {{ fn.id }})
+ * Requirements: {{ fn.requirements | join(', ') }}
+ * Description: {{ fn.description }}
+ * Calls: {{ fn.calls | join(' -> ') }}
+ */
+export async function {{ fn.name }}(req: Request) {
+  // BEGIN-IMPL (keep)
+  {% if stub_level == 0 %}
+  // TODO: parse request and delegate to service layer
+  {% elif stub_level == 1 %}
+  // TODO: Steps (Non-optional checklist)
+  // - ADVICE:API:BASE: Parse request body (JSON/form) and validate minimally
+  // - ADVICE:API:BASE: Enforce auth if required by PRD/constraints
+  // - ADVICE:API:BASE: Call service layer (do not implement business logic here)
+  // - ADVICE:API:BASE: Map errors to stable codes; no stack traces in responses
+  // - ADVICE:API:BASE: Emit structured log with correlation id; no PII in logs
+  {% else %}
+  // PSEUDOCODE
+  // const body = await req.json()
+  // const result = await createUser(body)
+  // return NextResponse.json(result)
+  {% endif %}
+
+  {% if stub_level > 0 and not use_zod and not use_next_auth and not use_queue %}
+  // Options (choose before implementation to enable richer guidance):
+  // - validation: 'zod' | 'none'
+  // - auth: 'next-auth' | 'none'
+  // - queue: 'cloudflare-queues' | 'none'
+  // Add to file.options to activate. Example:
+  // file.options = { validation: 'zod', auth: 'next-auth', queue: 'cloudflare-queues' }
+  {% endif %}
+
+  {# Optional guidance: Zod input validation #}
+  {% if stub_level > 0 and use_zod %}
+  // ADVICE:API:INPUT:ZOD (when chosen)
+  // - Import a shared Zod schema for this route; infer type for handler input
+  // - On parse error: return 400 with shape { error: { code: 'INVALID_INPUT', details } }
+  // - Sanitize fields (e.g., trim URL) before service call
+  // - Test seam: invalid payload returns 400 with details
+  // Suggested imports (uncomment when implementing):
+  // import { z } from 'zod'
+  // import { ScanRequestSchema } from '@/schemas/scan'
+  // const body = await req.json();
+  // const parsed = ScanRequestSchema.safeParse(body)
+  // if (!parsed.success) {
+  //   return NextResponse.json({ error: { code: 'INVALID_INPUT', details: parsed.error.issues } }, { status: 400 })
+  // }
+  {% endif %}
+
+  {# Optional guidance: NextAuth authentication #}
+  {% if stub_level > 0 and use_next_auth %}
+  // ADVICE:API:AUTH:NEXTAUTH (when chosen)
+  // - Require authenticated user before proceeding
+  // - On missing session: return 401 without leaking details
+  // - Include user id in logs/trace; do not include email/PII
+  // Suggested imports (uncomment when implementing):
+  // import { auth } from '@/auth' // wrapper around getServerSession
+  // const session = await auth()
+  // if (!session?.user?.id) {
+  //   return NextResponse.json({ error: { code: 'UNAUTHENTICATED' } }, { status: 401 })
+  // }
+  {% endif %}
+
+  {# Optional guidance: enqueue background job via Cloudflare Queues #}
+  {% if stub_level > 0 and use_queue %}
+  // ADVICE:API:QUEUE:CLOUDFLARE (when chosen)
+  // - Generate correlation/idempotency keys; enqueue job; return 202 Accepted
+  // - Consumer should implement retry/backoff and poison handling
+  // - Log trace-id and enqueue result for observability
+  // Suggested pattern:
+  // const correlationId = crypto.randomUUID()
+  // await enqueueScan({ ...parsed.data, correlationId })
+  // return NextResponse.json({ accepted: true, correlationId }, { status: 202 })
+  {% endif %}
+
+  // END-IMPL
+  return NextResponse.json({ ok: true })
+}
+{% endfor %}

@@ -1,0 +1,62 @@
+{{ header }}
+// File: {{ file.path }}
+// Kind: {{ file.kind }}
+// Stack: nextjs-app-router
+
+// Imports (deterministic, example placeholders)
+// import { insertUser } from "@/repo/user";
+// import { enqueueWelcome } from "@/services/notifications";
+
+{# Optional guidance toggles #}
+{% set opts = file.options | default({}) %}
+{% set idempotent = opts.idempotency == 'on' %}
+{% set telemetry = opts.telemetry in ['posthog', 'basic'] %}
+{% set retries = opts.retries in ['exponential', 'none'] %}
+
+{% for fn in file.functions %}
+/**
+ * Function: {{ fn.name }} (id: {{ fn.id }})
+ * Requirements: {{ fn.requirements | join(', ') }}
+ * Description: {{ fn.description }}
+ * Calls: {{ fn.calls | join(' -> ') }}
+ */
+export {% if fn.signature.async_fn %}async {% endif %}function {{ fn.name }}({% for p in fn.signature.params %}{{ p.name }}: {{ p.type }}{% if not loop.last %}, {% endif %}{% endfor %}): {{ fn.signature.returns or 'void' }} {
+  // BEGIN-IMPL (keep)
+  {% if stub_level == 0 %}
+  // TODO: implement (see PRD)
+  {% elif stub_level == 1 %}
+  // TODO: Steps (Non-optional checklist)
+  // - ADVICE:SVC:BASE: Validate inputs; do not trust caller
+  // - ADVICE:SVC:BASE: Keep business logic here, keep route handlers thin
+  // - ADVICE:SVC:BASE: Define error taxonomy; map infra errors to domain errors
+  // - ADVICE:SVC:BASE: Avoid PII in logs; include correlation id if available
+  {% else %}
+  // PSEUDOCODE
+  // validate(input)
+  // const user = await insertUser(input)
+  // await enqueueWelcome(user)
+  // return user
+  {% endif %}
+
+  {% if stub_level > 0 and idempotent %}
+  // ADVICE:SVC:IDEMPOTENCY (when chosen)
+  // - Compute idempotency key from request (e.g., canonical URL) and short TTL cache
+  // - Return previous result on duplicate within TTL
+  // - Use fine-grained keys to avoid over-coalescing
+  {% endif %}
+
+  {% if stub_level > 0 and retries == 'exponential' %}
+  // ADVICE:SVC:RETRY (when chosen)
+  // - Retry transient errors with exponential backoff and jitter; cap max attempts
+  // - Do not retry on validation/auth/domain errors
+  {% endif %}
+
+  {% if stub_level > 0 and telemetry %}
+  // ADVICE:SVC:OBS (when chosen)
+  // - Emit structured logs (start/end, duration, outcome)
+  // - Optionally track PostHog events (no PII)
+  // Example: posthog.capture('scan_started', { correlationId })
+  {% endif %}
+  // END-IMPL
+}
+{% endfor %}

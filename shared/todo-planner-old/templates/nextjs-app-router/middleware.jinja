@@ -1,0 +1,25 @@
+{{ header }}
+// Kind: middleware
+// Stack: nextjs-app-router
+
+{% set opts = file.options | default({}) %}
+{% set rate_limit = opts.rate_limit in ['ip', 'user'] %}
+{% set sec_headers = opts.security_headers == 'on' %}
+
+export function middleware(request) {
+  // BEGIN-IMPL (keep)
+  // TODO: Base
+  // - ADVICE:MID:BASE: Keep lightweight; avoid heavy work in middleware
+  // - ADVICE:MID:BASE: Consider auth gate for protected paths
+  {% if rate_limit %}
+  // ADVICE:MID:RATE (when chosen)
+  // - Apply simple {{ opts.rate_limit }} rate limit with safe defaults
+  // - Use stable keys (ip or user id) and reasonable limits
+  {% endif %}
+  {% if sec_headers %}
+  // ADVICE:MID:HEADERS (when chosen)
+  // - Set security headers (CSP, Referrer-Policy, X-Frame-Options)
+  // - Ensure compatibility with Next.js App Router
+  {% endif %}
+  // END-IMPL
+}

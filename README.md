@@ -1,11 +1,11 @@
-# Claude Code Workflows
+# AI Assisted Workflows
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)
 ![Python](https://img.shields.io/badge/python-3.7%2B-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-> **Hybrid AI-Automation System for Claude Code**
+> **Hybrid AI-Automation System for AI Assisted Coding workflows **
 > Specialized workflow commands + LLM actions + Python analysis scripts = multi-function, just-in-time development automation
 
 ## 📋 TL;DR
@@ -136,15 +136,9 @@ See [detailed documentation](docs/detailed-documentation.md) for complete comman
 
 The `wip-workflows/` directory contains experimental workflow agents I'm testing. These aren't production-ready but shared for experimentation:
 
-- `delivery-manager.md` - Project coordination and tracking
-- `solution-architect.md` - Architecture design and tech stack selection
-- `product-manager.md` - User-centered design and requirements
-- `ux-designer.md` - UI/UX design and accessibility
-- `mobile-developer.md` - Cross-platform mobile development
-- `web-developer.md` - Web feature implementation
-- `qa-analyst.md` - Comprehensive testing specialist
-- `security-architect.md` - Security best practices and reviews
-- `user-researcher.md` - Persona development and behavioral analysis
+- `todo-planner` - programmatic project structure stubbing through jinja templates to reduce issues with duplicated overlapping code, poor quality standard adhesion and implementation of best practices - thats light touch as possible.
+- `opencode` - migrating current workflows to claude code
+- `platform agnostic templating` - working on centralising the underlying prompts with templates to create instances for your desired tool i.e. claude code, opencode etc, saves duplicating the workflows, and makes rolling out to new plaforms easier.
 
 Feel free to explore and adapt these for your own experimentation.
 

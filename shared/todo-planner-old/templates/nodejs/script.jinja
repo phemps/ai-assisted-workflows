@@ -1,0 +1,44 @@
+{{ header }}
+// File: {{ file.path }}
+// Kind: {{ file.kind }}
+// Stack: nodejs
+
+// Purpose: Generic Node.js script/module. Keep orchestration light; delegate logic to services.
+// Conventions:
+// - ESM by default; use async/await; prefer undici/fetch for HTTP.
+// - Structured logs (no PII); stable exit codes; handle signals (SIGINT/SIGTERM).
+// - Timeouts and cancellation; avoid unbounded concurrency.
+
+{% for fn in file.functions %}
+/**
+ * Function: {{ fn.name }} (id: {{ fn.id }})
+ * Requirements: {{ fn.requirements | join(', ') }}
+ * Description: {{ fn.description }}
+ */
+export {% if fn.signature.async_fn %}async {% endif %}function {{ fn.name }}({% for p in fn.signature.params %}{{ p.name }}: {{ p.type }}{% if not loop.last %}, {% endif %}{% endfor %}): {{ fn.signature.returns or 'void' }} {
+  // BEGIN-IMPL (keep)
+  {% if stub_level == 0 %}
+  // TODO: Implement per PRD. Keep I/O and process concerns here; delegate business logic.
+  {% elif stub_level == 1 %}
+  // TODO: Base checklist
+  // - NODE:BASE: Parse args/env (prefer small config object)
+  // - NODE:BASE: Set timeouts; propagate AbortSignal to downstream calls
+  // - NODE:BASE: Structured logging (start/end, duration, outcome); no PII
+  // - NODE:BASE: Stable error mapping; set appropriate exit codes if CLI
+  {% else %}
+  // PSEUDOCODE
+  // const ac = new AbortController();
+  // const started = Date.now();
+  // try {
+  //   // Do work (delegate to services)
+  //   // await doWork({ signal: ac.signal })
+  //   // log({ level: 'info', msg: 'done', ms: Date.now() - started })
+  //   return;
+  // } catch (err) {
+  //   // log({ level: 'error', code: 'UNEXPECTED', err })
+  //   throw err;
+  // }
+  {% endif %}
+  // END-IMPL
+}
+{% endfor %}

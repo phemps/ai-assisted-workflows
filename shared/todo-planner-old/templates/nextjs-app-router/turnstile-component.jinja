@@ -1,0 +1,15 @@
+{{ header }}
+// Kind: turnstile-component
+// Stack: nextjs-app-router
+
+'use client';
+import React from 'react';
+
+export default function Turnstile({ siteKey }) {
+  // BEGIN-IMPL (keep)
+  // TODO: Wire up Cloudflare Turnstile client rendering and token callback
+  return (
+    <div data-turnstile data-sitekey={siteKey} />
+  );
+  // END-IMPL
+}

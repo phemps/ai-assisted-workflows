@@ -1,0 +1,322 @@
+// {{ file.path }} - PostHog Server-Side Tracking
+// Generated from PRD requirements
+{% if file.options.nextjs %}
+// ADVICE: Use this for server-side tracking in Next.js API routes and Server Components
+{% endif %}
+{% if file.options.privacy %}
+// ADVICE: Server-side tracking allows better control over data collection and privacy
+{% endif %}
+
+import { PostHog } from 'posthog-node';
+
+// Server-side PostHog client configuration
+const postHogConfig = {
+  host: process.env.POSTHOG_HOST || 'https://us.i.posthog.com',
+  flushAt: 20, // Flush events after 20 are queued
+  flushInterval: 10000, // Flush events after 10 seconds
+};
+
+let postHogInstance: PostHog | null = null;
+
+{% for function in functions %}
+{% if 'init' in function.name.lower() or 'setup' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export function {{ function.name }}(): PostHog {
+  if (!postHogInstance) {
+    const apiKey = process.env.POSTHOG_API_KEY;
+
+    if (!apiKey) {
+      throw new Error('POSTHOG_API_KEY environment variable is required for server-side tracking');
+    }
+
+    postHogInstance = new PostHog(apiKey, postHogConfig);
+
+    // Handle graceful shutdown
+    process.on('SIGINT', () => shutdownPostHog());
+    process.on('SIGTERM', () => shutdownPostHog());
+  }
+
+  return postHogInstance;
+}
+
+{% elif 'capture' in function.name.lower() or 'track' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export async function {{ function.name }}(
+  distinctId: string,
+  eventName: string,
+  properties?: Record<string, any>,
+  options?: {
+    timestamp?: Date;
+    {% if file.options.privacy %}
+    sanitize?: boolean;
+    {% endif %}
+  }
+): Promise<void> {
+  const client = getServerPostHog();
+
+  {% if file.options.privacy %}
+  const eventProperties = options?.sanitize !== false
+    ? sanitizeServerEventData(properties || {})
+    : properties || {};
+  {% else %}
+  const eventProperties = properties || {};
+  {% endif %}
+
+  // Add server-side context
+  const enrichedProperties = {
+    ...eventProperties,
+    $lib: 'posthog-node',
+    server_timestamp: new Date().toISOString(),
+    ...(options?.timestamp && { timestamp: options.timestamp.toISOString() }),
+  };
+
+  client.capture({
+    distinctId,
+    event: eventName,
+    properties: enrichedProperties,
+  });
+
+  // Optional: Force flush for critical events
+  if (eventName.includes('error') || eventName.includes('conversion')) {
+    await client.flush();
+  }
+}
+
+{% elif 'identify' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export async function {{ function.name }}(
+  distinctId: string,
+  properties?: Record<string, any>
+): Promise<void> {
+  const client = getServerPostHog();
+
+  {% if file.options.privacy %}
+  const userProperties = sanitizeServerUserData(properties || {});
+  {% else %}
+  const userProperties = properties || {};
+  {% endif %}
+
+  client.identify({
+    distinctId,
+    properties: {
+      ...userProperties,
+      $set: userProperties, // PostHog person properties
+      server_identified: true,
+      identified_at: new Date().toISOString(),
+    },
+  });
+}
+
+{% elif 'alias' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export async function {{ function.name }}(
+  distinctId: string,
+  alias: string
+): Promise<void> {
+  const client = getServerPostHog();
+
+  client.alias({
+    distinctId,
+    alias,
+  });
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Utility functions
+export function getServerPostHog(): PostHog {
+  if (!postHogInstance) {
+    return initPostHog();
+  }
+  return postHogInstance;
+}
+
+// Server-side event tracking helpers
+export async function trackServerEvent(
+  userId: string,
+  eventName: string,
+  properties?: Record<string, any>
+): Promise<void> {
+  await captureServerEvent(userId, eventName, properties);
+}
+
+export async function trackAPIRequest(
+  userId: string | undefined,
+  endpoint: string,
+  method: string,
+  statusCode: number,
+  duration: number
+): Promise<void> {
+  const distinctId = userId || 'anonymous';
+
+  await captureServerEvent(distinctId, 'api request completed', {
+    endpoint,
+    method: method.toUpperCase(),
+    status_code: statusCode,
+    duration_ms: duration,
+    success: statusCode < 400,
+  });
+}
+
+export async function trackUserRegistration(
+  userId: string,
+  registrationMethod: string,
+  userProperties?: Record<string, any>
+): Promise<void> {
+  // First identify the user
+  await identifyServerUser(userId, {
+    registration_method: registrationMethod,
+    registered_at: new Date().toISOString(),
+    ...userProperties,
+  });
+
+  // Then track the registration event
+  await captureServerEvent(userId, 'user registered', {
+    registration_method: registrationMethod,
+  });
+}
+
+export async function trackConversion(
+  userId: string,
+  conversionType: string,
+  value?: number,
+  currency?: string
+): Promise<void> {
+  await captureServerEvent(userId, 'conversion completed', {
+    conversion_type: conversionType,
+    ...(value && { revenue: value }),
+    ...(currency && { currency }),
+    converted_at: new Date().toISOString(),
+  });
+}
+
+// Batch tracking for high-volume events
+export async function trackBatch(
+  events: Array<{
+    distinctId: string;
+    event: string;
+    properties?: Record<string, any>;
+  }>
+): Promise<void> {
+  const client = getServerPostHog();
+
+  events.forEach(({ distinctId, event, properties }) => {
+    {% if file.options.privacy %}
+    const sanitizedProperties = sanitizeServerEventData(properties || {});
+    {% else %}
+    const sanitizedProperties = properties || {};
+    {% endif %}
+
+    client.capture({
+      distinctId,
+      event,
+      properties: {
+        ...sanitizedProperties,
+        batch_processed: true,
+        server_timestamp: new Date().toISOString(),
+      },
+    });
+  });
+
+  // Flush immediately for batch operations
+  await client.flush();
+}
+
+// Feature flag evaluation (server-side)
+export async function isFeatureEnabled(
+  distinctId: string,
+  featureKey: string,
+  defaultValue: boolean = false
+): Promise<boolean> {
+  const client = getServerPostHog();
+
+  try {
+    return await client.isFeatureEnabled(featureKey, distinctId, {
+      sendFeatureFlagEvents: true,
+    }) || defaultValue;
+  } catch (error) {
+    console.warn(`Failed to evaluate feature flag ${featureKey}:`, error);
+    return defaultValue;
+  }
+}
+
+{% if file.options.privacy %}
+// Server-side privacy utilities
+function sanitizeServerEventData(data: Record<string, any>): Record<string, any> {
+  const piiFields = [
+    'email', 'phone', 'name', 'address', 'ssn', 'password',
+    'credit_card', 'bank_account', 'ip_address', 'user_agent'
+  ];
+
+  const sanitized = { ...data };
+
+  piiFields.forEach(field => {
+    if (field in sanitized) {
+      delete sanitized[field];
+    }
+  });
+
+  return sanitized;
+}
+
+function sanitizeServerUserData(userData: Record<string, any>): Record<string, any> {
+  // Server-side user properties - be more restrictive
+  const allowedFields = [
+    'subscription_tier', 'plan', 'role', 'created_at', 'last_seen',
+    'feature_flags', 'experiment_groups', 'subscription_status',
+    'registration_method', 'verified'
+  ];
+
+  const sanitized: Record<string, any> = {};
+
+  allowedFields.forEach(field => {
+    if (field in userData) {
+      sanitized[field] = userData[field];
+    }
+  });
+
+  return sanitized;
+}
+{% endif %}
+
+// Graceful shutdown
+export async function shutdownPostHog(): Promise<void> {
+  if (postHogInstance) {
+    console.log('Shutting down PostHog client...');
+    await postHogInstance.shutdown();
+    postHogInstance = null;
+  }
+}
+
+// Health check
+export function getPostHogHealth(): { initialized: boolean; apiKey: boolean } {
+  return {
+    initialized: postHogInstance !== null,
+    apiKey: !!process.env.POSTHOG_API_KEY,
+  };
+}
+
+// TypeScript types
+export interface ServerEventOptions {
+  timestamp?: Date;
+  {% if file.options.privacy %}
+  sanitize?: boolean;
+  {% endif %}
+}
+
+export interface BatchEvent {
+  distinctId: string;
+  event: string;
+  properties?: Record<string, any>;
+}
+
+export interface ConversionEvent {
+  userId: string;
+  conversionType: string;
+  value?: number;
+  currency?: string;
+}

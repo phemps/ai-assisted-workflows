@@ -60,7 +60,7 @@ def determine_file_kind(file_path: str, stack_profile: str) -> str:
 
     # Pages/components (frontend)
     if "page" in path_lower or "component" in path_lower:
-        if "nextjs" in stack_profile:
+        if "next" in stack_profile:
             return "page"
         else:
             return "component"
@@ -89,6 +89,138 @@ def determine_file_kind(file_path: str, stack_profile: str) -> str:
     return "module"
 
 
+def infer_function_purpose(name: str, description: str) -> str:
+    """Infer the semantic purpose of a function from its name and description."""
+    combined = f"{name} {description}".lower()
+
+    # Authentication purposes
+    if any(word in combined for word in ["signin", "login", "authenticate", "auth"]):
+        return "user_authentication"
+    elif any(word in combined for word in ["signup", "register", "create_user"]):
+        return "user_registration"
+    elif any(word in combined for word in ["signout", "logout", "sign_out"]):
+        return "user_logout"
+    elif any(word in combined for word in ["verify", "confirm", "validate_email"]):
+        return "email_verification"
+
+    # Scan purposes
+    elif (
+        any(word in combined for word in ["submit", "create", "start"])
+        and "scan" in combined
+    ):
+        return "scan_submission"
+    elif any(word in combined for word in ["get", "fetch", "retrieve"]) and any(
+        w in combined for w in ["scan", "result", "report"]
+    ):
+        return "scan_retrieval"
+    elif (
+        any(word in combined for word in ["check", "validate"]) and "quota" in combined
+    ):
+        return "quota_checking"
+    elif "status" in combined and "scan" in combined:
+        return "scan_status_check"
+
+    # Report purposes
+    elif (
+        any(word in combined for word in ["generate", "create", "build"])
+        and "report" in combined
+    ):
+        return "report_generation"
+    elif any(word in combined for word in ["get", "fetch"]) and "report" in combined:
+        return "report_retrieval"
+
+    # Storage purposes
+    elif any(word in combined for word in ["upload", "store", "save"]) and any(
+        w in combined for w in ["file", "artifact", "asset"]
+    ):
+        return "file_storage"
+    elif any(word in combined for word in ["delete", "remove"]) and any(
+        w in combined for w in ["file", "artifact"]
+    ):
+        return "file_deletion"
+
+    # Scheduling purposes
+    elif any(word in combined for word in ["schedule", "queue"]) and "scan" in combined:
+        return "scan_scheduling"
+
+    # Generic CRUD operations
+    elif any(word in combined for word in ["create", "insert", "add"]):
+        return "data_creation"
+    elif any(word in combined for word in ["update", "modify", "edit"]):
+        return "data_update"
+    elif any(word in combined for word in ["delete", "remove", "destroy"]):
+        return "data_deletion"
+    elif any(word in combined for word in ["get", "fetch", "retrieve", "find"]):
+        return "data_retrieval"
+    elif any(word in combined for word in ["list", "all", "many"]):
+        return "data_listing"
+
+    return f"unknown_{name.lower()}"
+
+
+def get_existing_functions_by_purpose(manifest: Dict, project_dir) -> Dict[str, Dict]:
+    """Get all existing functions grouped by their inferred purpose."""
+    purposes = {}
+
+    # Check manifest files
+    for file_info in manifest.get("files", []):
+        for func in file_info.get("functions", []):
+            purpose = infer_function_purpose(
+                func.get("name", ""), func.get("description", "")
+            )
+            if purpose not in purposes:
+                purposes[purpose] = {
+                    "name": func.get("name"),
+                    "file": file_info.get("path"),
+                    "description": func.get("description", ""),
+                }
+
+    # Also scan existing files if project structure map exists
+    map_path = project_dir / "complete_project_map.json"
+    if map_path.exists():
+        # Add functions from existing files (would need to parse actual files for this)
+        pass
+        # For now, just use what's in the manifest
+
+    return purposes
+
+
+def get_correct_file_path(manifest: Dict, file_path: str, file_kind: str) -> str:
+    """Get the correct file path based on project structure map."""
+    from pathlib import Path
+
+    project_dir = Path(manifest.get("metadata", {}).get("project_directory", "."))
+    structure_map_path = project_dir / "project_structure_map.json"
+
+    if structure_map_path.exists():
+        with open(structure_map_path) as f:
+            structure_map = json.load(f)
+
+        placement_rules = structure_map.get("file_placement_rules", {})
+
+        # Determine the base path from the file kind
+        if file_kind in placement_rules:
+            base_path = placement_rules[file_kind]
+            # Extract just the filename from the provided path
+            file_name = Path(file_path).name
+            # For routes, preserve subdirectory structure
+            if file_kind == "api-route" and "/" in file_path:
+                # Keep subdirectory structure for API routes
+                parts = file_path.split("/")
+                if "api" in parts:
+                    idx = parts.index("api")
+                    subpath = "/".join(parts[idx + 1 :])
+                    return f"{base_path}/{subpath}"
+            elif file_kind == "page" and "[" in file_path:
+                # Keep dynamic route structure for pages
+                parts = file_path.split("/")
+                if len(parts) > 1:
+                    return f"{base_path}/{'/'.join(parts[-2:])}"
+            return f"{base_path}/{file_name}"
+
+    return file_path
+
+
 def add_file(
     manifest: Dict,
     file_path: str,
@@ -103,6 +235,28 @@ def add_file(
     if file_kind is None:
         stack_profile = manifest.get("project", {}).get("stack_profile", "")
         file_kind = determine_file_kind(file_path, stack_profile)
+
+    # Get the correct file path based on structure map
+    corrected_path = get_correct_file_path(manifest, file_path, file_kind)
+    if corrected_path != file_path:
+        print(f"📍 Corrected path: {file_path} → {corrected_path}")
+        file_path = corrected_path
+
+    # Check for functional duplicates in existing functions
+    from pathlib import Path
+
+    project_dir = Path(manifest.get("metadata", {}).get("project_directory", "."))
+    existing_functions = get_existing_functions_by_purpose(manifest, project_dir)
+    for func_spec in functions:
+        func_purpose = infer_function_purpose(
+            func_spec.get("name", ""), func_spec.get("description", "")
+        )
+        if func_purpose in existing_functions:
+            existing = existing_functions[func_purpose]
+            print(
+                f"⚠️  Function '{func_spec['name']}' may duplicate existing function '{existing['name']}' in {existing['file']}"
+            )
+            print(f"    Both handle: {func_purpose}")
 
     # Parse function specifications
     parsed_functions = []

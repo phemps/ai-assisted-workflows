@@ -73,14 +73,17 @@ Use the `/plan-implementation-skeleton` slash command for full LLM-orchestrated 
 
 ## Supported Tech Stacks
 
-Based on better-t-stack options:
+Based on better-t-stack options (as of 2025):
 
-- **Web Frontend**: nextjs, tanstack-router, react-router, svelte, solid
+- **Web Frontend**: tanstack-router, react-router, tanstack-start-vite, nextjs, nuxt, svelte, solid
+- **Native Frontend**: react-native-nativewind, react-native-unistyles
 - **Backend**: hono, nextjs, elysia, express, fastify, convex
 - **Runtime**: bun, nodejs, cloudflare-workers
 - **Database**: sqlite, postgresql, mysql, mongodb
 - **ORM**: drizzle, prisma, mongoose
-- **Auth**: better-auth
+- **Database Setup**: turso, cloudflare-d1, neon-postgres, prisma-postgresql, supabase, mongodb-atlas, docker, basic-setup
+- **Web Deploy**: cloudflare-workers
+- **API**: trpc, orpc
 
 ### Command Line (Individual Scripts)
 

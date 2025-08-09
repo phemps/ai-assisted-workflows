@@ -1,0 +1,124 @@
+// {{ file.path }} - Convex Authentication Helpers
+// Generated from PRD requirements
+{% if file.options.clerk %}
+// ADVICE: Configure Clerk integration for authentication
+{% endif %}
+{% if file.options.multi_tenant %}
+// ADVICE: Implement tenant isolation for SaaS applications
+{% endif %}
+
+import type { Auth } from "convex/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+
+{% for function in functions %}
+{% if 'auth' in function.name.lower() or 'require' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export async function {{ function.name }}(ctx: { auth: Auth }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthorized");
+  }
+  return identity;
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Required authentication middleware
+export async function requireAuth(ctx: { auth: Auth }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthorized");
+  }
+  return identity;
+}
+
+{% if file.options.multi_tenant %}
+// Get current tenant (adapt field name to your model: getCurrentUser, getCurrentOrganization)
+export async function getCurrentTenant(ctx: QueryCtx | MutationCtx) {
+  const identity = await requireAuth(ctx);
+  const tenant = await ctx.db
+    .query("tenants")
+    .withIndex("by_auth_id", (q) => q.eq("authId", identity.subject))
+    .first();
+
+  if (!tenant) {
+    throw new Error("Tenant not found");
+  }
+
+  return tenant;
+}
+
+// Verify tenant ownership of a resource
+export async function verifyTenantAccess<T extends { tenantId?: string }>(
+  ctx: QueryCtx | MutationCtx,
+  resource: T | null
+): Promise<T> {
+  if (!resource) {
+    throw new Error("Resource not found");
+  }
+
+  const tenant = await getCurrentTenant(ctx);
+
+  if (resource.tenantId !== tenant._id) {
+    throw new Error("Access denied - resource belongs to different tenant");
+  }
+
+  return resource;
+}
+{% endif %}
+
+// Get user profile information
+export async function getUserProfile(ctx: QueryCtx | MutationCtx) {
+  const identity = await requireAuth(ctx);
+
+  // TODO: Implement user profile lookup
+  // This might query a users table or use identity fields directly
+  return {
+    id: identity.subject,
+    name: identity.name,
+    email: identity.email,
+    pictureUrl: identity.pictureUrl,
+  };
+}
+
+// Check if user has specific permissions
+export async function hasPermission(
+  ctx: QueryCtx | MutationCtx,
+  permission: string
+): Promise<boolean> {
+  const identity = await requireAuth(ctx);
+
+  // TODO: Implement permission checking logic
+  // This might check roles, permissions, or tenant-specific access
+  console.log(`Checking permission ${permission} for user ${identity.subject}`);
+
+  return true; // Placeholder - implement actual permission logic
+}
+
+// Custom error types for better error handling
+export class UnauthorizedError extends Error {
+  constructor(message = "Unauthorized access") {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
+
+export class ForbiddenError extends Error {
+  constructor(message = "Insufficient permissions") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
+{% if file.options.multi_tenant %}
+export class TenantNotFoundError extends Error {
+  constructor(tenantId?: string) {
+    super(`Tenant not found${tenantId ? `: ${tenantId}` : ''}`);
+    this.name = "TenantNotFoundError";
+  }
+}
+{% endif %}

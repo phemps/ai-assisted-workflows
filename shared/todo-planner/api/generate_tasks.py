@@ -10,6 +10,54 @@ from pathlib import Path
 from typing import Dict, List
 
 
+def detect_package_manager(project_dir: Path) -> str:
+    """Detect which package manager is used in the project."""
+    # Check for lock files to determine package manager
+    if (project_dir / "bun.lockb").exists() or (project_dir / "bun.lock").exists():
+        return "bun"
+    elif (project_dir / "pnpm-lock.yaml").exists():
+        return "pnpm"
+    elif (project_dir / "yarn.lock").exists():
+        return "yarn"
+    elif (project_dir / "package-lock.json").exists():
+        return "npm"
+    elif (project_dir / "bunfig.toml").exists():
+        return "bun"
+    else:
+        return "npm"  # Default
+
+
+def get_package_manager_commands(package_manager: str) -> Dict[str, str]:
+    """Get the appropriate commands for the detected package manager."""
+    commands = {
+        "npm": {
+            "build": "npm run build",
+            "typecheck": "npm run typecheck",
+            "lint": "npm run lint",
+            "install": "npm install",
+        },
+        "pnpm": {
+            "build": "pnpm build",
+            "typecheck": "pnpm typecheck",
+            "lint": "pnpm lint",
+            "install": "pnpm install",
+        },
+        "yarn": {
+            "build": "yarn build",
+            "typecheck": "yarn typecheck",
+            "lint": "yarn lint",
+            "install": "yarn install",
+        },
+        "bun": {
+            "build": "bun run build",
+            "typecheck": "bun run typecheck",
+            "lint": "bun run lint",
+            "install": "bun install",
+        },
+    }
+    return commands.get(package_manager, commands["npm"])
+
+
 def load_manifest(manifest_path: str) -> Dict:
     """Load skeleton manifest from JSON file."""
     try:
@@ -113,11 +161,19 @@ def group_by_priority(
     return priority_groups
 
 
-def generate_tasks_markdown(manifest: Dict) -> str:
+def generate_tasks_markdown(manifest: Dict, project_dir: Path = None) -> str:
     """Generate the complete IMPLEMENTATION_TASKS.md content."""
 
     project_name = manifest.get("project", {}).get("name", "Project")
     stack_profile = manifest.get("project", {}).get("stack_profile", "unknown")
+
+    # Detect package manager if project directory provided
+    if project_dir:
+        package_manager = detect_package_manager(project_dir)
+        pm_commands = get_package_manager_commands(package_manager)
+    else:
+        package_manager = "npm"
+        pm_commands = get_package_manager_commands("npm")
 
     # Analyze dependencies and get implementation order
     dependencies = analyze_dependencies(manifest)
@@ -186,7 +242,7 @@ Each function includes:
 
 1. **Start with Phase 1** - These functions set up core infrastructure
 2. **Implement in order** - Dependencies are listed for each function
-3. **Test as you go** - Run `npm run build` and `npm run typecheck` frequently
+3. **Test as you go** - Run `{pm_commands['build']}` and `{pm_commands['typecheck']}` frequently
 4. **Update this file** - Check off tasks as you complete them
 
 ## Quality Gates
@@ -194,9 +250,9 @@ Each function includes:
 Run these commands to verify your implementation:
 
 ```bash
-npm run build      # Verify compilation
-npm run typecheck  # Check TypeScript types
-npm run lint       # Check code style
+{pm_commands['build']}      # Verify compilation
+{pm_commands['typecheck']}  # Check TypeScript types
+{pm_commands['lint']}       # Check code style
 ```
 
 ## PRD Reference
@@ -237,8 +293,12 @@ def main():
             )
             print(f"📄 Processing {files_count} files with {functions_count} functions")
 
+        # Try to detect project directory from manifest path
+        manifest_path = Path(args.manifest)
+        project_dir = manifest_path.parent
+
         # Generate tasks markdown
-        tasks_content = generate_tasks_markdown(manifest)
+        tasks_content = generate_tasks_markdown(manifest, project_dir)
 
         # Determine output path
         if args.output:

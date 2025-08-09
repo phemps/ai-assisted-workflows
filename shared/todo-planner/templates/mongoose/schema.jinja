@@ -1,0 +1,215 @@
+// {{ file.path }} - Mongoose Schema
+// Generated from PRD requirements
+{% if file.options.multi_tenant %}
+// ADVICE: Include tenant isolation fields for SaaS applications
+{% endif %}
+{% if file.options.validation %}
+// ADVICE: Use Mongoose validators for data integrity
+{% endif %}
+
+import mongoose, { Schema, Document } from 'mongoose';
+
+{% for function in functions %}
+{% if 'schema' in function.name.lower() or 'model' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export interface I{{ function.name.replace('Schema', '').replace('Model', '') }} extends Document {
+  name: string;
+  description?: string;
+  status: string;
+  {% if file.options.multi_tenant %}
+  tenantId: mongoose.Types.ObjectId;
+  {% endif %}
+  {% if file.options.audit_fields %}
+  createdAt: Date;
+  updatedAt: Date;
+  {% endif %}
+  {% if file.options.soft_delete %}
+  deletedAt?: Date;
+  {% endif %}
+}
+
+const {{ function.name.replace('Schema', '').replace('Model', '') }}Schema = new Schema<I{{ function.name.replace('Schema', '').replace('Model', '') }}>({
+  name: {
+    type: String,
+    required: [true, 'Name is required'],
+    {% if file.options.validation %}
+    minlength: [1, 'Name must not be empty'],
+    maxlength: [100, 'Name must be less than 100 characters'],
+    {% endif %}
+  },
+  description: {
+    type: String,
+    {% if file.options.validation %}
+    maxlength: [500, 'Description must be less than 500 characters'],
+    {% endif %}
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'pending'],
+    default: 'active',
+  },
+  {% if file.options.multi_tenant %}
+  tenantId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant ID is required'],
+    index: true,
+  },
+  {% endif %}
+  {% if file.options.soft_delete %}
+  deletedAt: {
+    type: Date,
+    default: null,
+    index: true,
+  },
+  {% endif %}
+}, {
+  {% if file.options.audit_fields %}
+  timestamps: true, // Adds createdAt and updatedAt
+  {% endif %}
+});
+
+// Indexes for performance
+{% if file.options.multi_tenant %}
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.index({ tenantId: 1, status: 1 });
+{% if file.options.audit_fields %}
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.index({ tenantId: 1, createdAt: -1 });
+{% endif %}
+{% endif %}
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.index({ name: 1 });
+{% if file.options.soft_delete %}
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.index({ deletedAt: 1 });
+{% endif %}
+
+{% if file.options.validation %}
+// Custom validation methods
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.methods.isActive = function(): boolean {
+  return this.status === 'active' && {% if file.options.soft_delete %}!this.deletedAt{% else %}true{% endif %};
+};
+{% endif %}
+
+{% if file.options.soft_delete %}
+// Soft delete functionality
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.methods.softDelete = function() {
+  this.deletedAt = new Date();
+  return this.save();
+};
+
+// Query helpers to exclude soft-deleted documents
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.query.active = function() {
+  return this.where({ deletedAt: { $exists: false } });
+};
+{% endif %}
+
+{% if file.options.multi_tenant %}
+// Static method for tenant-scoped queries
+{{ function.name.replace('Schema', '').replace('Model', '') }}Schema.statics.findByTenant = function(tenantId: mongoose.Types.ObjectId) {
+  return this.find({ tenantId{% if file.options.soft_delete %}, deletedAt: { $exists: false }{% endif %} });
+};
+{% endif %}
+
+export const {{ function.name.replace('Schema', '').replace('Model', '') }} = mongoose.model<I{{ function.name.replace('Schema', '').replace('Model', '') }}>('{{ function.name.replace('Schema', '').replace('Model', '') }}', {{ function.name.replace('Schema', '').replace('Model', '') }}Schema);
+
+{% endif %}
+{% endfor %}
+
+{% if file.options.multi_tenant %}
+// Tenant model for multi-tenant applications
+export interface ITenant extends Document {
+  name: string;
+  authId: string; // Maps to your auth provider
+  {% if file.options.audit_fields %}
+  createdAt: Date;
+  updatedAt: Date;
+  {% endif %}
+  {% if file.options.soft_delete %}
+  deletedAt?: Date;
+  {% endif %}
+}
+
+const TenantSchema = new Schema<ITenant>({
+  name: {
+    type: String,
+    required: [true, 'Tenant name is required'],
+  },
+  authId: {
+    type: String,
+    required: [true, 'Auth ID is required'],
+    unique: true,
+    index: true,
+  },
+  {% if file.options.soft_delete %}
+  deletedAt: {
+    type: Date,
+    default: null,
+  },
+  {% endif %}
+}, {
+  {% if file.options.audit_fields %}
+  timestamps: true,
+  {% endif %}
+});
+
+export const Tenant = mongoose.model<ITenant>('Tenant', TenantSchema);
+{% endif %}
+
+{% if not functions or not any('schema' in f.name.lower() or 'model' in f.name.lower() for f in functions) %}
+// Example Document model - replace with your actual models
+export interface IDocument extends Document {
+  title: string;
+  content: string;
+  status: string;
+  {% if file.options.multi_tenant %}
+  tenantId: mongoose.Types.ObjectId;
+  {% endif %}
+  {% if file.options.audit_fields %}
+  createdAt: Date;
+  updatedAt: Date;
+  {% endif %}
+  {% if file.options.soft_delete %}
+  deletedAt?: Date;
+  {% endif %}
+}
+
+const DocumentSchema = new Schema<IDocument>({
+  title: {
+    type: String,
+    required: [true, 'Title is required'],
+  },
+  content: {
+    type: String,
+    required: [true, 'Content is required'],
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'draft'],
+    default: 'draft',
+  },
+  {% if file.options.multi_tenant %}
+  tenantId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: [true, 'Tenant ID is required'],
+    index: true,
+  },
+  {% endif %}
+  {% if file.options.soft_delete %}
+  deletedAt: {
+    type: Date,
+    default: null,
+  },
+  {% endif %}
+}, {
+  {% if file.options.audit_fields %}
+  timestamps: true,
+  {% endif %}
+});
+
+// Indexes
+{% if file.options.multi_tenant %}
+DocumentSchema.index({ tenantId: 1, status: 1 });
+{% endif %}
+DocumentSchema.index({ title: 1 });
+
+export const Document = mongoose.model<IDocument>('Document', DocumentSchema);
+{% endif %}

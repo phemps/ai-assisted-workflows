@@ -1,0 +1,157 @@
+// {{ file.path }} - PostHog Client Setup
+// Generated from PRD requirements
+{% if file.options.privacy %}
+// ADVICE: Configure input masking and data capture settings for privacy compliance
+{% endif %}
+{% if file.options.session_recording %}
+// ADVICE: Enable session recording to understand user behavior patterns
+{% endif %}
+
+import posthog from 'posthog-js';
+
+// PostHog configuration
+const POSTHOG_CONFIG = {
+  api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
+  ui_host: process.env.NEXT_PUBLIC_POSTHOG_UI_HOST || 'https://us.posthog.com',
+  capture_pageview: false, // Handle manually for better control
+  capture_pageleave: true,
+  persistence: 'localStorage+cookie',
+  {% if file.options.session_recording %}
+  session_recording: {
+    maskAllInputs: {% if file.options.privacy %}true{% else %}false{% endif %},
+    maskInputOptions: {
+      password: true,
+      email: {% if file.options.privacy %}true{% else %}false{% endif %},
+    },
+  },
+  {% endif %}
+  {% if file.options.privacy %}
+  person_profiles: 'identified_only', // More privacy-focused
+  {% endif %}
+} as const;
+
+{% for function in functions %}
+{% if 'init' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export function {{ function.name }}(): void {
+  if (typeof window !== 'undefined' && !posthog.__loaded) {
+    const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
+    if (!apiKey) {
+      console.warn('PostHog API key not found in environment variables');
+      return;
+    }
+
+    posthog.init(apiKey, POSTHOG_CONFIG);
+  }
+}
+
+{% elif 'capture' in function.name.lower() or 'track' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export function {{ function.name }}(
+  eventName: string,
+  properties?: Record<string, any>
+): void {
+  if (typeof window !== 'undefined' && posthog.__loaded) {
+    {% if file.options.privacy %}
+    // Strip potential PII before sending
+    const sanitizedProperties = sanitizeEventProperties(properties || {});
+    posthog.capture(eventName, sanitizedProperties);
+    {% else %}
+    posthog.capture(eventName, properties);
+    {% endif %}
+  }
+}
+
+{% elif 'identify' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export function {{ function.name }}(
+  userId: string,
+  properties?: Record<string, any>
+): void {
+  if (typeof window !== 'undefined' && posthog.__loaded) {
+    {% if file.options.privacy %}
+    // Hash user ID for privacy
+    const hashedUserId = hashUserId(userId);
+    const sanitizedProperties = sanitizeUserProperties(properties || {});
+    posthog.identify(hashedUserId, sanitizedProperties);
+    {% else %}
+    posthog.identify(userId, properties);
+    {% endif %}
+  }
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Utility functions
+export function capturePageView(pathname: string): void {
+  if (typeof window !== 'undefined' && posthog.__loaded) {
+    posthog.capture('$pageview', {
+      $current_url: window.location.href,
+      pathname,
+    });
+  }
+}
+
+export function captureUserAction(
+  action: string,
+  context?: Record<string, any>
+): void {
+  if (typeof window !== 'undefined' && posthog.__loaded) {
+    posthog.capture('user_action', {
+      action,
+      ...context,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+{% if file.options.privacy %}
+// Privacy utility functions
+function sanitizeEventProperties(properties: Record<string, any>): Record<string, any> {
+  const piiFields = ['email', 'phone', 'name', 'address', 'ssn', 'password'];
+  const sanitized = { ...properties };
+
+  piiFields.forEach(field => {
+    if (field in sanitized) {
+      delete sanitized[field];
+    }
+  });
+
+  return sanitized;
+}
+
+function sanitizeUserProperties(properties: Record<string, any>): Record<string, any> {
+  const allowedFields = ['plan', 'role', 'created_at', 'last_seen'];
+  const sanitized: Record<string, any> = {};
+
+  allowedFields.forEach(field => {
+    if (field in properties) {
+      sanitized[field] = properties[field];
+    }
+  });
+
+  return sanitized;
+}
+
+function hashUserId(userId: string): string {
+  // Simple hash for user ID anonymization
+  // TODO: Use proper crypto hash in production
+  return btoa(userId).substr(0, 12);
+}
+{% endif %}
+
+// TypeScript types
+export interface PostHogEvent {
+  name: string;
+  properties?: Record<string, any>;
+}
+
+export interface PostHogUser {
+  id: string;
+  properties?: Record<string, any>;
+}

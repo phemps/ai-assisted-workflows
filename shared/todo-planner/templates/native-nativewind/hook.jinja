@@ -1,0 +1,391 @@
+// {{ file.path }} - React Native Custom Hook
+// Generated from PRD requirements
+{% if file.options.async_storage %}
+// ADVICE: Use AsyncStorage for persistent data storage on mobile devices
+{% endif %}
+{% if file.options.device_info %}
+// ADVICE: Access device information and platform-specific features
+{% endif %}
+{% if file.options.permissions %}
+// ADVICE: Handle device permissions for camera, location, notifications etc.
+{% endif %}
+
+import { useState, useEffect, useCallback } from 'react';
+{% if file.options.async_storage %}
+import AsyncStorage from '@react-native-async-storage/async-storage';
+{% endif %}
+{% if file.options.device_info %}
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+{% endif %}
+{% if file.options.permissions %}
+import * as Permissions from 'expo-permissions';
+{% endif %}
+{% if file.options.network %}
+import NetInfo from '@react-native-community/netinfo';
+{% endif %}
+{% if file.options.expo_router %}
+import { useRouter, useFocusEffect } from 'expo-router';
+{% endif %}
+
+{% if file.options.async_storage %}
+// AsyncStorage key prefix for this hook
+const STORAGE_KEY_PREFIX = '{{ function.name or "hook" }}_';
+{% endif %}
+
+interface HookState {
+  // TODO: Define hook state structure based on PRD requirements
+  data: any;
+  loading: boolean;
+  error: string | null;
+  {% if file.options.network %}
+  isConnected: boolean;
+  {% endif %}
+  {% if file.options.device_info %}
+  deviceInfo: {
+    platform: string;
+    version: string;
+    model: string | null;
+  } | null;
+  {% endif %}
+}
+
+interface HookConfig {
+  {% if file.options.async_storage %}
+  storageKey?: string;
+  persist?: boolean;
+  {% endif %}
+  {% if file.options.permissions %}
+  requiredPermissions?: string[];
+  {% endif %}
+  autoLoad?: boolean;
+  onSuccess?: (data: any) => void;
+  onError?: (error: string) => void;
+}
+
+{% for function in functions %}
+{% if 'hook' in function.name.lower() or function.name.startswith('use') %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export function {{ function.name if function.name.startswith('use') else 'use' + function.name.capitalize() }}(
+  config: HookConfig = {}
+) {
+  const {
+    {% if file.options.async_storage %}
+    storageKey = 'defaultKey',
+    persist = false,
+    {% endif %}
+    {% if file.options.permissions %}
+    requiredPermissions = [],
+    {% endif %}
+    autoLoad = true,
+    onSuccess,
+    onError
+  } = config;
+
+  const [state, setState] = useState<HookState>({
+    data: null,
+    loading: false,
+    error: null,
+    {% if file.options.network %}
+    isConnected: true,
+    {% endif %}
+    {% if file.options.device_info %}
+    deviceInfo: null,
+    {% endif %}
+  });
+
+  {% if file.options.expo_router %}
+  const router = useRouter();
+  {% endif %}
+
+  {% if file.options.async_storage %}
+  // AsyncStorage operations
+  const saveToStorage = useCallback(async (data: any) => {
+    if (!persist) return;
+
+    try {
+      await AsyncStorage.setItem(
+        `${STORAGE_KEY_PREFIX}${storageKey}`,
+        JSON.stringify(data)
+      );
+    } catch (error) {
+      console.error('Failed to save to AsyncStorage:', error);
+    }
+  }, [persist, storageKey]);
+
+  const loadFromStorage = useCallback(async (): Promise<any> => {
+    if (!persist) return null;
+
+    try {
+      const stored = await AsyncStorage.getItem(`${STORAGE_KEY_PREFIX}${storageKey}`);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error('Failed to load from AsyncStorage:', error);
+      return null;
+    }
+  }, [persist, storageKey]);
+
+  const clearStorage = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(`${STORAGE_KEY_PREFIX}${storageKey}`);
+    } catch (error) {
+      console.error('Failed to clear AsyncStorage:', error);
+    }
+  }, [storageKey]);
+  {% endif %}
+
+  {% if file.options.permissions %}
+  // Permission handling
+  const checkPermissions = useCallback(async (): Promise<boolean> => {
+    if (requiredPermissions.length === 0) return true;
+
+    try {
+      const { status } = await Permissions.askAsync(...requiredPermissions);
+      return status === 'granted';
+    } catch (error) {
+      console.error('Permission check failed:', error);
+      return false;
+    }
+  }, [requiredPermissions]);
+  {% endif %}
+
+  {% if file.options.device_info %}
+  // Device info collection
+  const collectDeviceInfo = useCallback(() => {
+    const deviceInfo = {
+      platform: Device.osName || 'unknown',
+      version: Device.osVersion || 'unknown',
+      model: Device.modelName,
+    };
+
+    setState(prev => ({ ...prev, deviceInfo }));
+    return deviceInfo;
+  }, []);
+  {% endif %}
+
+  {% if file.options.network %}
+  // Network connectivity monitoring
+  const setupNetworkListener = useCallback(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setState(prev => ({
+        ...prev,
+        isConnected: state.isConnected ?? true
+      }));
+    });
+
+    return unsubscribe;
+  }, []);
+  {% endif %}
+
+  // Main data loading function
+  const loadData = useCallback(async (params?: any) => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      {% if file.options.permissions %}
+      // Check permissions first
+      const hasPermissions = await checkPermissions();
+      if (!hasPermissions) {
+        throw new Error('Required permissions not granted');
+      }
+      {% endif %}
+
+      {% if file.options.async_storage %}
+      // Try to load from storage first
+      const storedData = await loadFromStorage();
+      if (storedData && persist) {
+        setState(prev => ({
+          ...prev,
+          data: storedData,
+          loading: false
+        }));
+        onSuccess?.(storedData);
+        return storedData;
+      }
+      {% endif %}
+
+      // TODO: Implement actual data loading logic
+      const result = await performDataOperation(params);
+
+      {% if file.options.async_storage %}
+      // Save to storage if persistence is enabled
+      if (persist) {
+        await saveToStorage(result);
+      }
+      {% endif %}
+
+      setState(prev => ({
+        ...prev,
+        data: result,
+        loading: false
+      }));
+
+      onSuccess?.(result);
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      setState(prev => ({
+        ...prev,
+        error: errorMessage,
+        loading: false
+      }));
+
+      onError?.(errorMessage);
+      throw error;
+    }
+  }, [{% if file.options.permissions %}checkPermissions, {% endif %}{% if file.options.async_storage %}loadFromStorage, saveToStorage, persist, {% endif %}onSuccess, onError]);
+
+  // Update data
+  const updateData = useCallback(async (newData: any) => {
+    setState(prev => ({ ...prev, data: newData }));
+
+    {% if file.options.async_storage %}
+    if (persist) {
+      await saveToStorage(newData);
+    }
+    {% endif %}
+  }, [{% if file.options.async_storage %}saveToStorage, persist{% endif %}]);
+
+  // Reset hook state
+  const reset = useCallback(async () => {
+    setState({
+      data: null,
+      loading: false,
+      error: null,
+      {% if file.options.network %}
+      isConnected: true,
+      {% endif %}
+      {% if file.options.device_info %}
+      deviceInfo: null,
+      {% endif %}
+    });
+
+    {% if file.options.async_storage %}
+    await clearStorage();
+    {% endif %}
+  }, [{% if file.options.async_storage %}clearStorage{% endif %}]);
+
+  // Refresh data
+  const refresh = useCallback(() => {
+    return loadData();
+  }, [loadData]);
+
+  // Initialize hook
+  useEffect(() => {
+    {% if file.options.device_info %}
+    collectDeviceInfo();
+    {% endif %}
+
+    {% if file.options.network %}
+    const unsubscribe = setupNetworkListener();
+    {% endif %}
+
+    if (autoLoad) {
+      loadData();
+    }
+
+    {% if file.options.network %}
+    return () => {
+      unsubscribe?.();
+    };
+    {% endif %}
+  }, []);
+
+  {% if file.options.expo_router %}
+  // React to screen focus (useful for refreshing data)
+  useFocusEffect(
+    useCallback(() => {
+      // TODO: Add focus-based logic if needed
+      console.log('Screen focused, hook active');
+
+      return () => {
+        console.log('Screen unfocused, hook inactive');
+      };
+    }, [])
+  );
+  {% endif %}
+
+  return {
+    // State
+    data: state.data,
+    loading: state.loading,
+    error: state.error,
+    {% if file.options.network %}
+    isConnected: state.isConnected,
+    {% endif %}
+    {% if file.options.device_info %}
+    deviceInfo: state.deviceInfo,
+    {% endif %}
+
+    // Actions
+    loadData,
+    updateData,
+    refresh,
+    reset,
+    {% if file.options.async_storage %}
+    clearStorage,
+    {% endif %}
+
+    // Utilities
+    {% if file.options.permissions %}
+    checkPermissions,
+    {% endif %}
+    {% if file.options.device_info %}
+    collectDeviceInfo,
+    {% endif %}
+  };
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Helper functions
+async function performDataOperation(params?: any): Promise<any> {
+  // TODO: Implement actual data operation
+  // This could be API calls, device sensor reading, etc.
+
+  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async operation
+
+  return {
+    success: true,
+    timestamp: new Date().toISOString(),
+    params,
+    // Add more data based on PRD requirements
+  };
+}
+
+// TypeScript types
+export interface MobileHookOptions extends HookConfig {}
+
+export interface MobileHookReturn {
+  data: any;
+  loading: boolean;
+  error: string | null;
+  {% if file.options.network %}
+  isConnected: boolean;
+  {% endif %}
+  {% if file.options.device_info %}
+  deviceInfo: {
+    platform: string;
+    version: string;
+    model: string | null;
+  } | null;
+  {% endif %}
+  loadData: (params?: any) => Promise<any>;
+  updateData: (newData: any) => Promise<void>;
+  refresh: () => Promise<any>;
+  reset: () => Promise<void>;
+  {% if file.options.async_storage %}
+  clearStorage: () => Promise<void>;
+  {% endif %}
+  {% if file.options.permissions %}
+  checkPermissions: () => Promise<boolean>;
+  {% endif %}
+  {% if file.options.device_info %}
+  collectDeviceInfo: () => any;
+  {% endif %}
+}

@@ -1,0 +1,384 @@
+// {{ file.path }} - React Native Component with NativeWind
+// Generated from PRD requirements
+{% if file.options.nativewind %}
+// ADVICE: Use NativeWind classes for styling - they're compiled to React Native styles
+{% endif %}
+{% if file.options.accessibility %}
+// ADVICE: Include proper accessibility props for screen readers and navigation
+{% endif %}
+{% if file.options.animations %}
+// ADVICE: Use React Native Reanimated for performant animations
+{% endif %}
+
+import React{% if file.options.state %}, { useState, useEffect }{% endif %} from 'react';
+import { View, Text{% if file.options.interactions %}, TouchableOpacity, Pressable{% endif %}{% if file.options.inputs %}, TextInput{% endif %}{% if file.options.scrollable %}, ScrollView{% endif %}{% if file.options.lists %}, FlatList{% endif %} } from 'react-native';
+{% if file.options.safe_area %}
+import { SafeAreaView } from 'react-native-safe-area-context';
+{% endif %}
+{% if file.options.animations %}
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming
+} from 'react-native-reanimated';
+{% endif %}
+
+{% if file.options.state %}
+interface ComponentState {
+  // TODO: Define state interface based on component needs
+  isLoading: boolean;
+  data: any[];
+  error: string | null;
+}
+{% endif %}
+
+interface Props {
+  // TODO: Define component props based on PRD requirements
+  title?: string;
+  {% if file.options.interactions %}
+  onPress?: () => void;
+  disabled?: boolean;
+  {% endif %}
+  {% if file.options.styling %}
+  className?: string;
+  style?: any;
+  {% endif %}
+  {% if file.options.accessibility %}
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  {% endif %}
+  children?: React.ReactNode;
+}
+
+{% for function in functions %}
+{% if function.name == 'default' or 'component' in function.name.lower() %}
+export default function {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.jsx', '')) }}({
+  title = "React Native Component",
+  {% if file.options.interactions %}
+  onPress,
+  disabled = false,
+  {% endif %}
+  {% if file.options.styling %}
+  className = "",
+  style,
+  {% endif %}
+  {% if file.options.accessibility %}
+  accessibilityLabel,
+  accessibilityHint,
+  {% endif %}
+  children
+}: Props) {
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+  {% if file.options.state %}
+  const [state, setState] = useState<ComponentState>({
+    isLoading: false,
+    data: [],
+    error: null,
+  });
+
+  useEffect(() => {
+    // TODO: Initialize component data
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      // TODO: Fetch data from API or AsyncStorage
+      const data = await fetchComponentData();
+      setState(prev => ({ ...prev, data, isLoading: false }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        isLoading: false
+      }));
+    }
+  };
+  {% endif %}
+
+  {% if file.options.animations %}
+  // Animation values
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1);
+  };
+  {% endif %}
+
+  {% if file.options.interactions %}
+  const handlePress = () => {
+    if (!disabled && onPress) {
+      {% if file.options.animations %}
+      // Trigger feedback animation
+      opacity.value = withTiming(0.7, { duration: 100 }, () => {
+        opacity.value = withTiming(1, { duration: 100 });
+      });
+      {% endif %}
+      onPress();
+    }
+  };
+  {% endif %}
+
+  const WrapperComponent = {% if file.options.safe_area %}SafeAreaView{% else %}View{% endif %};
+
+  return (
+    {% if file.options.animations %}
+    <Animated.View style={[animatedStyle, style]}>
+    {% endif %}
+      <WrapperComponent
+        {% if file.options.nativewind %}
+        className={`{% if file.options.safe_area %}flex-1 bg-white{% else %}p-4 bg-gray-50 rounded-lg{% endif %} ${className}`}
+        {% else %}
+        style={[
+          {
+            {% if file.options.safe_area %}
+            flex: 1,
+            backgroundColor: '#ffffff',
+            {% else %}
+            padding: 16,
+            backgroundColor: '#f9fafb',
+            borderRadius: 8,
+            {% endif %}
+          },
+          style
+        ]}
+        {% endif %}
+        {% if file.options.accessibility %}
+        accessible={true}
+        accessibilityRole="main"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityHint={accessibilityHint}
+        {% endif %}
+      >
+        {title && (
+          <Text
+            {% if file.options.nativewind %}
+            className="text-2xl font-bold text-gray-900 mb-4"
+            {% else %}
+            style={{
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: '#111827',
+              marginBottom: 16,
+            }}
+            {% endif %}
+            {% if file.options.accessibility %}
+            accessibilityRole="header"
+            {% endif %}
+          >
+            {title}
+          </Text>
+        )}
+
+        {% if file.options.state %}
+        {state.isLoading && (
+          <View
+            {% if file.options.nativewind %}
+            className="flex-1 justify-center items-center"
+            {% else %}
+            style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+            {% endif %}
+          >
+            <Text
+              {% if file.options.nativewind %}
+              className="text-gray-600"
+              {% else %}
+              style={{ color: '#6b7280' }}
+              {% endif %}
+              {% if file.options.accessibility %}
+              accessibilityLiveRegion="polite"
+              {% endif %}
+            >
+              Loading...
+            </Text>
+          </View>
+        )}
+
+        {state.error && (
+          <View
+            {% if file.options.nativewind %}
+            className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4"
+            {% else %}
+            style={{
+              backgroundColor: '#fef2f2',
+              borderColor: '#fecaca',
+              borderWidth: 1,
+              borderRadius: 8,
+              padding: 16,
+              marginBottom: 16,
+            }}
+            {% endif %}
+          >
+            <Text
+              {% if file.options.nativewind %}
+              className="text-red-800"
+              {% else %}
+              style={{ color: '#991b1b' }}
+              {% endif %}
+              {% if file.options.accessibility %}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
+              {% endif %}
+            >
+              Error: {state.error}
+            </Text>
+          </View>
+        )}
+
+        {% if file.options.lists %}
+        {!state.isLoading && !state.error && state.data.length > 0 && (
+          <FlatList
+            data={state.data}
+            keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+            renderItem={({ item }) => (
+              <View
+                {% if file.options.nativewind %}
+                className="bg-white border border-gray-200 rounded-lg p-4 mb-3"
+                {% else %}
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderColor: '#e5e7eb',
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  padding: 16,
+                  marginBottom: 12,
+                }}
+                {% endif %}
+              >
+                <Text
+                  {% if file.options.nativewind %}
+                  className="text-gray-900 font-medium"
+                  {% else %}
+                  style={{ color: '#111827', fontWeight: '500' }}
+                  {% endif %}
+                >
+                  {item.title || item.name || item}
+                </Text>
+              </View>
+            )}
+            {% if file.options.accessibility %}
+            accessibilityLabel="List of items"
+            {% endif %}
+          />
+        )}
+        {% endif %}
+        {% else %}
+        <View
+          {% if file.options.nativewind %}
+          className="flex-1"
+          {% else %}
+          style={{ flex: 1 }}
+          {% endif %}
+        >
+          {children || (
+            <Text
+              {% if file.options.nativewind %}
+              className="text-gray-600 text-center"
+              {% else %}
+              style={{ color: '#6b7280', textAlign: 'center' }}
+              {% endif %}
+            >
+              Component content goes here
+            </Text>
+          )}
+        </View>
+        {% endif %}
+
+        {% if file.options.interactions %}
+        <Pressable
+          onPress={handlePress}
+          {% if file.options.animations %}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          {% endif %}
+          disabled={disabled}
+          {% if file.options.nativewind %}
+          className={`bg-blue-600 rounded-lg py-3 px-6 mt-4 ${disabled ? 'opacity-50' : 'active:bg-blue-700'}`}
+          {% else %}
+          style={[
+            {
+              backgroundColor: '#2563eb',
+              borderRadius: 8,
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              marginTop: 16,
+            },
+            disabled && { opacity: 0.5 }
+          ]}
+          {% endif %}
+          {% if file.options.accessibility %}
+          accessibilityRole="button"
+          accessibilityLabel="Action button"
+          accessibilityState={{ disabled }}
+          {% endif %}
+        >
+          <Text
+            {% if file.options.nativewind %}
+            className="text-white font-semibold text-center"
+            {% else %}
+            style={{
+              color: '#ffffff',
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+            {% endif %}
+          >
+            Take Action
+          </Text>
+        </Pressable>
+        {% endif %}
+      </WrapperComponent>
+    {% if file.options.animations %}
+    </Animated.View>
+    {% endif %}
+  );
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+{% if file.options.state %}
+// Helper functions
+async function fetchComponentData(): Promise<any[]> {
+  // TODO: Implement data fetching logic
+  // This could be from AsyncStorage, API, or other sources
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve([
+        { id: 1, title: 'Sample Item 1' },
+        { id: 2, title: 'Sample Item 2' },
+      ]);
+    }, 1000);
+  });
+}
+{% endif %}
+
+// TypeScript types
+export interface ComponentProps extends Props {}
+
+{% if file.options.state %}
+export interface ComponentData {
+  id: number;
+  title: string;
+  description?: string;
+}
+{% endif %}

@@ -1,0 +1,152 @@
+// {{ file.path }} - Prisma Database Client
+// Generated from PRD requirements
+{% if file.options.connection_pooling %}
+// ADVICE: Configure connection pooling in DATABASE_URL
+{% endif %}
+{% if file.options.transactions %}
+// ADVICE: Use Prisma transactions for data consistency
+{% endif %}
+{% if file.options.migrations %}
+// ADVICE: Use Prisma Migrate for schema changes
+{% endif %}
+
+import { PrismaClient } from '@prisma/client';
+
+{% if file.options.connection_pooling %}
+// Prisma Client with connection pooling configuration
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL, // Should include connection pooling params
+    },
+  },
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
+{% else %}
+// Basic Prisma Client setup
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
+{% endif %}
+
+{% for function in functions %}
+export async function {{ function.name }}({% if function.signature.params %}{{ function.signature.params | join(', ') }}{% endif %}): Promise<{{ function.signature.return_type or 'any' }}> {
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+  {% if file.options.transactions %}
+  // Execute within Prisma transaction
+  return await prisma.$transaction(async (tx) => {
+  {% endif %}
+
+    {% if 'create' in function.name.lower() or 'insert' in function.name.lower() %}
+    // Create new record using Prisma
+    const result = await {% if file.options.transactions %}tx{% else %}prisma{% endif %}.model.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        // TODO: Map function parameters to Prisma model fields
+      },
+    });
+
+    {% elif 'update' in function.name.lower() %}
+    // Update existing record using Prisma
+    const result = await {% if file.options.transactions %}tx{% else %}prisma{% endif %}.model.update({
+      where: { id },
+      data: {
+        name: data.name,
+        description: data.description,
+        updatedAt: new Date(),
+      },
+    });
+
+    {% elif 'delete' in function.name.lower() %}
+    // Delete record using Prisma
+    {% if file.options.soft_delete %}
+    const result = await {% if file.options.transactions %}tx{% else %}prisma{% endif %}.model.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+    {% else %}
+    const result = await {% if file.options.transactions %}tx{% else %}prisma{% endif %}.model.delete({
+      where: { id },
+    });
+    {% endif %}
+
+    {% elif 'get' in function.name.lower() or 'find' in function.name.lower() or 'select' in function.name.lower() %}
+    // Query records using Prisma
+    {% if 'get' in function.name.lower() %}
+    const result = await {% if file.options.transactions %}tx{% else %}prisma{% endif %}.model.findUnique({
+      where: { id },
+      {% if file.options.soft_delete %}
+      where: {
+        id,
+        deletedAt: null,
+      },
+      {% endif %}
+    });
+    {% else %}
+    const result = await {% if file.options.transactions %}tx{% else %}prisma{% endif %}.model.findMany({
+      {% if file.options.soft_delete %}
+      where: {
+        deletedAt: null,
+      },
+      {% endif %}
+      take: 100,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    {% endif %}
+
+    {% else %}
+    // Custom database operation using Prisma
+    const result = await performPrismaOperation({% if function.signature.params %}{{ function.signature.params[0].split(':')[0] if function.signature.params }}{% endif %}{% if file.options.transactions %}, tx{% endif %});
+    {% endif %}
+
+    return result;
+
+  {% if file.options.transactions %}
+  });
+  {% endif %}
+}
+
+{% endfor %}
+
+// Helper functions
+async function performPrismaOperation(data?: any, tx?: typeof prisma): Promise<any> {
+  const client = tx || prisma;
+
+  // TODO: Implement custom Prisma database logic
+  throw new Error("Prisma operation not implemented");
+}
+
+{% if file.options.migrations %}
+// Migration helpers for Prisma
+export async function runMigrations() {
+  // TODO: Implement Prisma migrations
+  // Use: npx prisma migrate deploy
+  console.log("Running Prisma migrations...");
+}
+
+export async function generateMigrations() {
+  // TODO: Generate migration files
+  // Use: npx prisma migrate dev --name migration_name
+  console.log("Generating Prisma migrations...");
+}
+
+export async function resetDatabase() {
+  // TODO: Reset database (development only)
+  // Use: npx prisma migrate reset
+  console.log("Resetting Prisma database...");
+}
+{% endif %}
+
+// Connection management
+export async function disconnectPrisma() {
+  await prisma.$disconnect();
+}
+
+// Export Prisma client for direct use if needed
+export { prisma };

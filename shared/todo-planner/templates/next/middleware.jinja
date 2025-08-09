@@ -1,0 +1,65 @@
+// {{ file.path }} - Next.js Middleware
+// Generated from PRD requirements
+{% if file.options.rate_limit %}
+// ADVICE: Implement rate limiting to protect against abuse
+{% endif %}
+{% if file.options.security_headers %}
+// ADVICE: Add security headers for protection
+{% endif %}
+{% if file.options.auth %}
+// ADVICE: Add authentication checks for protected routes
+{% endif %}
+
+import { NextRequest, NextResponse } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  // TODO: {{ [f.prd_references for f in functions] | join(', ') | join(', ') }} - Middleware logic
+
+  // ADVICE: Keep middleware lightweight; avoid heavy work here
+
+  {% if file.options.rate_limit %}
+  // Apply rate limiting
+  const clientIP = request.ip || 'unknown';
+  // TODO: Implement rate limiting logic
+  {% endif %}
+
+  {% if file.options.auth %}
+  // Check authentication for protected routes
+  if (request.nextUrl.pathname.startsWith('/protected')) {
+    // TODO: Verify authentication token
+    // const token = request.cookies.get('auth-token');
+    // if (!token) {
+    //   return NextResponse.redirect(new URL('/login', request.url));
+    // }
+  }
+  {% endif %}
+
+  // Create response
+  const response = NextResponse.next();
+
+  {% if file.options.security_headers %}
+  // Set security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
+  );
+  {% endif %}
+
+  return response;
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
+};

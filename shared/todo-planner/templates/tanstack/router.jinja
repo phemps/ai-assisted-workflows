@@ -1,0 +1,428 @@
+// {{ file.path }} - TanStack Router Route
+// Generated from PRD requirements
+{% if file.options.file_based %}
+// ADVICE: Use file-based routing with createFileRoute for automatic type generation
+{% endif %}
+{% if file.options.loaders %}
+// ADVICE: Use route loaders for type-safe data fetching with proper loading states
+{% endif %}
+{% if file.options.search_params %}
+// ADVICE: Validate search parameters with schemas for type safety and runtime validation
+{% endif %}
+
+import { createFileRoute{% if file.options.lazy %}, createLazyFileRoute{% endif %} } from '@tanstack/react-router';
+{% if file.options.search_params %}
+import { z } from 'zod';
+{% endif %}
+{% if file.options.loaders %}
+import { queryOptions } from '@tanstack/react-query';
+{% endif %}
+
+{% if file.options.search_params %}
+// Search parameter validation schema
+const searchSchema = z.object({
+  // TODO: Define search parameters based on PRD requirements
+  page: z.number().int().positive().default(1),
+  limit: z.number().int().positive().max(100).default(10),
+  search: z.string().optional(),
+  sortBy: z.enum(['name', 'date', 'status']).default('date'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  filters: z.record(z.string()).optional(),
+});
+
+type SearchParams = z.infer<typeof searchSchema>;
+{% endif %}
+
+{% if file.options.loaders %}
+// Route data types
+interface RouteData {
+  // TODO: Define route data shape based on PRD requirements
+  items: any[];
+  meta: {
+    total: number;
+    page: number;
+    totalPages: number;
+  };
+}
+
+interface RouteParams {
+  // TODO: Define route parameters
+  id?: string;
+  slug?: string;
+}
+
+// Query options for data fetching
+const routeQueryOptions = (params: RouteParams, search: SearchParams) =>
+  queryOptions({
+    queryKey: ['route-data', params, search],
+    queryFn: async (): Promise<RouteData> => {
+      // TODO: Implement data fetching logic
+      const response = await fetch(`/api/data?${new URLSearchParams({
+        page: search.page.toString(),
+        limit: search.limit.toString(),
+        ...(search.search && { search: search.search }),
+        sortBy: search.sortBy,
+        sortOrder: search.sortOrder,
+        ...(params.id && { id: params.id }),
+        ...(params.slug && { slug: params.slug }),
+      })}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+{% endif %}
+
+{% for function in functions %}
+{% if function.name == 'default' or 'route' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+{% if file.options.lazy %}
+export const Route = createLazyFileRoute('{{ file.path.replace('.tsx', '').replace('.ts', '') }}')({
+  component: {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.ts', '')) }},
+})
+
+function {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.ts', '')) }}() {
+{% else %}
+export const Route = createFileRoute('{{ file.path.replace('.tsx', '').replace('.ts', '') }}')({
+  {% if file.options.search_params %}
+  validateSearch: searchSchema,
+  {% endif %}
+  {% if file.options.loaders %}
+  loader: async ({ context, params, search }) => {
+    // Type-safe parameter access
+    const routeParams = params as RouteParams;
+    {% if file.options.search_params %}
+    const searchParams = search as SearchParams;
+    {% else %}
+    const searchParams = search as any;
+    {% endif %}
+
+    // Prefetch data using TanStack Query
+    const queryClient = context.queryClient;
+
+    return await queryClient.ensureQueryData(
+      routeQueryOptions(routeParams, searchParams)
+    );
+  },
+  {% endif %}
+  {% if file.options.error_handling %}
+  errorComponent: ({ error, reset }) => (
+    <div className="error-container">
+      <h2>Something went wrong</h2>
+      <p>{error.message}</p>
+      <button onClick={reset}>Try again</button>
+    </div>
+  ),
+  {% endif %}
+  {% if file.options.pending %}
+  pendingComponent: () => (
+    <div className="loading-container">
+      <div className="spinner" />
+      <p>Loading...</p>
+    </div>
+  ),
+  {% endif %}
+  component: {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.ts', '')) }},
+})
+
+function {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.ts', '')) }}() {
+{% endif %}
+  // Access route data with full type safety
+  const params = Route.useParams();
+  {% if file.options.search_params %}
+  const search = Route.useSearch();
+  {% endif %}
+  {% if file.options.loaders %}
+  const data = Route.useLoaderData();
+  {% endif %}
+  const navigate = Route.useNavigate();
+
+  {% if file.options.search_params %}
+  // Search parameter handlers
+  const updateSearch = (updates: Partial<SearchParams>) => {
+    navigate({
+      search: (prev) => ({ ...prev, ...updates }),
+    });
+  };
+
+  const resetSearch = () => {
+    navigate({
+      search: {},
+    });
+  };
+  {% endif %}
+
+  // Navigation helpers
+  const handleNavigate = (to: string, options?: {
+    replace?: boolean;
+    state?: any;
+  }) => {
+    navigate({
+      to,
+      replace: options?.replace,
+      state: options?.state,
+    });
+  };
+
+  {% if file.options.loaders %}
+  const handleRefresh = () => {
+    // Trigger route reload
+    navigate({
+      search: (prev) => ({ ...prev }),
+      replace: true,
+    });
+  };
+  {% endif %}
+
+  return (
+    <div className="route-container">
+      {/* Route Header */}
+      <header className="route-header">
+        <h1>{{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.ts', '')) }}</h1>
+
+        {/* Route Information */}
+        <div className="route-info">
+          {% if file.options.search_params %}
+          <div className="search-info">
+            <p>Page: {search.page} | Limit: {search.limit}</p>
+            {search.search && <p>Search: "{search.search}"</p>}
+            <p>Sort: {search.sortBy} ({search.sortOrder})</p>
+          </div>
+          {% endif %}
+
+          {/* Route Parameters */}
+          {Object.keys(params).length > 0 && (
+            <div className="params-info">
+              <h3>Route Parameters:</h3>
+              <ul>
+                {Object.entries(params).map(([key, value]) => (
+                  <li key={key}>
+                    <strong>{key}:</strong> {value}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="route-main">
+        {% if file.options.loaders %}
+        {/* Data Display */}
+        <section className="data-section">
+          <div className="data-header">
+            <h2>Data</h2>
+            <button onClick={handleRefresh} className="refresh-button">
+              Refresh
+            </button>
+          </div>
+
+          {data.items && data.items.length > 0 ? (
+            <>
+              <div className="data-grid">
+                {data.items.map((item, index) => (
+                  <div key={item.id || index} className="data-item">
+                    <h3>{item.title || item.name || `Item ${index + 1}`}</h3>
+                    {item.description && <p>{item.description}</p>}
+                    {item.status && (
+                      <span className={`status status-${item.status}`}>
+                        {item.status}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Info */}
+              <div className="pagination-info">
+                <p>
+                  Showing {data.items.length} of {data.meta.total} items
+                  (Page {data.meta.page} of {data.meta.totalPages})
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="no-data">
+              <p>No data available</p>
+            </div>
+          )}
+        </section>
+        {% else %}
+        {/* Static Content */}
+        <section className="content-section">
+          <p>Route content goes here</p>
+          <p>TODO: Implement route content based on PRD requirements</p>
+        </section>
+        {% endif %}
+
+        {% if file.options.search_params %}
+        {/* Search Controls */}
+        <section className="search-section">
+          <h2>Search & Filters</h2>
+
+          <div className="search-controls">
+            <div className="search-field">
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search.search || ''}
+                onChange={(e) => updateSearch({ search: e.target.value, page: 1 })}
+                className="search-input"
+              />
+            </div>
+
+            <div className="sort-controls">
+              <select
+                value={search.sortBy}
+                onChange={(e) => updateSearch({
+                  sortBy: e.target.value as SearchParams['sortBy'],
+                  page: 1
+                })}
+                className="sort-select"
+              >
+                <option value="name">Name</option>
+                <option value="date">Date</option>
+                <option value="status">Status</option>
+              </select>
+
+              <select
+                value={search.sortOrder}
+                onChange={(e) => updateSearch({
+                  sortOrder: e.target.value as SearchParams['sortOrder'],
+                  page: 1
+                })}
+                className="order-select"
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+
+            <button onClick={resetSearch} className="reset-button">
+              Reset Filters
+            </button>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="pagination-controls">
+            <button
+              onClick={() => updateSearch({ page: search.page - 1 })}
+              disabled={search.page <= 1}
+              className="page-button"
+            >
+              Previous
+            </button>
+
+            <span className="page-info">
+              Page {search.page}
+            </span>
+
+            <button
+              onClick={() => updateSearch({ page: search.page + 1 })}
+              {% if file.options.loaders %}
+              disabled={data.meta.page >= data.meta.totalPages}
+              {% endif %}
+              className="page-button"
+            >
+              Next
+            </button>
+          </div>
+        </section>
+        {% endif %}
+      </main>
+
+      {/* Route Actions */}
+      <footer className="route-footer">
+        <div className="action-buttons">
+          <button
+            onClick={() => handleNavigate('/')}
+            className="action-button primary"
+          >
+            Home
+          </button>
+
+          <button
+            onClick={() => handleNavigate('/other-route', {
+              state: { from: 'current-route' }
+            })}
+            className="action-button secondary"
+          >
+            Navigate to Other Route
+          </button>
+
+          <button
+            onClick={() => window.history.back()}
+            className="action-button tertiary"
+          >
+            Go Back
+          </button>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Route-specific utilities
+export function useRouteHelpers() {
+  const navigate = Route.useNavigate();
+
+  return {
+    navigateWithState: (to: string, state: any) => {
+      navigate({ to, state });
+    },
+
+    navigateWithSearch: (search: Partial<SearchParams>) => {
+      navigate({
+        search: (prev) => ({ ...prev, ...search }),
+      });
+    },
+
+    replaceRoute: (to: string) => {
+      navigate({ to, replace: true });
+    },
+  };
+}
+
+{% if file.options.search_params %}
+// Search parameter utilities
+export function useSearchHelpers() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  return {
+    updateSearch: (updates: Partial<SearchParams>) => {
+      navigate({
+        search: (prev) => ({ ...prev, ...updates }),
+      });
+    },
+
+    resetSearch: () => {
+      navigate({ search: {} });
+    },
+
+    getSearchString: () => {
+      return new URLSearchParams(
+        Object.entries(search).filter(([, value]) => value !== undefined)
+      ).toString();
+    },
+  };
+}
+{% endif %}
+
+// TypeScript exports
+export type {
+  {% if file.options.search_params %}SearchParams,{% endif %}
+  {% if file.options.loaders %}RouteData, RouteParams{% endif %}
+};

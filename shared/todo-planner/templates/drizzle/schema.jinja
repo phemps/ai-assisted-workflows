@@ -1,0 +1,64 @@
+// {{ file.path }} - Drizzle Schema Definition
+// Generated from PRD requirements
+{% if file.options.relations %}
+// ADVICE: Define relations between tables for referential integrity
+{% endif %}
+{% if file.options.indexes %}
+// ADVICE: Add indexes for frequently queried columns
+{% endif %}
+
+import {
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  varchar,
+  uuid
+} from 'drizzle-orm/pg-core';
+{% if file.options.relations %}
+import { relations } from 'drizzle-orm';
+{% endif %}
+
+{% for function in functions %}
+{% if 'table' in function.name.lower() or 'schema' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export const {{ function.name.replace('Table', '').replace('Schema', '').lower() }} = pgTable('{{ function.name.replace('Table', '').replace('Schema', '').lower() }}', {
+  id: serial('id').primaryKey(),
+
+  // TODO: Add fields based on PRD requirements
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+
+  {% if file.options.soft_delete %}
+  // Soft delete support
+  deletedAt: timestamp('deleted_at'),
+  {% endif %}
+});
+
+{% if file.options.indexes %}
+// Indexes for performance
+// TODO: Add indexes for frequently queried columns
+// Example: index('name_idx').on(tableName.name)
+{% endif %}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+{% if file.options.relations %}
+// Relations between tables
+// TODO: Define relations based on your data model
+// Example:
+// export const usersRelations = relations(users, ({ many, one }) => ({
+//   posts: many(posts),
+//   profile: one(profiles, { fields: [users.id], references: [profiles.userId] }),
+// }));
+{% endif %}

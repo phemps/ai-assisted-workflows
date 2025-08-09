@@ -13,11 +13,10 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from normalize import normalize_inputs
     from models import (
         ProjectSettings,
         TaskPlan,
-        PlannedModule,
+        Module,
     )
 except ImportError as e:
     print(f"❌ Import error: {e}", file=sys.stderr)
@@ -37,20 +36,39 @@ def detect_project_stack(project_dir: Path) -> Dict[str, Optional[str]]:
         "package_manager": None,
     }
 
-    package_json_path = project_dir / "package.json"
-    if package_json_path.exists():
-        try:
-            with open(package_json_path) as f:
-                package_data = json.load(f)
+    # First check if we have a structure map
+    structure_map_path = project_dir / "project_structure_map.json"
+    if structure_map_path.exists():
+        with open(structure_map_path) as f:
+            structure_map = json.load(f)
+            # Use the structure map to guide detection
+            for pkg_name, pkg_info in structure_map.get("packages", {}).items():
+                if pkg_info["type"] == "nextjs":
+                    stack_info["web_frontend"] = "next"
+                elif pkg_info["type"] == "convex":
+                    stack_info["backend"] = "convex"
 
-            deps = {
-                **package_data.get("dependencies", {}),
-                **package_data.get("devDependencies", {}),
-            }
+    # Check monorepo packages
+    for possible_path in [
+        project_dir / "apps" / "web" / "package.json",
+        project_dir / "packages" / "backend" / "package.json",
+        project_dir / "package.json",
+    ]:
+        if possible_path.exists():
+            try:
+                with open(possible_path) as f:
+                    package_data = json.load(f)
+
+                deps = {
+                    **package_data.get("dependencies", {}),
+                    **package_data.get("devDependencies", {}),
+                }
+            except Exception:
+                continue
 
             # Detect web frontend
             if "next" in deps:
-                stack_info["web_frontend"] = "nextjs"
+                stack_info["web_frontend"] = "next"
             elif "@tanstack/react-router" in deps:
                 stack_info["web_frontend"] = "tanstack-router"
             elif "react-router-dom" in deps:
@@ -90,9 +108,6 @@ def detect_project_stack(project_dir: Path) -> Dict[str, Optional[str]]:
             else:
                 stack_info["runtime"] = "nodejs"
 
-        except Exception as e:
-            print(f"⚠️  Warning: Could not parse package.json: {e}")
-
     # Detect package manager
     if (project_dir / "bun.lockb").exists():
         stack_info["package_manager"] = "bun"
@@ -106,49 +121,26 @@ def detect_project_stack(project_dir: Path) -> Dict[str, Optional[str]]:
     return stack_info
 
 
-def extract_features_from_prd(prd_text: str) -> List[Dict]:
-    """Extract features from PRD using existing normalize logic."""
-    context = normalize_inputs(prd_text, None)
-
-    features = []
-    for req_id in context.get("requirements_order", []):
-        req_title = context.get("requirements", {}).get(req_id, "")
-        features.append(
-            {
-                "id": req_id,
-                "title": req_title,
-                "description": req_title,
-                "priority": "must_have",  # Default, could be enhanced
-            }
-        )
-
-    return features
-
-
-def create_initial_modules(
-    features: List[Dict], stack_info: Dict
-) -> List[PlannedModule]:
+def create_initial_modules(features: List[Dict], stack_info: Dict) -> List[Module]:
     """Create initial module structure based on features and stack."""
     modules = []
 
     # Core modules based on stack
     if stack_info.get("auth"):
         modules.append(
-            PlannedModule(
+            Module(
                 name="auth",
-                description="Authentication and authorization",
-                exports=["AuthConfig", "authMiddleware", "getUser"],
-                dependencies=[],
+                purpose="Authentication and authorization",
+                depends_on=[],
             )
         )
 
     if stack_info.get("orm"):
         modules.append(
-            PlannedModule(
+            Module(
                 name="database",
-                description="Database layer and schema",
-                exports=["db", "schema"],
-                dependencies=[],
+                purpose="Database layer and schema",
+                depends_on=[],
             )
         )
 
@@ -168,57 +160,57 @@ def create_initial_modules(
     # Add feature modules
     for module_name in feature_modules:
         modules.append(
-            PlannedModule(
+            Module(
                 name=module_name,
-                description=f"{module_name.title()} related functionality",
-                exports=[
-                    f"{module_name}Service",
-                    f"create{module_name.title()}",
-                    f"get{module_name.title()}",
-                ],
-                dependencies=["database"] if stack_info.get("orm") else [],
+                purpose=f"{module_name.title()} related functionality",
+                depends_on=["database"] if stack_info.get("orm") else [],
             )
         )
 
     return modules
 
 
-def init_skeleton(project_dir: Path, prd_path: Path) -> TaskPlan:
-    """Initialize skeleton manifest from project and PRD."""
-
-    # Read PRD
-    try:
-        with open(prd_path) as f:
-            prd_text = f.read()
-    except Exception as e:
-        raise Exception(f"Could not read PRD file: {e}")
+def init_skeleton(
+    project_dir: Path, features: List[Dict], modules: List[Dict] = None
+) -> TaskPlan:
+    """Initialize skeleton manifest from project and LLM-parsed features."""
 
     # Detect project stack
     stack_info = detect_project_stack(project_dir)
 
-    # Extract features from PRD
-    features = extract_features_from_prd(prd_text)
+    # Use provided modules or create from features
+    if modules:
+        initial_modules = [
+            Module(
+                name=m["name"], purpose=m["purpose"], depends_on=m.get("depends_on", [])
+            )
+            for m in modules
+        ]
+    else:
+        initial_modules = create_initial_modules(features, stack_info)
 
     # Create project settings
     project_name = project_dir.name
-    stack_profile = stack_info.get("web_frontend", "unknown")
-    if stack_info.get("backend"):
-        stack_profile += f"-{stack_info['backend']}"
 
     project = ProjectSettings(
         name=project_name,
-        description=f"Project generated from {prd_path.name}",
-        stack_profile=stack_profile,
-        profiles=[stack_profile],
+        language="typescript",  # Default assumption for better-t-stack
+        package_manager=stack_info.get("package_manager"),
+        web_frontend=stack_info.get("web_frontend"),
+        backend=stack_info.get("backend"),
+        orm=stack_info.get("orm"),
+        runtime=stack_info.get("runtime"),
+        auth=stack_info.get("auth"),
+        # Legacy field for backwards compatibility
+        stack_profile=f"{stack_info.get('web_frontend', 'unknown')}-{stack_info.get('backend', '')}"
+        if stack_info.get("backend")
+        else stack_info.get("web_frontend", "unknown"),
     )
-
-    # Create initial modules
-    modules = create_initial_modules(features, stack_info)
 
     # Create initial task plan
     task_plan = TaskPlan(
         project=project,
-        modules=modules,
+        modules=initial_modules,
         files=[],  # Will be added progressively
         traceability={feature["id"]: [] for feature in features},
     )
@@ -231,7 +223,10 @@ def main():
     parser.add_argument(
         "--project-dir", required=True, help="Path to better-t-stack project directory"
     )
-    parser.add_argument("--prd", required=True, help="Path to PRD file")
+    parser.add_argument(
+        "--features", required=True, help="JSON string with features array"
+    )
+    parser.add_argument("--modules", help="JSON string with modules array (optional)")
     parser.add_argument(
         "--output", required=True, help="Path to write skeleton manifest JSON"
     )
@@ -240,15 +235,28 @@ def main():
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir)
-    prd_path = Path(args.prd)
+
+    try:
+        features = json.loads(args.features)
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid features JSON: {e}", file=sys.stderr)
+        return 1
+
+    modules = None
+    if args.modules:
+        try:
+            modules = json.loads(args.modules)
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid modules JSON: {e}", file=sys.stderr)
+            return 1
 
     # Validate inputs
     if not project_dir.exists():
         print(f"❌ Project directory does not exist: {project_dir}", file=sys.stderr)
         return 1
 
-    if not prd_path.exists():
-        print(f"❌ PRD file does not exist: {prd_path}", file=sys.stderr)
+    if not features:
+        print("❌ Features array cannot be empty", file=sys.stderr)
         return 1
 
     if not (project_dir / "package.json").exists():
@@ -259,33 +267,38 @@ def main():
         # Initialize skeleton
         if args.verbose:
             print(f"🏗️  Initializing skeleton for project: {project_dir.name}")
-            print(f"📄 Using PRD: {prd_path}")
+            print(f"📊 Processing {len(features)} features")
 
-        task_plan = init_skeleton(project_dir, prd_path)
+        task_plan = init_skeleton(project_dir, features, modules)
 
         # Convert to dict for JSON serialization
         output_data = {
             "project": {
                 "name": task_plan.project.name,
-                "description": task_plan.project.description,
+                "language": task_plan.project.language,
+                "package_manager": task_plan.project.package_manager,
+                "web_frontend": task_plan.project.web_frontend,
+                "backend": task_plan.project.backend,
+                "orm": task_plan.project.orm,
+                "runtime": task_plan.project.runtime,
+                "auth": task_plan.project.auth,
+                # Legacy field for compatibility
                 "stack_profile": task_plan.project.stack_profile,
-                "profiles": task_plan.project.profiles,
             },
             "modules": [
                 {
                     "name": module.name,
-                    "description": module.description,
-                    "exports": module.exports,
-                    "dependencies": module.dependencies,
+                    "purpose": module.purpose,
+                    "depends_on": module.depends_on,
                 }
                 for module in task_plan.modules
             ],
             "files": [],
             "traceability": task_plan.traceability,
             "metadata": {
-                "initialized_from": str(prd_path),
                 "project_directory": str(project_dir),
                 "version": "1.0",
+                "features_count": len(features),
             },
         }
 

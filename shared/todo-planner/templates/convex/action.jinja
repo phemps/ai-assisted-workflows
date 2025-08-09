@@ -1,0 +1,246 @@
+"use node";
+// {{ file.path }} - Convex Action Functions (Node.js Runtime)
+// Generated from PRD requirements
+{% if file.options.stripe %}
+// ADVICE: Use Stripe SDK for payment processing
+{% endif %}
+{% if file.options.external_api %}
+// ADVICE: Handle external API calls with proper error handling
+{% endif %}
+{% if file.options.file_operations %}
+// ADVICE: Use Node.js file system APIs carefully
+{% endif %}
+
+import { v } from "convex/values";
+import { action } from "../_generated/server";
+{% if file.options.stripe %}
+import Stripe from "stripe";
+{% endif %}
+{% if file.options.external_api %}
+import { api, internal } from "../_generated/api";
+{% endif %}
+
+{% if file.options.stripe %}
+// Initialize Stripe (requires Node.js runtime)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2023-10-16",
+});
+{% endif %}
+
+{% for function in functions %}
+{% if 'action' in function.name.lower() or 'process' in function.name.lower() or 'send' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export const {{ function.name }} = action({
+  args: {
+    {% if function.signature.params %}
+    {% for param in function.signature.params %}
+    // {{ param }}
+    {% endfor %}
+    {% else %}
+    data: v.any(),
+    {% endif %}
+  },
+  handler: async (ctx, args) => {
+    // Note: Actions run in Node.js runtime and can use external APIs
+
+    {% if file.options.stripe and 'payment' in function.name.lower() %}
+    try {
+      // Create Stripe payment session
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: args.productName || "Product",
+              },
+              unit_amount: args.amount || 1000, // Amount in cents
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${process.env.SITE_URL}/success`,
+        cancel_url: `${process.env.SITE_URL}/cancel`,
+      });
+
+      // Store payment record in database via mutation
+      await ctx.runMutation(api.payments.createRecord, {
+        sessionId: session.id,
+        amount: args.amount || 1000,
+        status: "pending",
+      });
+
+      return { sessionUrl: session.url };
+    } catch (error) {
+      console.error("Stripe error:", error);
+      throw new Error("Failed to create payment session");
+    }
+
+    {% elif file.options.external_api %}
+    try {
+      // Make external API call
+      const response = await fetch(args.apiUrl || "https://api.example.com/data", {
+        method: args.method || "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.API_TOKEN}`,
+        },
+        body: args.method !== "GET" ? JSON.stringify(args.data) : undefined,
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Store result in database via mutation
+      await ctx.runMutation(api.data.store, {
+        source: "external_api",
+        data: data,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("External API error:", error);
+      throw new Error("Failed to process external API request");
+    }
+
+    {% elif file.options.file_operations %}
+    try {
+      // File system operations (Node.js only)
+      const fs = require("node:fs/promises");
+      const path = require("node:path");
+
+      // Example file operation
+      const filePath = path.join(process.cwd(), "uploads", args.filename || "data.json");
+
+      if (args.operation === "write") {
+        await fs.writeFile(filePath, JSON.stringify(args.data, null, 2));
+        return { success: true, message: "File written successfully" };
+      } else if (args.operation === "read") {
+        const content = await fs.readFile(filePath, "utf-8");
+        return { content: JSON.parse(content) };
+      }
+
+      throw new Error("Unsupported file operation");
+    } catch (error) {
+      console.error("File operation error:", error);
+      throw new Error("Failed to perform file operation");
+    }
+
+    {% else %}
+    try {
+      // Custom Node.js action logic
+      const result = await performNodeAction(args);
+
+      // Actions can call mutations and queries
+      await ctx.runMutation(api.logs.create, {
+        action: "{{ function.name }}",
+        result: result,
+        timestamp: Date.now(),
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Action error:", error);
+      throw new Error("Action failed to execute");
+    }
+    {% endif %}
+  },
+});
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+{% if not functions or not any('action' in f.name.lower() or 'process' in f.name.lower() for f in functions) %}
+// Example action functions - replace with your actual actions
+
+// Send email notification (requires Node.js for email libraries)
+export const sendEmail = action({
+  args: {
+    to: v.string(),
+    subject: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, { to, subject, body }) => {
+    try {
+      // TODO: Implement email sending logic
+      // Example: Use nodemailer, sendgrid, etc.
+      console.log(`Sending email to ${to}: ${subject}`);
+
+      // Log the email in database
+      await ctx.runMutation(internal.emails.logSent, {
+        to,
+        subject,
+        sentAt: Date.now(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Email sending error:", error);
+      throw new Error("Failed to send email");
+    }
+  },
+});
+
+{% if file.options.external_api %}
+// Process webhook (Node.js runtime for crypto operations)
+export const processWebhook = action({
+  args: {
+    payload: v.string(),
+    signature: v.string(),
+  },
+  handler: async (ctx, { payload, signature }) => {
+    const crypto = require("node:crypto");
+
+    try {
+      // Verify webhook signature
+      const expectedSignature = crypto
+        .createHmac("sha256", process.env.WEBHOOK_SECRET || "")
+        .update(payload)
+        .digest("hex");
+
+      if (signature !== expectedSignature) {
+        throw new Error("Invalid webhook signature");
+      }
+
+      const data = JSON.parse(payload);
+
+      // Process webhook data
+      await ctx.runMutation(api.webhooks.process, {
+        source: data.source,
+        data: data,
+        processedAt: Date.now(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Webhook processing error:", error);
+      throw new Error("Failed to process webhook");
+    }
+  },
+});
+{% endif %}
+{% endif %}
+
+// Helper functions for Node.js actions
+async function performNodeAction(args: any): Promise<any> {
+  // TODO: Implement Node.js-specific logic that can't run in default Convex runtime
+  return { processed: true, data: args };
+}
+
+// Logging utility for actions
+function logActionError(actionName: string, error: Error, context?: any) {
+  console.error({
+    action: actionName,
+    error: error.message,
+    stack: error.stack,
+    context: context,
+    timestamp: new Date().toISOString(),
+  });
+}

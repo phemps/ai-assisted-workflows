@@ -1,0 +1,138 @@
+// {{ file.path }} - Drizzle Database Client
+// Generated from PRD requirements
+{% if file.options.connection_pooling %}
+// ADVICE: Use connection pooling for better performance
+{% endif %}
+{% if file.options.transactions %}
+// ADVICE: Wrap related operations in transactions
+{% endif %}
+{% if file.options.migrations %}
+// ADVICE: Implement database migrations for schema changes
+{% endif %}
+
+import { drizzle } from 'drizzle-orm/{{ file.options.database_adapter or "postgres-js" }}';
+{% if file.options.database_adapter == "postgres-js" %}
+import postgres from 'postgres';
+{% elif file.options.database_adapter == "better-sqlite3" %}
+import Database from 'better-sqlite3';
+{% endif %}
+import { eq, and } from 'drizzle-orm';
+import * as schema from './schema';
+
+{% if file.options.connection_pooling and file.options.database_adapter == "postgres-js" %}
+// Connection pool configuration for PostgreSQL
+const queryClient = postgres(process.env.DATABASE_URL!, {
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  max: 20, // Maximum connections in pool
+  idle_timeout: 20,
+  connect_timeout: 30,
+});
+
+export const db = drizzle(queryClient, { schema });
+{% elif file.options.database_adapter == "better-sqlite3" %}
+const sqlite = new Database(process.env.DATABASE_URL || 'sqlite.db');
+export const db = drizzle(sqlite, { schema });
+{% else %}
+// Basic connection setup
+const queryClient = postgres(process.env.DATABASE_URL!);
+export const db = drizzle(queryClient, { schema });
+{% endif %}
+
+{% for function in functions %}
+export async function {{ function.name }}({% if function.signature.params %}{{ function.signature.params | join(', ') }}{% endif %}): Promise<{{ function.signature.return_type or 'any' }}> {
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+  {% if file.options.transactions %}
+  // Execute within transaction for data consistency
+  return await db.transaction(async (tx) => {
+  {% endif %}
+
+    {% if 'create' in function.name.lower() or 'insert' in function.name.lower() %}
+    // Insert new record using Drizzle
+    const [result] = await {% if file.options.transactions %}tx{% else %}db{% endif %}.insert(schema.table).values({
+      // TODO: Map function parameters to schema fields
+      name: data.name,
+      description: data.description,
+    }).returning();
+
+    {% elif 'update' in function.name.lower() %}
+    // Update existing record using Drizzle
+    const [result] = await {% if file.options.transactions %}tx{% else %}db{% endif %}.update(schema.table)
+      .set({
+        name: data.name,
+        description: data.description,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.table.id, id))
+      .returning();
+
+    {% elif 'delete' in function.name.lower() %}
+    // Delete record using Drizzle
+    const [result] = await {% if file.options.transactions %}tx{% else %}db{% endif %}.delete(schema.table)
+      .where(eq(schema.table.id, id))
+      .returning();
+
+    {% elif 'get' in function.name.lower() or 'find' in function.name.lower() or 'select' in function.name.lower() %}
+    // Query records using Drizzle
+    {% if 'get' in function.name.lower() %}
+    const result = await {% if file.options.transactions %}tx{% else %}db{% endif %}.select()
+      .from(schema.table)
+      .where(eq(schema.table.id, id))
+      .limit(1);
+
+    return result[0] || null;
+    {% else %}
+    const result = await {% if file.options.transactions %}tx{% else %}db{% endif %}.select()
+      .from(schema.table)
+      .limit(100);
+    {% endif %}
+
+    {% else %}
+    // Custom database operation using Drizzle
+    const result = await performDrizzleOperation({% if function.signature.params %}{{ function.signature.params[0].split(':')[0] if function.signature.params }}{% endif %}{% if file.options.transactions %}, tx{% endif %});
+    {% endif %}
+
+    return result;
+
+  {% if file.options.transactions %}
+  });
+  {% endif %}
+}
+
+{% endfor %}
+
+// Helper functions
+async function performDrizzleOperation(data?: any, tx?: typeof db): Promise<any> {
+  const client = tx || db;
+
+  // TODO: Implement custom Drizzle database logic
+  throw new Error("Drizzle operation not implemented");
+}
+
+{% if file.options.migrations %}
+// Migration helpers for Drizzle
+export async function runMigrations() {
+  // TODO: Implement Drizzle migrations
+  // Use drizzle-kit for schema migrations
+  console.log("Running Drizzle migrations...");
+}
+
+export async function generateMigrations() {
+  // TODO: Generate migration files
+  // Use: npx drizzle-kit generate:pg (or sqlite/mysql)
+  console.log("Generating Drizzle migrations...");
+}
+{% endif %}
+
+// Connection management
+export async function closeConnection() {
+  {% if file.options.database_adapter == "postgres-js" %}
+  await queryClient.end();
+  {% elif file.options.database_adapter == "better-sqlite3" %}
+  sqlite.close();
+  {% endif %}
+}

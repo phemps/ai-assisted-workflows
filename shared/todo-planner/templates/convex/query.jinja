@@ -1,0 +1,191 @@
+// {{ file.path }} - Convex Query Functions
+// Generated from PRD requirements
+{% if file.options.pagination %}
+// ADVICE: Implement cursor-based pagination for large datasets
+{% endif %}
+{% if file.options.multi_tenant %}
+// ADVICE: Always filter by tenantId first for SaaS isolation
+{% endif %}
+
+import { v } from "convex/values";
+import { query } from "./_generated/server";
+{% if file.options.multi_tenant %}
+import { getCurrentTenant, verifyTenantAccess } from "./auth";
+{% else %}
+import { requireAuth } from "./auth";
+{% endif %}
+
+{% for function in functions %}
+{% if 'get' in function.name.lower() or 'find' in function.name.lower() or 'list' in function.name.lower() or 'query' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export const {{ function.name }} = query({
+  args: {
+    {% if 'get' in function.name.lower() and 'id' not in function.signature.params[0] if function.signature.params %}
+    id: v.id("{{ function.name.replace('get', '').replace('Get', '').lower() }}s"),
+    {% endif %}
+    {% if file.options.pagination %}
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    {% endif %}
+    {% if function.signature.params %}
+    // TODO: Add specific args based on function signature
+    {% for param in function.signature.params %}
+    // {{ param }}
+    {% endfor %}
+    {% endif %}
+  },
+  handler: async (ctx, { {% if 'get' in function.name.lower() %}id, {% endif %}{% if file.options.pagination %}limit = 50, cursor, {% endif %}...args }) => {
+    {% if file.options.multi_tenant %}
+    // REQUIRED: Always get tenant first for SaaS isolation
+    const tenant = await getCurrentTenant(ctx);
+    {% else %}
+    // Verify user is authenticated
+    await requireAuth(ctx);
+    {% endif %}
+
+    {% if 'get' in function.name.lower() and 'id' in function.name.lower() %}
+    // Get single document by ID
+    const document = await ctx.db.get(id);
+    {% if file.options.multi_tenant %}
+
+    // Verify tenant access
+    return await verifyTenantAccess(ctx, document);
+    {% else %}
+
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    return document;
+    {% endif %}
+
+    {% elif 'list' in function.name.lower() or 'find' in function.name.lower() %}
+    // Query multiple documents
+    let query = ctx.db
+      .query("{{ function.name.replace('list', '').replace('List', '').replace('find', '').replace('Find', '').lower() }}s")
+      {% if file.options.multi_tenant %}
+      .withIndex("by_tenant", (q) => q.eq("tenantId", tenant._id))
+      {% endif %}
+      {% if file.options.pagination %}
+      .order("desc");
+
+    if (cursor) {
+      query = query.filter((q) => q.lt(q.field("createdAt"), parseInt(cursor)));
+    }
+
+    const results = await query.take(limit + 1);
+    const hasMore = results.length > limit;
+
+    return {
+      data: results.slice(0, limit),
+      nextCursor: hasMore ? results[limit - 1].createdAt?.toString() : null,
+    };
+    {% else %}
+      .take(50);
+
+    return await query;
+    {% endif %}
+
+    {% else %}
+    // Custom query logic
+    {% if file.options.multi_tenant %}
+    const results = await ctx.db
+      .query("documents") // TODO: Replace with appropriate table
+      .withIndex("by_tenant", (q) => q.eq("tenantId", tenant._id))
+      .take({% if file.options.pagination %}limit{% else %}50{% endif %});
+    {% else %}
+    const results = await ctx.db
+      .query("documents") // TODO: Replace with appropriate table
+      .take({% if file.options.pagination %}limit{% else %}50{% endif %});
+    {% endif %}
+
+    {% if file.options.pagination %}
+    const hasMore = results.length > limit;
+    return {
+      data: results.slice(0, limit),
+      nextCursor: hasMore ? results[limit - 1].createdAt?.toString() : null,
+    };
+    {% else %}
+    return results;
+    {% endif %}
+    {% endif %}
+  },
+});
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+{% if not functions or not any('get' in f.name.lower() or 'find' in f.name.lower() for f in functions) %}
+// Example query functions - replace with your actual queries
+
+// Get all documents for current tenant
+export const getDocuments = query({
+  args: {
+    {% if file.options.pagination %}
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    {% endif %}
+  },
+  handler: async (ctx, { {% if file.options.pagination %}limit = 50, cursor{% endif %} }) => {
+    {% if file.options.multi_tenant %}
+    const tenant = await getCurrentTenant(ctx);
+
+    let query = ctx.db
+      .query("documents")
+      .withIndex("by_tenant", (q) => q.eq("tenantId", tenant._id))
+      {% if file.options.pagination %}
+      .order("desc");
+
+    if (cursor) {
+      query = query.filter((q) => q.lt(q.field("createdAt"), parseInt(cursor)));
+    }
+
+    const results = await query.take(limit + 1);
+    const hasMore = results.length > limit;
+
+    return {
+      data: results.slice(0, limit),
+      nextCursor: hasMore ? results[limit - 1].createdAt?.toString() : null,
+    };
+    {% else %}
+      .take(50);
+
+    return await query;
+    {% endif %}
+    {% else %}
+    await requireAuth(ctx);
+
+    return await ctx.db.query("documents").take({% if file.options.pagination %}limit{% else %}50{% endif %});
+    {% endif %}
+  },
+});
+
+// Get single document by ID
+export const getDocument = query({
+  args: { id: v.id("documents") },
+  handler: async (ctx, { id }) => {
+    {% if file.options.multi_tenant %}
+    const tenant = await getCurrentTenant(ctx);
+    const document = await ctx.db.get(id);
+
+    if (!document || document.tenantId !== tenant._id) {
+      throw new Error("Document not found or access denied");
+    }
+
+    return document;
+    {% else %}
+    await requireAuth(ctx);
+
+    const document = await ctx.db.get(id);
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    return document;
+    {% endif %}
+  },
+});
+{% endif %}

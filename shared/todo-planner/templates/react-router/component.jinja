@@ -1,0 +1,310 @@
+// {{ file.path }} - React Router Component
+// Generated from PRD requirements
+{% if file.options.navigation %}
+// ADVICE: Use useNavigate for programmatic navigation and useLocation for current route info
+{% endif %}
+{% if file.options.params %}
+// ADVICE: Use useParams to access route parameters in a type-safe way
+{% endif %}
+{% if file.options.data_loading %}
+// ADVICE: Use useLoaderData to access data from route loaders
+{% endif %}
+
+import React{% if file.options.state %}, { useState, useEffect }{% endif %} from 'react';
+{% if file.options.navigation %}
+import { useNavigate, useLocation{% if file.options.params %}, useParams{% endif %} } from 'react-router-dom';
+{% elif file.options.params %}
+import { useParams } from 'react-router-dom';
+{% endif %}
+{% if file.options.data_loading %}
+import { useLoaderData, useNavigation } from 'react-router-dom';
+{% endif %}
+{% if file.options.forms %}
+import { Form, useActionData, useSubmit } from 'react-router-dom';
+{% endif %}
+
+{% if file.options.params %}
+// Route parameter types
+interface RouteParams {
+  // TODO: Define route parameters based on your routing structure
+  id?: string;
+  slug?: string;
+  [key: string]: string | undefined;
+}
+{% endif %}
+
+{% if file.options.data_loading %}
+// Loader data type
+interface LoaderData {
+  // TODO: Define the shape of data from your loader
+  data: any;
+  meta?: {
+    total: number;
+    page: number;
+  };
+}
+{% endif %}
+
+{% if file.options.forms %}
+// Action data type
+interface ActionData {
+  // TODO: Define the shape of data from your action
+  errors?: Record<string, string>;
+  success?: boolean;
+  message?: string;
+}
+{% endif %}
+
+interface Props {
+  // TODO: Define component props based on PRD requirements
+  title?: string;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+{% for function in functions %}
+{% if function.name == 'default' or 'component' in function.name.lower() %}
+export default function {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.jsx', '')) }}({
+  title,
+  className = '',
+  children
+}: Props) {
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+  {% if file.options.navigation %}
+  const navigate = useNavigate();
+  const location = useLocation();
+  {% endif %}
+  {% if file.options.params %}
+  const params = useParams<RouteParams>();
+  {% endif %}
+  {% if file.options.data_loading %}
+  const loaderData = useLoaderData() as LoaderData;
+  const navigation = useNavigation();
+  {% endif %}
+  {% if file.options.forms %}
+  const actionData = useActionData() as ActionData;
+  const submit = useSubmit();
+  {% endif %}
+
+  {% if file.options.state %}
+  const [localState, setLocalState] = useState({
+    // TODO: Define local component state
+    isExpanded: false,
+    selectedItem: null,
+  });
+  {% endif %}
+
+  {% if file.options.navigation %}
+  // Navigation handlers
+  const handleNavigate = (path: string, options?: {
+    replace?: boolean;
+    state?: any
+  }) => {
+    navigate(path, {
+      replace: options?.replace || false,
+      state: options?.state,
+    });
+  };
+
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+  {% endif %}
+
+  {% if file.options.forms %}
+  // Form submission handler
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    submit(formData, {
+      method: 'post',
+      action: location.pathname,
+    });
+  };
+  {% endif %}
+
+  {% if file.options.data_loading %}
+  // Loading state from navigation
+  const isLoading = navigation.state === 'loading';
+  const isSubmitting = navigation.state === 'submitting';
+  {% endif %}
+
+  return (
+    <div className={`router-component ${className}`}>
+      {title && (
+        <h1 className="component-title">
+          {title}
+          {% if file.options.params %}
+          {params.id && <span className="param-indicator"> (ID: {params.id})</span>}
+          {% endif %}
+        </h1>
+      )}
+
+      {% if file.options.data_loading %}
+      {/* Loading State */}
+      {isLoading && (
+        <div className="loading-indicator">
+          <div className="spinner" />
+          <span>Loading...</span>
+        </div>
+      )}
+
+      {/* Data Display */}
+      {!isLoading && loaderData && (
+        <div className="data-container">
+          <h2>Loaded Data</h2>
+          <pre>{JSON.stringify(loaderData, null, 2)}</pre>
+          {loaderData.meta && (
+            <div className="meta-info">
+              <p>Total: {loaderData.meta.total}</p>
+              <p>Page: {loaderData.meta.page}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {% endif %}
+
+      {% if file.options.forms %}
+      {/* Form Section */}
+      <div className="form-section">
+        <Form method="post" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="name">Name:</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              required
+              className={actionData?.errors?.name ? 'error' : ''}
+            />
+            {actionData?.errors?.name && (
+              <span className="error-message">{actionData.errors.name}</span>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="description">Description:</label>
+            <textarea
+              id="description"
+              name="description"
+              rows={4}
+              className={actionData?.errors?.description ? 'error' : ''}
+            />
+            {actionData?.errors?.description && (
+              <span className="error-message">{actionData.errors.description}</span>
+            )}
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Submitting...' : 'Submit'}
+            </button>
+            <button type="reset">Reset</button>
+          </div>
+        </Form>
+
+        {actionData?.success && (
+          <div className="success-message">
+            {actionData.message || 'Operation completed successfully!'}
+          </div>
+        )}
+      </div>
+      {% endif %}
+
+      {% if file.options.params %}
+      {/* Route Parameters Display */}
+      <div className="params-display">
+        <h3>Route Parameters</h3>
+        <ul>
+          {Object.entries(params).map(([key, value]) => (
+            <li key={key}>
+              <strong>{key}:</strong> {value || 'undefined'}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {% endif %}
+
+      {/* Main Content */}
+      <div className="main-content">
+        {children || (
+          <div className="default-content">
+            <p>Component content goes here</p>
+            {% if file.options.navigation %}
+            <p>Current path: {location.pathname}</p>
+            {location.state && (
+              <p>Navigation state: {JSON.stringify(location.state)}</p>
+            )}
+            {% endif %}
+          </div>
+        )}
+      </div>
+
+      {% if file.options.navigation %}
+      {/* Navigation Actions */}
+      <div className="navigation-actions">
+        <button
+          onClick={() => handleNavigate('/')}
+          className="nav-button primary"
+        >
+          Go Home
+        </button>
+        <button
+          onClick={() => handleNavigate('/about', {
+            state: { from: location.pathname }
+          })}
+          className="nav-button secondary"
+        >
+          Go to About
+        </button>
+        <button
+          onClick={handleGoBack}
+          className="nav-button tertiary"
+        >
+          Go Back
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  );
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Helper functions
+{% if file.options.data_loading %}
+function processLoaderData(data: LoaderData) {
+  // TODO: Process loader data if needed
+  return data;
+}
+{% endif %}
+
+{% if file.options.forms %}
+function validateFormData(formData: FormData): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  const name = formData.get('name') as string;
+  if (!name || name.trim().length < 2) {
+    errors.name = 'Name must be at least 2 characters long';
+  }
+
+  // TODO: Add more validation rules based on PRD requirements
+
+  return errors;
+}
+{% endif %}
+
+// TypeScript types
+export interface RouterComponentProps extends Props {}
+
+{% if file.options.navigation %}
+export interface NavigationOptions {
+  replace?: boolean;
+  state?: any;
+}
+{% endif %}

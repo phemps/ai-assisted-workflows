@@ -1,0 +1,381 @@
+// {{ file.path }} - React Router Loader Function
+// Generated from PRD requirements
+{% if file.options.auth %}
+// ADVICE: Check authentication status in loaders for protected routes
+{% endif %}
+{% if file.options.caching %}
+// ADVICE: Implement caching strategies to avoid redundant data fetching
+{% endif %}
+{% if file.options.error_handling %}
+// ADVICE: Throw Response objects for proper error handling in error boundaries
+{% endif %}
+
+import type { LoaderFunctionArgs, LoaderFunction } from 'react-router-dom';
+{% if file.options.auth %}
+// import { requireAuth } from '../utils/auth';
+{% endif %}
+{% if file.options.caching %}
+// import { getCachedData, setCachedData } from '../utils/cache';
+{% endif %}
+
+{% if file.options.error_handling %}
+// Custom error response helper
+function createErrorResponse(message: string, status: number = 500, data?: any) {
+  return new Response(JSON.stringify({
+    error: message,
+    status,
+    data
+  }), {
+    status,
+    statusText: message,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}
+{% endif %}
+
+// Loader data interface
+interface LoaderData {
+  // TODO: Define the shape of data this loader returns
+  data: any;
+  meta?: {
+    timestamp: string;
+    source: string;
+    cached?: boolean;
+  };
+  user?: {
+    id: string;
+    permissions: string[];
+  };
+}
+
+// Route parameters interface
+interface LoaderParams {
+  // TODO: Define expected route parameters
+  id?: string;
+  slug?: string;
+  category?: string;
+  [key: string]: string | undefined;
+}
+
+{% for function in functions %}
+{% if 'loader' in function.name.lower() %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export const {{ function.name }}: LoaderFunction = async ({
+  params,
+  request
+}: LoaderFunctionArgs) => {
+  try {
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
+    const routeParams = params as LoaderParams;
+
+    {% if file.options.auth %}
+    // Authentication check
+    // const user = await requireAuth(request);
+    // if (!user) {
+    //   throw createErrorResponse('Authentication required', 401);
+    // }
+
+    // For demo purposes, using a mock user
+    const user = { id: 'user123', permissions: ['read', 'write'] };
+
+    // Check permissions if needed
+    if (routeParams.id && !user.permissions.includes('read')) {
+      throw createErrorResponse('Insufficient permissions', 403);
+    }
+    {% endif %}
+
+    {% if file.options.caching %}
+    // Check cache first
+    const cacheKey = `${url.pathname}${url.search}`;
+    const cachedData = getCachedData(cacheKey);
+
+    if (cachedData && !searchParams.has('refresh')) {
+      return {
+        data: cachedData,
+        meta: {
+          timestamp: new Date().toISOString(),
+          source: 'cache',
+          cached: true,
+        },
+        {% if file.options.auth %}
+        user,
+        {% endif %}
+      } satisfies LoaderData;
+    }
+    {% endif %}
+
+    // Extract query parameters
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const sortBy = searchParams.get('sortBy') || 'created_at';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const filters = Object.fromEntries(
+      Array.from(searchParams.entries()).filter(([key]) =>
+        !['page', 'limit', 'sortBy', 'sortOrder', 'refresh'].includes(key)
+      )
+    );
+
+    // Build API request
+    const apiUrl = buildApiUrl({
+      baseUrl: '/api/data',
+      params: routeParams,
+      query: { page, limit, sortBy, sortOrder, ...filters },
+    });
+
+    // Fetch data
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+        {% if file.options.auth %}
+        // 'Authorization': `Bearer ${user.token}`,
+        {% endif %}
+      },
+    });
+
+    if (!response.ok) {
+      {% if file.options.error_handling %}
+      const errorData = await response.json().catch(() => ({}));
+      throw createErrorResponse(
+        errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+        response.status,
+        errorData
+      );
+      {% else %}
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      {% endif %}
+    }
+
+    const responseData = await response.json();
+
+    // Process and validate data
+    const processedData = processLoaderData(responseData, routeParams);
+
+    {% if file.options.caching %}
+    // Cache the result
+    setCachedData(cacheKey, processedData, {
+      ttl: 5 * 60 * 1000, // 5 minutes
+    });
+    {% endif %}
+
+    const loaderData: LoaderData = {
+      data: processedData,
+      meta: {
+        timestamp: new Date().toISOString(),
+        source: 'api',
+        {% if file.options.caching %}
+        cached: false,
+        {% endif %}
+      },
+      {% if file.options.auth %}
+      user,
+      {% endif %}
+    };
+
+    return loaderData;
+
+  } catch (error) {
+    console.error('Loader error:', error);
+
+    {% if file.options.error_handling %}
+    // Re-throw Response errors (they're handled by error boundaries)
+    if (error instanceof Response) {
+      throw error;
+    }
+
+    // Convert other errors to Response objects
+    const message = error instanceof Error ? error.message : 'Unknown loader error';
+    throw createErrorResponse(message, 500, {
+      originalError: error instanceof Error ? error.stack : String(error)
+    });
+    {% else %}
+    throw error;
+    {% endif %}
+  }
+};
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Helper functions
+function buildApiUrl({
+  baseUrl,
+  params,
+  query,
+}: {
+  baseUrl: string;
+  params: LoaderParams;
+  query: Record<string, any>;
+}) {
+  // Replace path parameters
+  let url = baseUrl;
+  if (params.id) {
+    url = url.replace(':id', params.id);
+  }
+  if (params.slug) {
+    url = url.replace(':slug', params.slug);
+  }
+  if (params.category) {
+    url = url.replace(':category', params.category);
+  }
+
+  // Add query parameters
+  const searchParams = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.append(key, String(value));
+    }
+  });
+
+  const queryString = searchParams.toString();
+  return queryString ? `${url}?${queryString}` : url;
+}
+
+function processLoaderData(rawData: any, params: LoaderParams) {
+  // TODO: Implement data processing logic based on PRD requirements
+
+  // Example processing:
+  if (Array.isArray(rawData)) {
+    return rawData.map((item, index) => ({
+      ...item,
+      processed: true,
+      index,
+    }));
+  }
+
+  if (typeof rawData === 'object' && rawData !== null) {
+    return {
+      ...rawData,
+      processed: true,
+      loadedAt: new Date().toISOString(),
+      params,
+    };
+  }
+
+  return rawData;
+}
+
+{% if file.options.caching %}
+// Simple in-memory cache implementation (replace with Redis/etc. in production)
+const cache = new Map<string, { data: any; expires: number }>();
+
+export function getCachedData(key: string) {
+  const cached = cache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    return cached.data;
+  }
+
+  if (cached) {
+    cache.delete(key); // Remove expired entry
+  }
+
+  return null;
+}
+
+export function setCachedData(
+  key: string,
+  data: any,
+  options: { ttl: number } = { ttl: 5 * 60 * 1000 }
+) {
+  const expires = Date.now() + options.ttl;
+  cache.set(key, { data, expires });
+}
+
+export function clearCache(pattern?: string) {
+  if (pattern) {
+    const regex = new RegExp(pattern);
+    for (const key of cache.keys()) {
+      if (regex.test(key)) {
+        cache.delete(key);
+      }
+    }
+  } else {
+    cache.clear();
+  }
+}
+{% endif %}
+
+// Action function for forms (companion to loader)
+export async function action({ request, params }: LoaderFunctionArgs) {
+  const formData = await request.formData();
+  const actionType = formData.get('action') as string;
+
+  {% if file.options.auth %}
+  // Authentication check for actions
+  // const user = await requireAuth(request);
+  // if (!user) {
+  //   throw createErrorResponse('Authentication required', 401);
+  // }
+  {% endif %}
+
+  try {
+    switch (actionType) {
+      case 'create':
+        return await handleCreate(formData, params);
+      case 'update':
+        return await handleUpdate(formData, params);
+      case 'delete':
+        return await handleDelete(formData, params);
+      default:
+        {% if file.options.error_handling %}
+        throw createErrorResponse(`Unknown action: ${actionType}`, 400);
+        {% else %}
+        throw new Error(`Unknown action: ${actionType}`);
+        {% endif %}
+    }
+  } catch (error) {
+    console.error('Action error:', error);
+
+    {% if file.options.error_handling %}
+    if (error instanceof Response) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown action error';
+    throw createErrorResponse(message, 500);
+    {% else %}
+    throw error;
+    {% endif %}
+  }
+}
+
+// Action handlers
+async function handleCreate(formData: FormData, params: any) {
+  // TODO: Implement create logic
+  const data = Object.fromEntries(formData);
+  console.log('Creating:', data);
+
+  return { success: true, message: 'Created successfully', data };
+}
+
+async function handleUpdate(formData: FormData, params: any) {
+  // TODO: Implement update logic
+  const data = Object.fromEntries(formData);
+  console.log('Updating:', data, 'for params:', params);
+
+  return { success: true, message: 'Updated successfully', data };
+}
+
+async function handleDelete(formData: FormData, params: any) {
+  // TODO: Implement delete logic
+  const id = formData.get('id');
+  console.log('Deleting:', id, 'for params:', params);
+
+  return { success: true, message: 'Deleted successfully', id };
+}
+
+// TypeScript types
+export interface LoaderDataType extends LoaderData {}
+export interface LoaderParamsType extends LoaderParams {}
+
+export interface ActionResult {
+  success: boolean;
+  message: string;
+  data?: any;
+  errors?: Record<string, string>;
+}

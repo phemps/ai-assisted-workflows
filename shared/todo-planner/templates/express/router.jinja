@@ -1,0 +1,173 @@
+// {{ file.path }} - Express Router
+// Generated from PRD requirements
+{% if file.options.cors %}
+// ADVICE: Configure CORS middleware for cross-origin requests
+{% endif %}
+{% if file.options.validation %}
+// ADVICE: Use express-validator or joi for input validation
+{% endif %}
+{% if file.options.auth %}
+// ADVICE: Implement JWT or session-based authentication middleware
+{% endif %}
+
+import express from 'express';
+{% if file.options.validation %}
+import { body, param, validationResult } from 'express-validator';
+{% endif %}
+{% if file.options.auth %}
+import jwt from 'jsonwebtoken';
+{% endif %}
+
+const router = express.Router();
+
+{% if file.options.auth %}
+// Authentication middleware
+const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err: any, user: any) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+{% endif %}
+
+{% if file.options.validation %}
+// Validation middleware
+const handleValidationErrors = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
+{% endif %}
+
+{% for function in functions %}
+{% if function.name.upper() in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+router.{{ function.name.lower() }}('{{ function.path or "/route" }}',
+  {% if file.options.auth %}
+  authenticateToken,
+  {% endif %}
+  {% if file.options.validation and function.name.upper() in ['POST', 'PUT', 'PATCH'] %}
+  [
+    body('name').notEmpty().withMessage('Name is required'),
+    body('description').optional().isString(),
+  ],
+  handleValidationErrors,
+  {% endif %}
+  async (req: express.Request, res: express.Response) => {
+    try {
+      {% if function.name.upper() in ['POST', 'PUT', 'PATCH'] %}
+      const { name, description, ...otherData } = req.body;
+      {% endif %}
+      {% if function.name.upper() in ['GET', 'DELETE'] and 'id' in function.name.lower() %}
+      const { id } = req.params;
+      {% endif %}
+
+      {% if file.options.auth %}
+      const userId = req.user?.id;
+      {% endif %}
+
+      {% if function.name.upper() == 'POST' %}
+      // Create new resource
+      const result = await createResource({
+        name,
+        description,
+        ...otherData,
+        {% if file.options.auth %}userId{% endif %}
+      });
+      res.status(201).json(result);
+
+      {% elif function.name.upper() == 'PUT' %}
+      // Update existing resource
+      const { id } = req.params;
+      const result = await updateResource(id, {
+        name,
+        description,
+        ...otherData,
+      }{% if file.options.auth %}, userId{% endif %});
+      res.json(result);
+
+      {% elif function.name.upper() == 'DELETE' %}
+      // Delete resource
+      const { id } = req.params;
+      await deleteResource(id{% if file.options.auth %}, userId{% endif %});
+      res.status(204).send();
+
+      {% elif function.name.upper() == 'GET' %}
+      {% if 'id' in function.name.lower() %}
+      // Get single resource by ID
+      const { id } = req.params;
+      const result = await getResourceById(id{% if file.options.auth %}, userId{% endif %});
+      if (!result) {
+        return res.status(404).json({ error: 'Resource not found' });
+      }
+      res.json(result);
+      {% else %}
+      // Get all resources
+      const results = await getResources({% if file.options.auth %}userId{% endif %});
+      res.json(results);
+      {% endif %}
+
+      {% else %}
+      // Custom route logic
+      const result = await processRequest(req.body{% if file.options.auth %}, userId{% endif %});
+      res.json(result);
+      {% endif %}
+
+    } catch (error) {
+      console.error('API Error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+{% else %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+// Custom function: {{ function.name }}
+
+{% endif %}
+{% endfor %}
+
+// Helper functions
+async function createResource(data: any): Promise<any> {
+  // TODO: Implement resource creation logic
+  throw new Error("Create logic not implemented");
+}
+
+async function updateResource(id: string, data: any, userId?: string): Promise<any> {
+  // TODO: Implement resource update logic
+  throw new Error("Update logic not implemented");
+}
+
+async function deleteResource(id: string, userId?: string): Promise<void> {
+  // TODO: Implement resource deletion logic
+  throw new Error("Delete logic not implemented");
+}
+
+async function getResources(userId?: string): Promise<any[]> {
+  // TODO: Implement resources query logic
+  return [];
+}
+
+async function getResourceById(id: string, userId?: string): Promise<any | null> {
+  // TODO: Implement single resource query logic
+  return null;
+}
+
+async function processRequest(data: any, userId?: string): Promise<any> {
+  // TODO: Implement custom request processing
+  return { success: true };
+}
+
+export default router;

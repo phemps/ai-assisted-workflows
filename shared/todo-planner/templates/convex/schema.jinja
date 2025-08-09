@@ -1,0 +1,122 @@
+// {{ file.path }} - Convex Database Schema
+// Generated from PRD requirements
+{% if file.options.multi_tenant %}
+// ADVICE: Always include tenantId field with proper indexing for SaaS isolation
+{% endif %}
+{% if file.options.audit_fields %}
+// ADVICE: Include createdAt/updatedAt fields for audit trails
+{% endif %}
+{% if file.options.soft_delete %}
+// ADVICE: Add deletedAt field for soft delete functionality
+{% endif %}
+
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  {% if file.options.multi_tenant %}
+  // Tenant management table (required for SaaS isolation)
+  tenants: defineTable({
+    name: v.string(),
+    authId: v.string(), // Maps to your auth provider's user ID
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    {% if file.options.soft_delete %}
+    deletedAt: v.optional(v.number()),
+    {% endif %}
+  })
+    .index("by_auth_id", ["authId"])
+    {% if file.options.soft_delete %}
+    .index("by_deleted", ["deletedAt"])
+    {% endif %}
+    ,
+  {% endif %}
+
+  {% for function in functions %}
+  {% if 'table' in function.name.lower() or 'schema' in function.name.lower() %}
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+  {{ function.name.replace('Table', '').replace('Schema', '').lower() }}: defineTable({
+    // Business fields
+    name: v.string(),
+    description: v.optional(v.string()),
+    status: v.optional(v.string()),
+
+    {% if file.options.multi_tenant %}
+    // REQUIRED: Tenant isolation field (adapt field name to your model: userId, organizationId, companyId)
+    tenantId: v.id("tenants"),
+    {% endif %}
+
+    {% if file.options.audit_fields %}
+    // Audit fields
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    {% endif %}
+
+    {% if file.options.soft_delete %}
+    // Soft delete support
+    deletedAt: v.optional(v.number()),
+    {% endif %}
+  })
+    {% if file.options.multi_tenant %}
+    // Always create compound indexes starting with tenantId
+    .index("by_tenant", ["tenantId"])
+    {% if file.options.audit_fields %}
+    .index("by_tenant_created", ["tenantId", "createdAt"])
+    {% endif %}
+    .index("by_tenant_status", ["tenantId", "status"])
+    {% endif %}
+    {% if file.options.audit_fields and not file.options.multi_tenant %}
+    .index("by_created", ["createdAt"])
+    {% endif %}
+    {% if file.options.soft_delete %}
+    .index("by_deleted", ["deletedAt"])
+    {% endif %}
+    ,
+
+  {% endif %}
+  {% endfor %}
+
+  {% set has_table_function = false %}
+  {% for f in functions %}
+    {% if 'table' in f.name|lower or 'schema' in f.name|lower %}
+      {% set has_table_function = true %}
+    {% endif %}
+  {% endfor %}
+  {% if not functions or not has_table_function %}
+  // Example table - replace with your actual tables
+  documents: defineTable({
+    title: v.string(),
+    content: v.string(),
+
+    {% if file.options.multi_tenant %}
+    // REQUIRED: Tenant isolation field
+    tenantId: v.id("tenants"),
+    {% endif %}
+
+    {% if file.options.audit_fields %}
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    {% endif %}
+
+    {% if file.options.soft_delete %}
+    deletedAt: v.optional(v.number()),
+    {% endif %}
+  })
+    {% if file.options.multi_tenant %}
+    .index("by_tenant", ["tenantId"])
+    {% if file.options.audit_fields %}
+    .index("by_tenant_created", ["tenantId", "createdAt"])
+    {% endif %}
+    {% endif %}
+    {% if file.options.audit_fields and not file.options.multi_tenant %}
+    .index("by_created", ["createdAt"])
+    {% endif %}
+    {% if file.options.soft_delete %}
+    .index("by_deleted", ["deletedAt"])
+    {% endif %}
+    ,
+  {% endif %}
+});
+
+// Type exports for better TypeScript support
+export type Schema = typeof schema;

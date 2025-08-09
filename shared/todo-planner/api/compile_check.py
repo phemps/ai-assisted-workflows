@@ -13,7 +13,8 @@ from typing import Dict, List, Tuple
 
 def detect_package_manager(project_dir: Path) -> str:
     """Detect which package manager is used."""
-    if (project_dir / "bun.lockb").exists():
+    # Check for bun lockfiles (both variants)
+    if (project_dir / "bun.lockb").exists() or (project_dir / "bun.lock").exists():
         return "bun"
     elif (project_dir / "pnpm-lock.yaml").exists():
         return "pnpm"
@@ -21,6 +22,9 @@ def detect_package_manager(project_dir: Path) -> str:
         return "yarn"
     elif (project_dir / "package-lock.json").exists():
         return "npm"
+    # Check for bunfig.toml as another indicator
+    elif (project_dir / "bunfig.toml").exists():
+        return "bun"
     else:
         return "npm"  # Default
 
@@ -54,6 +58,23 @@ def run_command(
         return False, "", str(e)
 
 
+def install_dependencies(
+    project_dir: Path, package_manager: str
+) -> Tuple[bool, str, str]:
+    """Install project dependencies."""
+    install_commands = {
+        "npm": ["npm", "install"],
+        "yarn": ["yarn", "install"],
+        "pnpm": ["pnpm", "install"],
+        "bun": ["bun", "install"],
+    }
+
+    cmd = install_commands.get(package_manager, install_commands["npm"])
+    print(f"Installing dependencies with {package_manager}...")
+
+    return run_command(cmd, project_dir, timeout=300)  # 5 min timeout for installs
+
+
 def check_quality_gates(project_dir: Path) -> Dict:
     """Run all available quality checks."""
     project_path = Path(project_dir)
@@ -61,6 +82,21 @@ def check_quality_gates(project_dir: Path) -> Dict:
     # Detect package manager and scripts
     package_manager = detect_package_manager(project_path)
     available_scripts = get_available_scripts(project_path)
+
+    # Install dependencies first if node_modules doesn't exist
+    if not (project_path / "node_modules").exists():
+        success, stdout, stderr = install_dependencies(project_path, package_manager)
+        if not success:
+            return {
+                "project_dir": str(project_path),
+                "package_manager": package_manager,
+                "available_scripts": available_scripts,
+                "checks": {},
+                "overall_status": "failed",
+                "summary": "Dependency installation failed",
+                "install_error": {"stdout": stdout, "stderr": stderr},
+            }
+        print("✅ Dependencies installed successfully")
 
     # Define command patterns for different package managers
     pm_commands = {

@@ -1,0 +1,205 @@
+// {{ file.path }} - React Custom Hook
+// Generated from PRD requirements
+{% if file.options.state %}
+// ADVICE: Use useState and useReducer for complex state management
+{% endif %}
+{% if file.options.async %}
+// ADVICE: Handle loading states and error boundaries for async operations
+{% endif %}
+{% if file.options.effects %}
+// ADVICE: Use useEffect for side effects and cleanup properly
+{% endif %}
+
+import { useState, useEffect{% if file.options.async %}, useCallback{% endif %}{% if file.options.state %}, useReducer{% endif %} } from 'react';
+
+{% if file.options.state %}
+// State management types
+interface HookState {
+  data: any;
+  loading: boolean;
+  error: string | null;
+}
+
+type HookAction =
+  | { type: 'LOADING' }
+  | { type: 'SUCCESS'; payload: any }
+  | { type: 'ERROR'; payload: string }
+  | { type: 'RESET' };
+
+const hookReducer = (state: HookState, action: HookAction): HookState => {
+  switch (action.type) {
+    case 'LOADING':
+      return { ...state, loading: true, error: null };
+    case 'SUCCESS':
+      return { ...state, loading: false, data: action.payload, error: null };
+    case 'ERROR':
+      return { ...state, loading: false, error: action.payload };
+    case 'RESET':
+      return { data: null, loading: false, error: null };
+    default:
+      return state;
+  }
+};
+{% endif %}
+
+{% for function in functions %}
+{% if 'hook' in function.name.lower() or function.name.startswith('use') %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+export function {{ function.name if function.name.startswith('use') else 'use' + function.name.capitalize() }}(
+  {% if file.options.async %}
+  config?: {
+    autoFetch?: boolean;
+    dependencies?: any[];
+    onSuccess?: (data: any) => void;
+    onError?: (error: string) => void;
+  }
+  {% endif %}
+) {
+  {% if file.options.state %}
+  const [state, dispatch] = useReducer(hookReducer, {
+    data: null,
+    loading: false,
+    error: null,
+  });
+  {% else %}
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  {% endif %}
+
+  {% if file.options.async %}
+  // Async operation handler
+  const executeAsync = useCallback(async (params?: any) => {
+    {% if file.options.state %}
+    dispatch({ type: 'LOADING' });
+    {% else %}
+    setLoading(true);
+    setError(null);
+    {% endif %}
+
+    try {
+      // TODO: Implement async logic based on PRD requirements
+      const result = await performAsyncOperation(params);
+
+      {% if file.options.state %}
+      dispatch({ type: 'SUCCESS', payload: result });
+      {% else %}
+      setData(result);
+      setLoading(false);
+      {% endif %}
+
+      config?.onSuccess?.(result);
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+      {% if file.options.state %}
+      dispatch({ type: 'ERROR', payload: errorMessage });
+      {% else %}
+      setError(errorMessage);
+      setLoading(false);
+      {% endif %}
+
+      config?.onError?.(errorMessage);
+      throw err;
+    }
+  }, [config]);
+
+  // Reset function
+  const reset = useCallback(() => {
+    {% if file.options.state %}
+    dispatch({ type: 'RESET' });
+    {% else %}
+    setData(null);
+    setLoading(false);
+    setError(null);
+    {% endif %}
+  }, []);
+  {% endif %}
+
+  {% if file.options.effects %}
+  // Effect for initialization or data fetching
+  useEffect(() => {
+    {% if file.options.async %}
+    if (config?.autoFetch !== false) {
+      executeAsync();
+    }
+    {% else %}
+    // TODO: Add initialization logic
+    initializeHook();
+    {% endif %}
+
+    // Cleanup function
+    return () => {
+      // TODO: Add cleanup logic if needed
+      cleanup();
+    };
+  }, {% if file.options.async %}config?.dependencies || []{% else %}[]{% endif %});
+  {% endif %}
+
+  // Return hook interface
+  return {
+    {% if file.options.state %}
+    data: state.data,
+    loading: state.loading,
+    error: state.error,
+    {% else %}
+    data,
+    loading,
+    error,
+    {% endif %}
+    {% if file.options.async %}
+    execute: executeAsync,
+    reset,
+    {% endif %}
+    // TODO: Add additional hook methods based on PRD
+  };
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Helper functions
+{% if file.options.async %}
+async function performAsyncOperation(params?: any): Promise<any> {
+  // TODO: Implement actual async operation
+  // This could be API calls, database operations, etc.
+  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async
+  return { success: true, data: params };
+}
+{% endif %}
+
+{% if file.options.effects %}
+function initializeHook(): void {
+  // TODO: Add initialization logic
+  console.log('Hook initialized');
+}
+
+function cleanup(): void {
+  // TODO: Add cleanup logic
+  console.log('Hook cleanup');
+}
+{% endif %}
+
+// TypeScript types
+export interface HookOptions {
+  {% if file.options.async %}
+  autoFetch?: boolean;
+  dependencies?: any[];
+  onSuccess?: (data: any) => void;
+  onError?: (error: string) => void;
+  {% endif %}
+}
+
+export interface HookReturn {
+  data: any;
+  loading: boolean;
+  error: string | null;
+  {% if file.options.async %}
+  execute: (params?: any) => Promise<any>;
+  reset: () => void;
+  {% endif %}
+}

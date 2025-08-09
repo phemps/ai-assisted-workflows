@@ -1,0 +1,56 @@
+// {{ file.path }} - Next.js Page Component
+// Generated from PRD requirements
+{% if file.options.seo %}
+// ADVICE: Add proper meta tags and structured data for SEO
+{% endif %}
+{% if file.options.loading %}
+// ADVICE: Implement loading states and error boundaries
+{% endif %}
+
+{% for function in functions %}
+{% if function.name == 'default' or function.name == 'Page' %}
+export default function {{ function.name.replace('default', 'Page') }}() {
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+  {% if file.options.loading %}
+  // Add loading states
+  // const [isLoading, setIsLoading] = useState(false);
+  {% endif %}
+
+  return (
+    <main className="container mx-auto px-4 py-8">
+      {% if file.options.seo %}
+      <head>
+        <title>{{ function.description or 'Page Title' }}</title>
+        <meta name="description" content="TODO: Add page description" />
+      </head>
+      {% endif %}
+
+      <h1 className="text-3xl font-bold mb-6">
+        {{ function.description or 'Page Heading' }}
+      </h1>
+
+      {% if file.options.loading %}
+      {isLoading ? (
+        <div>Loading...</div>
+      ) : (
+        <div>
+          {/* TODO: Implement main page content */}
+          <p>Content coming soon...</p>
+        </div>
+      )}
+      {% else %}
+      <div>
+        {/* TODO: Implement page content per PRD routes and UX */}
+        <p>Content coming soon...</p>
+      </div>
+      {% endif %}
+    </main>
+  );
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}

@@ -1,0 +1,392 @@
+// {{ file.path }} - React Router Layout Component
+// Generated from PRD requirements
+{% if file.options.nested_routes %}
+// ADVICE: Use Outlet to render child routes in nested routing structures
+{% endif %}
+{% if file.options.navigation %}
+// ADVICE: Include navigation components that persist across route changes
+{% endif %}
+{% if file.options.auth %}
+// ADVICE: Handle authentication state and protected route logic in layouts
+{% endif %}
+
+import React{% if file.options.state %}, { useState, useEffect }{% endif %} from 'react';
+import {
+  Outlet,
+  useNavigate,
+  useLocation,
+  NavLink{% if file.options.auth %},
+  Navigate{% endif %}
+} from 'react-router-dom';
+{% if file.options.data_loading %}
+import { useNavigation } from 'react-router-dom';
+{% endif %}
+
+{% if file.options.auth %}
+// Auth context or hook import
+// import { useAuth } from '../hooks/useAuth';
+{% endif %}
+
+{% if file.options.navigation %}
+// Navigation item interface
+interface NavItem {
+  label: string;
+  path: string;
+  icon?: string;
+  requiresAuth?: boolean;
+  children?: NavItem[];
+}
+
+// Navigation configuration
+const navigationItems: NavItem[] = [
+  { label: 'Home', path: '/', icon: '🏠' },
+  { label: 'Dashboard', path: '/dashboard', icon: '📊', requiresAuth: true },
+  { label: 'Profile', path: '/profile', icon: '👤', requiresAuth: true },
+  { label: 'Settings', path: '/settings', icon: '⚙️', requiresAuth: true },
+  { label: 'About', path: '/about', icon: 'ℹ️' },
+];
+{% endif %}
+
+interface Props {
+  // TODO: Define layout props based on PRD requirements
+  className?: string;
+  showSidebar?: boolean;
+  showHeader?: boolean;
+  showFooter?: boolean;
+}
+
+{% for function in functions %}
+{% if function.name == 'default' or 'layout' in function.name.lower() %}
+export default function {{ function.name.replace('default', file.path.split('/')[-1].replace('.tsx', '').replace('.jsx', '')) }}({
+  className = '',
+  showSidebar = true,
+  showHeader = true,
+  showFooter = true
+}: Props) {
+  // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  {% if file.options.data_loading %}
+  const navigation = useNavigation();
+  const isNavigating = navigation.state === 'loading';
+  {% endif %}
+
+  {% if file.options.auth %}
+  // Authentication state (replace with actual auth hook)
+  // const { user, isAuthenticated, logout } = useAuth();
+  const isAuthenticated = false; // TODO: Replace with actual auth state
+  const user = null; // TODO: Replace with actual user data
+  {% endif %}
+
+  {% if file.options.state %}
+  const [layoutState, setLayoutState] = useState({
+    sidebarCollapsed: false,
+    mobileMenuOpen: false,
+    notifications: [],
+  });
+
+  // Toggle sidebar collapse
+  const toggleSidebar = () => {
+    setLayoutState(prev => ({
+      ...prev,
+      sidebarCollapsed: !prev.sidebarCollapsed
+    }));
+  };
+
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setLayoutState(prev => ({
+      ...prev,
+      mobileMenuOpen: !prev.mobileMenuOpen
+    }));
+  };
+  {% endif %}
+
+  {% if file.options.auth %}
+  // Handle logout
+  const handleLogout = () => {
+    // logout(); // Call actual logout function
+    navigate('/login', { replace: true });
+  };
+
+  // Redirect to login if not authenticated and on protected route
+  const currentNavItem = navigationItems.find(item => item.path === location.pathname);
+  if (currentNavItem?.requiresAuth && !isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  {% endif %}
+
+  {% if file.options.navigation %}
+  // Filter navigation items based on auth state
+  const visibleNavItems = navigationItems.filter(item =>
+    !item.requiresAuth || (item.requiresAuth && {% if file.options.auth %}isAuthenticated{% else %}true{% endif %})
+  );
+  {% endif %}
+
+  return (
+    <div className={`layout-container ${className}`}>
+      {% if file.options.data_loading %}
+      {/* Global Loading Indicator */}
+      {isNavigating && (
+        <div className="global-loading">
+          <div className="loading-bar" />
+        </div>
+      )}
+      {% endif %}
+
+      {% if file.options.navigation and showHeader %}
+      {/* Header */}
+      <header className="layout-header">
+        <div className="header-content">
+          <div className="header-left">
+            {% if file.options.state %}
+            <button
+              onClick={toggleSidebar}
+              className="sidebar-toggle"
+              aria-label="Toggle sidebar"
+            >
+              ☰
+            </button>
+            {% endif %}
+            <NavLink to="/" className="logo">
+              <h1>Your App</h1>
+            </NavLink>
+          </div>
+
+          <nav className="header-nav">
+            {visibleNavItems.slice(0, 4).map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? 'active' : ''}`
+                }
+              >
+                {item.icon && <span className="nav-icon">{item.icon}</span>}
+                <span className="nav-label">{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="header-right">
+            {% if file.options.auth %}
+            {isAuthenticated && user ? (
+              <div className="user-menu">
+                <span className="user-name">Hello, {user.name}</span>
+                <button onClick={handleLogout} className="logout-button">
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="auth-buttons">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="login-button"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="signup-button"
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
+            {% endif %}
+
+            {% if file.options.state %}
+            <button
+              onClick={toggleMobileMenu}
+              className="mobile-menu-toggle"
+              aria-label="Toggle mobile menu"
+            >
+              📱
+            </button>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if file.options.state %}
+        {/* Mobile Menu */}
+        {layoutState.mobileMenuOpen && (
+          <div className="mobile-menu">
+            <nav className="mobile-nav">
+              {visibleNavItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `mobile-nav-link ${isActive ? 'active' : ''}`
+                  }
+                  onClick={() => setLayoutState(prev => ({
+                    ...prev,
+                    mobileMenuOpen: false
+                  }))}
+                >
+                  {item.icon && <span className="nav-icon">{item.icon}</span>}
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        )}
+        {% endif %}
+      </header>
+      {% endif %}
+
+      <div className="layout-body">
+        {% if file.options.navigation and showSidebar %}
+        {/* Sidebar */}
+        <aside className={`layout-sidebar ${{% if file.options.state %}layoutState.sidebarCollapsed ? 'collapsed' : ''{% endif %}}`}>
+          <nav className="sidebar-nav">
+            <ul className="nav-list">
+              {visibleNavItems.map((item) => (
+                <li key={item.path} className="nav-item">
+                  <NavLink
+                    to={item.path}
+                    className={({ isActive }) =>
+                      `sidebar-link ${isActive ? 'active' : ''}`
+                    }
+                  >
+                    {item.icon && (
+                      <span className="nav-icon">{item.icon}</span>
+                    )}
+                    <span className={`nav-label ${{% if file.options.state %}layoutState.sidebarCollapsed ? 'hidden' : ''{% endif %}}`}>
+                      {item.label}
+                    </span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Sidebar Footer */}
+          <div className="sidebar-footer">
+            <div className="current-route">
+              <small>Current: {location.pathname}</small>
+            </div>
+          </div>
+        </aside>
+        {% endif %}
+
+        {/* Main Content Area */}
+        <main className="layout-main">
+          <div className="main-content">
+            {/* Breadcrumb */}
+            <nav className="breadcrumb" aria-label="Breadcrumb">
+              <ol className="breadcrumb-list">
+                <li className="breadcrumb-item">
+                  <NavLink to="/">Home</NavLink>
+                </li>
+                {location.pathname !== '/' && (
+                  <li className="breadcrumb-item current" aria-current="page">
+                    {location.pathname.split('/').pop()?.charAt(0).toUpperCase() +
+                     location.pathname.split('/').pop()?.slice(1) || 'Current Page'}
+                  </li>
+                )}
+              </ol>
+            </nav>
+
+            {/* Route Content */}
+            <div className="route-content">
+              {% if file.options.nested_routes %}
+              <Outlet />
+              {% else %}
+              <Outlet />
+              {% endif %}
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {% if showFooter %}
+      {/* Footer */}
+      <footer className="layout-footer">
+        <div className="footer-content">
+          <div className="footer-left">
+            <p>&copy; 2025 Your App. All rights reserved.</p>
+          </div>
+
+          <div className="footer-center">
+            <nav className="footer-nav">
+              <NavLink to="/privacy" className="footer-link">Privacy</NavLink>
+              <NavLink to="/terms" className="footer-link">Terms</NavLink>
+              <NavLink to="/contact" className="footer-link">Contact</NavLink>
+            </nav>
+          </div>
+
+          <div className="footer-right">
+            <p>Build version: 1.0.0</p>
+          </div>
+        </div>
+      </footer>
+      {% endif %}
+    </div>
+  );
+}
+
+{% else %}
+{{ function.stub_code }}
+
+{% endif %}
+{% endfor %}
+
+// Helper Components
+{% if file.options.auth %}
+// Protected Route wrapper (alternative approach)
+export function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  // const { isAuthenticated } = useAuth();
+  const isAuthenticated = false; // TODO: Replace with actual auth state
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+}
+{% endif %}
+
+// Loading Layout for async route transitions
+export function LoadingLayout() {
+  return (
+    <div className="loading-layout">
+      <div className="loading-spinner" />
+      <p>Loading...</p>
+    </div>
+  );
+}
+
+// Error Layout for route error boundaries
+export function ErrorLayout({ error }: { error?: Error }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="error-layout">
+      <h1>Something went wrong</h1>
+      <p>{error?.message || 'An unexpected error occurred'}</p>
+      <div className="error-actions">
+        <button onClick={() => navigate(-1)}>Go Back</button>
+        <button onClick={() => navigate('/')}>Go Home</button>
+        <button onClick={() => window.location.reload()}>Reload Page</button>
+      </div>
+    </div>
+  );
+}
+
+// TypeScript types
+export interface LayoutProps extends Props {}
+
+{% if file.options.navigation %}
+export interface NavigationItem extends NavItem {}
+{% endif %}
+
+{% if file.options.state %}
+export interface LayoutState {
+  sidebarCollapsed: boolean;
+  mobileMenuOpen: boolean;
+  notifications: any[];
+}
+{% endif %}

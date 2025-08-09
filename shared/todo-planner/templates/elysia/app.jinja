@@ -1,0 +1,100 @@
+// {{ file.path }} - Elysia Application
+// Generated from PRD requirements
+{% if file.options.cors %}
+// ADVICE: Configure CORS properly for your client applications
+{% endif %}
+{% if file.options.validation %}
+// ADVICE: Use Elysia's built-in validation with t schema
+{% endif %}
+{% if file.options.auth %}
+// ADVICE: Implement JWT or session-based authentication
+{% endif %}
+
+import { Elysia, t } from 'elysia';
+{% if file.options.cors %}
+import { cors } from '@elysiajs/cors';
+{% endif %}
+{% if file.options.auth %}
+import { jwt } from '@elysiajs/jwt';
+{% endif %}
+
+const app = new Elysia()
+  {% if file.options.cors %}
+  .use(cors({
+    origin: ['http://localhost:3000'], // TODO: Configure allowed origins
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  }))
+  {% endif %}
+  {% if file.options.auth %}
+  .use(jwt({
+    name: 'jwt',
+    secret: process.env.JWT_SECRET || 'your-secret-key', // TODO: Use environment variable
+  }))
+  {% endif %}
+
+{% for function in functions %}
+{% if function.name.upper() in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] %}
+  .{{ function.name.lower() }}('{{ function.path or "/api/route" }}', async ({ {% if function.name.upper() in ['POST', 'PUT', 'PATCH'] %}body{% endif %}{% if file.options.auth %}{% if function.name.upper() in ['POST', 'PUT', 'PATCH'] %}, {% endif %}jwt, set{% endif %} }) => {
+    // TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+
+    {% if file.options.auth %}
+    // Verify JWT token
+    const token = await jwt.verify(/* get token from headers */);
+    if (!token) {
+      set.status = 401;
+      return { error: 'Unauthorized' };
+    }
+    {% endif %}
+
+    try {
+      {% if function.name.upper() in ['POST', 'PUT', 'PATCH'] %}
+      // Process request body
+      const result = await processRequest(body{% if file.options.auth %}, token.userId{% endif %});
+      {% else %}
+      // Process GET/DELETE request
+      const result = await processRequest({% if file.options.auth %}token.userId{% endif %});
+      {% endif %}
+
+      return result;
+    } catch (error) {
+      console.error('API Error:', error);
+      set.status = 500;
+      return { error: 'Internal server error' };
+    }
+  }{% if file.options.validation %}, {
+    {% if function.name.upper() in ['POST', 'PUT', 'PATCH'] %}
+    body: t.Object({
+      name: t.String({ minLength: 1 }),
+      description: t.Optional(t.String()),
+    }),
+    {% endif %}
+    response: t.Object({
+      // TODO: Define response schema
+      success: t.Boolean(),
+      data: t.Optional(t.Any()),
+    }),
+  }{% endif %})
+
+{% else %}
+// TODO: {{ function.prd_references | join(', ') }} - {{ function.description }}
+// Custom function: {{ function.name }}
+{% endif %}
+{% endfor %}
+
+  .listen(process.env.PORT || 3000);
+
+console.log(`🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`);
+
+// Helper functions
+async function processRequest(data?: any, userId?: string): Promise<any> {
+  // TODO: Implement main business logic
+  return {
+    success: true,
+    data: data,
+    userId: userId,
+  };
+}
+
+export default app;
+export type App = typeof app;

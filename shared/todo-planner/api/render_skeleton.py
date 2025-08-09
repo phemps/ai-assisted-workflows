@@ -26,27 +26,67 @@ def load_manifest(manifest_path: str) -> Dict:
 
 
 def get_template_path(
-    templates_dir: Path, stack_profile: str, file_kind: str
+    templates_dir: Path, manifest: Dict, file_path: str, file_kind: str
 ) -> Optional[Path]:
-    """Find the appropriate template for a file kind and stack profile."""
+    """Find the appropriate template for a file kind based on tech stack.
 
-    # Try stack-specific template first
-    stack_parts = stack_profile.split("-")
-    for stack in stack_parts:
-        template_path = templates_dir / stack / f"{file_kind}.jinja"
+    Priority order:
+    1. Check backend-specific template if file is in backend path
+    2. Check frontend-specific template if file is in frontend path
+    3. Check ORM-specific template for database files
+    4. No generic fallbacks - templates must be technology-specific
+    """
+
+    project = manifest.get("project", {})
+
+    # Determine which tech stack applies based on file path
+    tech_stacks = []
+
+    # Backend files (convex, backend packages)
+    if any(marker in file_path.lower() for marker in ["/convex/", "/backend/"]):
+        if project.get("backend"):
+            tech_stacks.append(project["backend"])
+
+    # Frontend files (pages, components, API routes in Next.js app router)
+    elif any(
+        marker in file_path.lower()
+        for marker in ["/app/", "/pages/", "/components/", "/src/"]
+    ):
+        if project.get("web_frontend"):
+            tech_stacks.append(project["web_frontend"])
+
+    # Special case: Next.js API routes are frontend-stack specific
+    if "/app/api/" in file_path.lower() or "/pages/api/" in file_path.lower():
+        if project.get("web_frontend"):
+            # Ensure frontend stack is first for API routes
+            if project["web_frontend"] not in tech_stacks:
+                tech_stacks.insert(0, project["web_frontend"])
+
+    # ORM files (schemas, migrations, etc.)
+    if "schema" in file_kind or "migration" in file_kind:
+        if project.get("orm"):
+            tech_stacks.append(project["orm"])
+
+    # Auth files
+    if "auth" in file_kind or "auth" in file_path.lower():
+        if project.get("auth"):
+            tech_stacks.append(project["auth"])
+
+    # Map better-t-stack names to our template directories
+    stack_to_template_dir = {
+        "workers": "cloudflare",  # Cloudflare Workers runtime
+        # Add more mappings as needed
+    }
+
+    # Try to find template in priority order
+    for stack in tech_stacks:
+        # Check if we need to map the stack name to a different template directory
+        template_dir = stack_to_template_dir.get(stack, stack)
+        template_path = templates_dir / template_dir / f"{file_kind}.jinja"
         if template_path.exists():
             return template_path
 
-    # Try common templates
-    common_template = templates_dir / "common" / f"{file_kind}.jinja"
-    if common_template.exists():
-        return common_template
-
-    # Try generic template based on file extension
-    generic_template = templates_dir / "common" / "generic.jinja"
-    if generic_template.exists():
-        return generic_template
-
+    # No fallbacks - templates must be technology-specific
     return None
 
 
@@ -199,19 +239,8 @@ def render_file(file_spec: Dict, template_path: Path, stub_level: int) -> str:
         return rendered
 
     except Exception as e:
-        # Fallback to simple rendering if template fails
-        print(
-            f"⚠️  Template rendering failed for {file_spec['path']}: {e}",
-            file=sys.stderr,
-        )
-
-        # Generate simple file with function stubs
-        functions_code = []
-        for func_spec in file_spec.get("functions", []):
-            functions_code.append(render_function_stub(func_spec, stub_level))
-
-        header = f"// Generated skeleton for {file_spec['path']}\n// TODO: Implement functions below\n\n"
-        return header + "\n\n".join(functions_code)
+        # No fallback rendering - template failures are now errors
+        raise Exception(f"Template rendering failed for {file_spec['path']}: {e}")
 
 
 def render_skeleton(
@@ -221,8 +250,6 @@ def render_skeleton(
 
     results = {"files_created": 0, "files_updated": 0, "files_failed": 0, "errors": []}
 
-    stack_profile = manifest.get("project", {}).get("stack_profile", "")
-
     for file_spec in manifest.get("files", []):
         file_path = project_dir / file_spec["path"]
         file_kind = file_spec.get("kind", "module")
@@ -231,18 +258,27 @@ def render_skeleton(
             # Ensure directory exists
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Find template
-            template_path = get_template_path(templates_dir, stack_profile, file_kind)
+            # Find template using new logic
+            template_path = get_template_path(
+                templates_dir, manifest, file_spec["path"], file_kind
+            )
 
-            if template_path:
-                # Render using template
-                content = render_file(file_spec, template_path, stub_level)
-            else:
-                # Fallback rendering
-                print(
-                    f"⚠️  No template found for {file_kind} in {stack_profile}, using fallback"
-                )
-                content = render_file(file_spec, None, stub_level)
+            if not template_path:
+                # No template found - this is now an error
+                project = manifest.get("project", {})
+                tech_stacks = [
+                    project.get(k)
+                    for k in ["web_frontend", "backend", "orm", "auth"]
+                    if project.get(k)
+                ]
+                error_msg = f"No template found for {file_kind} in stacks {tech_stacks}"
+                results["files_failed"] += 1
+                results["errors"].append(error_msg)
+                print(f"❌ {error_msg}", file=sys.stderr)
+                continue
+
+            # Render using template
+            content = render_file(file_spec, template_path, stub_level)
 
             # Check if file exists
             existed = file_path.exists()

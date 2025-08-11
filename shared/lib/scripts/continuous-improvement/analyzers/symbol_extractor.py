@@ -67,11 +67,13 @@ class SerenaFallbackExtractor:
                 "groups": [1, 2],
             },
             "javascript": {
-                "pattern": r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]|require\([\'"]([^\'"]+)[\'"]\))',
+                "pattern": r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]\
+|require\([\'"]([^\'"]+)[\'"]\))',
                 "groups": [1, 2],
             },
             "typescript": {
-                "pattern": r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]|require\([\'"]([^\'"]+)[\'"]\))',
+                "pattern": r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]\
+|require\([\'"]([^\'"]+)[\'"]\))',
                 "groups": [1, 2],
             },
             "java": {"pattern": r"import\s+([^;]+);", "groups": [1]},

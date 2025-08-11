@@ -1,0 +1,64 @@
+# AI Assisted Workflows Dependencies
+# Python 3.7+ required
+
+# Core dependencies
+python-dotenv>=0.19.0          # Environment variable management
+requests>=2.25.0               # HTTP requests for external APIs
+pathlib2>=2.3.5; python_version < "3.4"  # Backport for older Python
+
+# Security analysis
+bandit>=1.7.0                  # Security linting
+safety>=2.0.0                  # Vulnerability scanning
+semgrep>=0.100.0               # Static analysis security scanner
+
+# Performance analysis
+psutil>=5.8.0                  # System and process utilities
+memory-profiler>=0.60.0        # Memory usage profiling
+py-spy>=0.3.0; platform_system != "Windows"  # Python profiler (Unix only)
+
+# Code quality analysis
+flake8>=4.0.0                  # Style guide enforcement
+pylint>=2.12.0                 # Code analysis
+radon>=5.1.0                   # Complexity metrics
+lizard>=1.17.0                 # Advanced complexity analysis
+vulture>=2.3                   # Dead code finder
+mccabe>=0.6.0                  # Complexity checker
+
+# Architecture analysis
+pydeps>=1.10.0                 # Dependency analysis
+networkx>=2.6.0                # Graph analysis for dependencies
+
+# Development and testing
+pytest>=6.2.0                  # Testing framework
+pytest-cov>=3.0.0             # Coverage testing
+black>=22.0.0                  # Code formatting
+isort>=5.10.0                  # Import sorting
+
+# Foundation Layer - Agent Orchestration
+pyyaml>=6.0                    # YAML configuration parsing
+jinja2>=3.0.0                  # Template rendering for dynamic commands
+click>=8.0.0                   # CLI framework for command processing
+rich>=12.0.0                   # Rich terminal output and progress bars
+typing-extensions>=4.0.0       # Enhanced type hints for Python <3.9
+
+# Foundation Layer - Cross-Platform Support
+platformdirs>=2.5.0           # Cross-platform directory detection
+shutil-backports>=1.0.0; python_version < "3.8"  # Enhanced file operations
+subprocess32>=3.5.4; python_version < "3.2"       # Backport subprocess improvements
+
+# Foundation Layer - State Management
+sqlite3                        # Task state persistence (built-in)
+filelock>=3.8.0               # File-based locking for task coordination
+watchdog>=2.1.0               # File system monitoring for dynamic updates
+
+# Continuous Improvement Framework
+dataclasses>=0.6; python_version < "3.7"  # Backport for older Python
+uuid                          # UUID generation for correlation IDs (built-in)
+subprocess                    # Process execution (built-in)
+datetime                      # Date/time operations (built-in)
+
+# Optional: Frontend analysis (requires Node.js)
+# These would be installed separately via npm/yarn
+# - eslint
+# - lighthouse
+# - webpack-bundle-analyzer

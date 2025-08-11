@@ -95,3 +95,6 @@ yarn-error.log*
 /tmp/test-*
 test_codebase/.claude/
 /todos/worktrees/
+
+# Development history
+.specstory/

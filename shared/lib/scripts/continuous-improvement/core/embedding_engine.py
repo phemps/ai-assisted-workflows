@@ -2,9 +2,10 @@
 """
 CodeBERT Embedding Engine for Continuous Improvement Framework
 
-Provides local CodeBERT embeddings with graceful degradation to text
-similarity. Part of Claude Code Workflows - integrates with 8-agent
-orchestration system.
+Provides local CodeBERT embeddings using transformers library.
+Part of Claude Code Workflows - integrates with 8-agent orchestration system.
+
+Requires transformers and torch libraries - exits with error if unavailable.
 """
 
 import hashlib
@@ -43,41 +44,23 @@ except ImportError:
         print(f"Error importing Symbol: {e}", file=sys.stderr)
         sys.exit(1)
 
-# Optional transformers imports with graceful degradation
-TRANSFORMERS_AVAILABLE = False
+# Required transformers imports - fail fast if unavailable
 try:
     import torch
     from transformers import AutoTokenizer, AutoModel
-
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    TRANSFORMERS_AVAILABLE = False
-
-# Optional sentence-transformers for enhanced embeddings
-SENTENCE_TRANSFORMERS_AVAILABLE = False
-try:
-    from sentence_transformers import SentenceTransformer
-
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
-
-# Optional sklearn for text similarity fallback
-SKLEARN_AVAILABLE = False
-try:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
+except ImportError as e:
+    print(f"ERROR: Required dependencies not available: {e}", file=sys.stderr)
+    print(
+        "Please install required dependencies: pip install torch " "transformers",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 class EmbeddingMethod(Enum):
     """Available embedding methods."""
 
     CODEBERT = "codebert"
-    SENTENCE_TRANSFORMER = "sentence_transformer"
-    TEXT_SIMILARITY = "text_similarity"
 
 
 class CacheStatus(Enum):
@@ -91,11 +74,10 @@ class CacheStatus(Enum):
 
 @dataclass
 class EmbeddingConfig:
-    """Configuration for embedding engine following existing patterns."""
+    """Configuration for CodeBERT embedding engine."""
 
     # Model settings
     model_name: str = "microsoft/codebert-base"
-    sentence_model_name: str = "all-mpnet-base-v2"
     batch_size: int = 32
     max_length: int = 512
 
@@ -108,10 +90,6 @@ class EmbeddingConfig:
     # Memory management
     max_memory_gb: float = 2.0
     clear_model_after_batch: bool = True
-
-    # Fallback settings
-    use_text_fallback: bool = True
-    similarity_threshold: float = 0.7
 
     # Symbol filtering (compatible with existing config)
     max_symbols_per_batch: int = 100
@@ -129,8 +107,9 @@ class EmbeddingConfig:
 
 class EmbeddingEngine:
     """
-    CodeBERT embedding engine with robust text similarity fallback.
+    CodeBERT embedding engine for code embeddings.
     Provides local embeddings with comprehensive caching and batch processing.
+    Requires transformers library - fails fast if unavailable.
     """
 
     def __init__(
@@ -148,8 +127,7 @@ class EmbeddingEngine:
         # Model state
         self._model = None
         self._tokenizer = None
-        self._sentence_model = None
-        self._current_method = None
+        self._current_method = EmbeddingMethod.CODEBERT
 
         # Cache management
         self.cache_dir = self.project_root / ".claude" / "cache" / "embeddings"
@@ -160,23 +138,11 @@ class EmbeddingEngine:
         self._embedding_times = []
         self._memory_usage = []
 
-        # Initialize embedding method
-        self._initialize_embedding_method()
+        # Initialize CodeBERT model
+        self._initialize_codebert_model()
 
-    def _initialize_embedding_method(self) -> None:
-        """Initialize the best available embedding method."""
-        if TRANSFORMERS_AVAILABLE and self._try_load_codebert():
-            self._current_method = EmbeddingMethod.CODEBERT
-            print("Initialized CodeBERT embeddings", file=sys.stderr)
-        elif SENTENCE_TRANSFORMERS_AVAILABLE and self._try_load_sentence_transformer():
-            self._current_method = EmbeddingMethod.SENTENCE_TRANSFORMER
-            print("Initialized Sentence Transformer embeddings", file=sys.stderr)
-        else:
-            self._current_method = EmbeddingMethod.TEXT_SIMILARITY
-            print("Using text similarity fallback", file=sys.stderr)
-
-    def _try_load_codebert(self) -> bool:
-        """Try to load CodeBERT model with error handling."""
+    def _initialize_codebert_model(self) -> None:
+        """Initialize CodeBERT model - fail fast if unavailable."""
         try:
             self._tokenizer = AutoTokenizer.from_pretrained(self.config.model_name)
             self._model = AutoModel.from_pretrained(self.config.model_name)
@@ -184,28 +150,21 @@ class EmbeddingEngine:
             # Move to GPU if available and requested
             if self.config.use_gpu and torch.cuda.is_available():
                 self._model = self._model.cuda()
-                print("Using GPU acceleration", file=sys.stderr)
+                print("Using GPU acceleration for CodeBERT", file=sys.stderr)
 
-            return True
+            print("Initialized CodeBERT embeddings", file=sys.stderr)
         except Exception as e:
-            print(f"Failed to load CodeBERT: {e}", file=sys.stderr)
-            return False
-
-    def _try_load_sentence_transformer(self) -> bool:
-        """Try to load Sentence Transformer model with error handling."""
-        try:
-            self._sentence_model = SentenceTransformer(self.config.sentence_model_name)
-            return True
-        except Exception as e:
-            print(f"Failed to load Sentence Transformer: {e}", file=sys.stderr)
-            return False
+            print(f"ERROR: Failed to initialize CodeBERT model: {e}", file=sys.stderr)
+            print(
+                "Please ensure the transformers library is installed "
+                "and the model is available",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     def is_available(self) -> bool:
-        """Check if advanced embedding methods are available."""
-        return self._current_method in [
-            EmbeddingMethod.CODEBERT,
-            EmbeddingMethod.SENTENCE_TRANSFORMER,
-        ]
+        """Check if CodeBERT embedding is available."""
+        return self._model is not None and self._tokenizer is not None
 
     def generate_embeddings(self, symbols: List[Symbol]) -> np.ndarray:
         """
@@ -247,13 +206,8 @@ class EmbeddingEngine:
         return all_embeddings
 
     def _generate_batch_embeddings(self, symbols: List[Symbol]) -> np.ndarray:
-        """Generate embeddings for symbols using the current method."""
-        if self._current_method == EmbeddingMethod.CODEBERT:
-            return self._generate_codebert_embeddings(symbols)
-        elif self._current_method == EmbeddingMethod.SENTENCE_TRANSFORMER:
-            return self._generate_sentence_embeddings(symbols)
-        else:
-            return self._generate_text_similarity_embeddings(symbols)
+        """Generate embeddings for symbols using CodeBERT."""
+        return self._generate_codebert_embeddings(symbols)
 
     def _generate_codebert_embeddings(self, symbols: List[Symbol]) -> np.ndarray:
         """Generate embeddings using CodeBERT model."""
@@ -296,67 +250,6 @@ class EmbeddingEngine:
         if self.config.normalize_embeddings and len(result) > 0:
             norms = np.linalg.norm(result, axis=1, keepdims=True)
             result = result / norms
-
-        return result
-
-    def _generate_sentence_embeddings(self, symbols: List[Symbol]) -> np.ndarray:
-        """Generate embeddings using Sentence Transformer model."""
-        texts = [self._symbol_to_text(symbol) for symbol in symbols]
-
-        embeddings = self._sentence_model.encode(
-            texts,
-            batch_size=self.config.batch_size,
-            normalize_embeddings=self.config.normalize_embeddings,
-        )
-
-        return embeddings
-
-    def _generate_text_similarity_embeddings(self, symbols: List[Symbol]) -> np.ndarray:
-        """Generate simple text-based embeddings as fallback."""
-        if SKLEARN_AVAILABLE:
-            try:
-                texts = [self._symbol_to_text(symbol) for symbol in symbols]
-                vectorizer = TfidfVectorizer(max_features=300, stop_words="english")
-                embeddings = vectorizer.fit_transform(texts).toarray()
-
-                # Normalize if requested
-                if self.config.normalize_embeddings:
-                    embeddings = embeddings / np.linalg.norm(
-                        embeddings, axis=1, keepdims=True
-                    )
-
-                return embeddings
-            except Exception:
-                # Fall back to simple embeddings if sklearn fails
-                pass
-
-        # Ultimate fallback - simple word count vectors
-        return self._generate_simple_embeddings(symbols)
-
-    def _generate_simple_embeddings(self, symbols: List[Symbol]) -> np.ndarray:
-        """Generate very simple embeddings based on symbol properties."""
-        embeddings = []
-
-        for symbol in symbols:
-            # Create feature vector from symbol properties
-            features = [
-                len(symbol.name),
-                len(symbol.line_content),
-                symbol.line_number / 1000.0,  # Normalized line number
-                len(symbol.parameters or []),
-                hash(symbol.symbol_type.value) % 100 / 100.0,
-                hash(symbol.scope) % 100 / 100.0,
-            ]
-
-            # Pad or truncate to consistent size
-            features = (features + [0] * 50)[:50]
-            embeddings.append(features)
-
-        result = np.array(embeddings, dtype=np.float32)
-
-        # Normalize if requested
-        if self.config.normalize_embeddings:
-            result = result / np.linalg.norm(result, axis=1, keepdims=True)
 
         return result
 
@@ -519,10 +412,7 @@ class EmbeddingEngine:
     def get_engine_info(self) -> Dict[str, Any]:
         """Get engine status and diagnostic information."""
         return {
-            "method": (self._current_method.value if self._current_method else None),
-            "transformers_available": TRANSFORMERS_AVAILABLE,
-            "sentence_transformers_available": SENTENCE_TRANSFORMERS_AVAILABLE,
-            "sklearn_available": SKLEARN_AVAILABLE,
+            "method": self._current_method.value,
             "is_available": self.is_available(),
             "config": {
                 "model_name": self.config.model_name,
@@ -641,17 +531,11 @@ def main():
         if args.output == "json":
             print(json.dumps(engine_info, indent=2))
         else:
-            print("Embedding Engine Status:")
+            print("CodeBERT Embedding Engine Status:")
             print(f"  Method: {engine_info['method']}")
-            print(
-                f"  Transformers available: " f"{engine_info['transformers_available']}"
-            )
-            print(
-                f"  Sentence transformers available: "
-                f"{engine_info['sentence_transformers_available']}"
-            )
-            print(f"  Advanced methods available: " f"{engine_info['is_available']}")
-            print(f"  Cache enabled: " f"{engine_info['config']['enable_caching']}")
+            print(f"  Available: {engine_info['is_available']}")
+            cache_enabled = engine_info["config"]["enable_caching"]
+            print(f"  Cache enabled: {cache_enabled}")
 
 
 if __name__ == "__main__":

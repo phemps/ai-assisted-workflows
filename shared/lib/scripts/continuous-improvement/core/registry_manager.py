@@ -88,8 +88,13 @@ class RegistryEntry:
                 if file_path.exists():
                     content = file_path.read_text(encoding="utf-8", errors="ignore")
                     self.file_hash = hashlib.md5(content.encode()).hexdigest()
-            except Exception:
-                self.file_hash = "unknown"
+            except Exception as e:
+                print(
+                    f"FATAL: Cannot calculate file hash for registry " f"entry: {e}",
+                    file=sys.stderr,
+                )
+                print(f"File path: {file_path}", file=sys.stderr)
+                sys.exit(40)
 
 
 @dataclass
@@ -172,13 +177,36 @@ class RegistryManager:
         self.metadata_dir = self.registry_dir / "metadata"
         self.index_file = self.registry_dir / "index.json"
 
-        # Create directories
-        for dir_path in [
-            self.registry_dir,
-            self.symbols_dir,
-            self.metadata_dir,
-        ]:
-            dir_path.mkdir(parents=True, exist_ok=True)
+        # Create directories - fail fast if unable
+        try:
+            for dir_path in [
+                self.registry_dir,
+                self.symbols_dir,
+                self.metadata_dir,
+            ]:
+                dir_path.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            # Directory exists, continue normally
+            pass
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot create registry directory due to " f"permissions: {e}",
+                file=sys.stderr,
+            )
+            print(f"Registry path: {self.registry_dir}", file=sys.stderr)
+            print(
+                "Fix directory permissions or run with appropriate " "privileges.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        except OSError as e:
+            print(
+                f"FATAL: Cannot create registry directory due to " f"system error: {e}",
+                file=sys.stderr,
+            )
+            print(f"Registry path: {self.registry_dir}", file=sys.stderr)
+            print("Check disk space and file system integrity.", file=sys.stderr)
+            sys.exit(2)
 
         # Cache and tracking
         self._registry_cache: Dict[str, RegistryEntry] = {}
@@ -194,7 +222,7 @@ class RegistryManager:
         self._load_file_hashes()
 
     def _load_index(self) -> None:
-        """Load registry index from disk."""
+        """Load registry index from disk - fail fast on errors."""
         try:
             if self.index_file.exists():
                 with open(self.index_file, "r", encoding="utf-8") as f:
@@ -207,40 +235,115 @@ class RegistryManager:
                     "files_tracked": {},
                     "version": "1.0",
                 }
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot read registry index due to permissions: " f"{e}",
+                file=sys.stderr,
+            )
+            print(f"Index file: {self.index_file}", file=sys.stderr)
+            sys.exit(3)
+        except json.JSONDecodeError as e:
+            print(
+                f"FATAL: Registry index is corrupted (invalid JSON): {e}",
+                file=sys.stderr,
+            )
+            print(f"Index file: {self.index_file}", file=sys.stderr)
+            print(
+                "Delete the corrupted index file or restore from backup.",
+                file=sys.stderr,
+            )
+            sys.exit(4)
         except Exception as e:
-            print(f"Index load error: {e}", file=sys.stderr)
-            self._index_data = {}
+            print(f"FATAL: Cannot load registry index: {e}", file=sys.stderr)
+            print(f"Index file: {self.index_file}", file=sys.stderr)
+            sys.exit(5)
 
     def _save_index(self) -> None:
-        """Save registry index to disk."""
+        """Save registry index to disk - fail fast on errors."""
         try:
             self._index_data["last_updated"] = time.time()
             self._index_data["symbols_count"] = len(self._registry_cache)
 
             with open(self.index_file, "w", encoding="utf-8") as f:
                 json.dump(self._index_data, f, indent=2)
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot write registry index due to permissions: " f"{e}",
+                file=sys.stderr,
+            )
+            print(f"Index file: {self.index_file}", file=sys.stderr)
+            sys.exit(6)
+        except OSError as e:
+            print(
+                f"FATAL: Cannot write registry index due to system error: " f"{e}",
+                file=sys.stderr,
+            )
+            print(f"Index file: {self.index_file}", file=sys.stderr)
+            print("Check disk space and file system integrity.", file=sys.stderr)
+            sys.exit(7)
         except Exception as e:
-            print(f"Index save error: {e}", file=sys.stderr)
+            print(f"FATAL: Cannot save registry index: {e}", file=sys.stderr)
+            print(f"Index file: {self.index_file}", file=sys.stderr)
+            sys.exit(8)
 
     def _load_file_hashes(self) -> None:
-        """Load tracked file hashes for change detection."""
-        try:
-            hash_file = self.metadata_dir / "file_hashes.json"
-            if hash_file.exists():
-                with open(hash_file, "r", encoding="utf-8") as f:
-                    self._file_hashes = json.load(f)
-        except Exception as e:
-            print(f"File hash load error: {e}", file=sys.stderr)
+        """
+        Load tracked file hashes for change detection.
+        Fail fast on errors.
+        """
+        hash_file = self.metadata_dir / "file_hashes.json"
+        if not hash_file.exists():
             self._file_hashes = {}
+            return
+
+        try:
+            with open(hash_file, "r", encoding="utf-8") as f:
+                self._file_hashes = json.load(f)
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot read file hashes due to permissions: {e}",
+                file=sys.stderr,
+            )
+            print(f"Hash file: {hash_file}", file=sys.stderr)
+            sys.exit(9)
+        except json.JSONDecodeError as e:
+            print(
+                f"FATAL: File hashes data is corrupted (invalid JSON): {e}",
+                file=sys.stderr,
+            )
+            print(f"Hash file: {hash_file}", file=sys.stderr)
+            print("Delete the corrupted hash file to reset tracking.", file=sys.stderr)
+            sys.exit(10)
+        except Exception as e:
+            print(f"FATAL: Cannot load file hashes: {e}", file=sys.stderr)
+            print(f"Hash file: {hash_file}", file=sys.stderr)
+            sys.exit(11)
 
     def _save_file_hashes(self) -> None:
-        """Save tracked file hashes to disk."""
+        """Save tracked file hashes to disk - fail fast on errors."""
         try:
             hash_file = self.metadata_dir / "file_hashes.json"
             with open(hash_file, "w", encoding="utf-8") as f:
                 json.dump(self._file_hashes, f, indent=2)
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot write file hashes due to permissions: {e}",
+                file=sys.stderr,
+            )
+            print(f"Hash file: {hash_file}", file=sys.stderr)
+            sys.exit(12)
+        except OSError as e:
+            print(
+                f"FATAL: Cannot write file hashes due to system error: {e}",
+                file=sys.stderr,
+            )
+            print(f"Hash file: {hash_file}", file=sys.stderr)
+            print("Check disk space and file system integrity.", file=sys.stderr)
+            sys.exit(13)
         except Exception as e:
-            print(f"File hash save error: {e}", file=sys.stderr)
+            print(f"FATAL: Cannot save file hashes: {e}", file=sys.stderr)
+            print(f"Hash file: {hash_file}", file=sys.stderr)
+            sys.exit(14)
 
     def _get_entry_key(self, file_path: str, symbol_name: str) -> str:
         """Generate unique key for registry entry."""
@@ -248,23 +351,48 @@ class RegistryManager:
         try:
             rel_path = Path(file_path).relative_to(self.project_root)
             normalized_path = str(rel_path).replace("\\", "/")
-        except ValueError:
-            # Fallback for absolute paths outside project
-            normalized_path = str(Path(file_path).as_posix())
+        except ValueError as e:
+            print(
+                f"FATAL: Cannot normalize file path for registry key: {e}",
+                file=sys.stderr,
+            )
+            print(f"File path: {file_path}", file=sys.stderr)
+            print(f"Project root: {self.project_root}", file=sys.stderr)
+            print(
+                "File must be within project root for registry tracking.",
+                file=sys.stderr,
+            )
+            sys.exit(39)
 
         key_data = f"{normalized_path}::{symbol_name}"
         return hashlib.md5(key_data.encode()).hexdigest()
 
     def _get_file_hash(self, file_path: Path) -> str:
-        """Get content hash for file change detection."""
+        """Get content hash for file change detection - fail fast on errors."""
         try:
             hasher = hashlib.md5()
             with open(file_path, "rb") as f:
                 for chunk in iter(lambda: f.read(self.config.hash_chunk_size), b""):
                     hasher.update(chunk)
             return hasher.hexdigest()
-        except Exception:
-            return "error"
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot read file for hashing due to " f"permissions: {e}",
+                file=sys.stderr,
+            )
+            print(f"File: {file_path}", file=sys.stderr)
+            sys.exit(15)
+        except OSError as e:
+            print(
+                f"FATAL: Cannot read file for hashing due to system error: " f"{e}",
+                file=sys.stderr,
+            )
+            print(f"File: {file_path}", file=sys.stderr)
+            sys.exit(16)
+        except Exception as e:
+            print(f"FATAL: Cannot calculate file hash: {e}", file=sys.stderr)
+            print(f"File: {file_path}", file=sys.stderr)
+            sys.exit(17)
 
     def register_symbol(
         self,
@@ -281,7 +409,7 @@ class RegistryManager:
             metadata: Optional similarity/analysis metadata
 
         Returns:
-            True if registration successful, False otherwise
+            True if registration successful (exits on failure)
         """
         start_time = time.time()
 
@@ -301,44 +429,52 @@ class RegistryManager:
                     entry.file_hash = self._get_file_hash(file_path)
                     self._file_hashes[str(file_path)] = entry.file_hash
 
-            # Store in cache and persist to disk
+            # Store in cache and persist to disk - fail fast on cache errors
             entry_key = self._get_entry_key(symbol.file_path, symbol.name)
-            self._registry_cache[entry_key] = entry
+            try:
+                self._registry_cache[entry_key] = entry
+            except Exception as e:
+                print(
+                    f"FATAL: Cannot update registry cache during " f"registration: {e}",
+                    file=sys.stderr,
+                )
+                print(f"Entry key: {entry_key}", file=sys.stderr)
+                sys.exit(30)
 
-            # Persist entry
-            success = self._persist_entry(entry_key, entry)
+            # Persist entry - will exit on failure
+            self._persist_entry(entry_key, entry)
 
-            if success:
-                # Update index
-                file_key = str(Path(symbol.file_path))
-                if file_key not in self._index_data.get("files_tracked", {}):
-                    self._index_data.setdefault("files_tracked", {})[file_key] = {
-                        "symbols": [],
-                        "last_updated": time.time(),
-                    }
+            # Update index
+            file_key = str(Path(symbol.file_path))
+            if file_key not in self._index_data.get("files_tracked", {}):
+                self._index_data.setdefault("files_tracked", {})[file_key] = {
+                    "symbols": [],
+                    "last_updated": time.time(),
+                }
 
-                if (
+            if (
+                symbol.name
+                not in self._index_data["files_tracked"][file_key]["symbols"]
+            ):
+                self._index_data["files_tracked"][file_key]["symbols"].append(
                     symbol.name
-                    not in self._index_data["files_tracked"][file_key]["symbols"]
-                ):
-                    self._index_data["files_tracked"][file_key]["symbols"].append(
-                        symbol.name
-                    )
+                )
 
-                self._save_index()
+            self._save_index()
 
-                # Track performance
-                execution_time = time.time() - start_time
-                self._operation_times["write"].append(execution_time)
+            # Track performance
+            execution_time = time.time() - start_time
+            self._operation_times["write"].append(execution_time)
 
-            return success
+            return True
 
         except Exception as e:
-            print(f"Symbol registration error: {e}", file=sys.stderr)
-            return False
+            print(f"FATAL: Symbol registration failed: {e}", file=sys.stderr)
+            print(f"Symbol: {symbol.name} in {symbol.file_path}", file=sys.stderr)
+            sys.exit(27)
 
-    def _persist_entry(self, entry_key: str, entry: RegistryEntry) -> bool:
-        """Persist registry entry to disk."""
+    def _persist_entry(self, entry_key: str, entry: RegistryEntry) -> None:
+        """Persist registry entry to disk - fail fast on errors."""
         try:
             entry_file = self.symbols_dir / f"{entry_key}.pkl"
 
@@ -356,11 +492,29 @@ class RegistryManager:
             with open(entry_file, "wb") as f:
                 pickle.dump(entry_data, f)
 
-            return True
-
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot write registry entry due to " f"permissions: {e}",
+                file=sys.stderr,
+            )
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            sys.exit(18)
+        except OSError as e:
+            print(
+                f"FATAL: Cannot write registry entry due to system error: " f"{e}",
+                file=sys.stderr,
+            )
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            print("Check disk space and file system integrity.", file=sys.stderr)
+            sys.exit(19)
+        except pickle.PicklingError as e:
+            print(f"FATAL: Cannot serialize registry entry: {e}", file=sys.stderr)
+            print(f"Entry key: {entry_key}", file=sys.stderr)
+            sys.exit(20)
         except Exception as e:
-            print(f"Entry persist error: {e}", file=sys.stderr)
-            return False
+            print(f"FATAL: Cannot persist registry entry: {e}", file=sys.stderr)
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            sys.exit(21)
 
     def get_symbol(self, file_path: str, symbol_name: str) -> Optional[RegistryEntry]:
         """
@@ -381,11 +535,17 @@ class RegistryManager:
             self._cache_stats["hits"] += 1
             return self._registry_cache[entry_key]
 
-        # Load from disk
+        # Load from disk - fail fast on errors
         try:
             entry = self._load_entry(entry_key)
             if entry:
-                self._registry_cache[entry_key] = entry
+                # Cache the loaded entry - fail fast if cache update fails
+                try:
+                    self._registry_cache[entry_key] = entry
+                except Exception as e:
+                    print(f"FATAL: Cannot update registry cache: {e}", file=sys.stderr)
+                    print(f"Entry key: {entry_key}", file=sys.stderr)
+                    sys.exit(28)
                 self._cache_stats["hits"] += 1
             else:
                 self._cache_stats["misses"] += 1
@@ -396,19 +556,22 @@ class RegistryManager:
 
             return entry
 
+        except SystemExit:
+            # Re-raise system exits from _load_entry
+            raise
         except Exception as e:
-            self._cache_stats["errors"] += 1
-            print(f"Symbol retrieval error: {e}", file=sys.stderr)
-            return None
+            print(f"FATAL: Symbol retrieval failed: {e}", file=sys.stderr)
+            print(f"Entry key: {entry_key}", file=sys.stderr)
+            sys.exit(29)
 
     def _load_entry(self, entry_key: str) -> Optional[RegistryEntry]:
-        """Load registry entry from disk."""
+        """Load registry entry from disk - fail fast on errors."""
+        entry_file = self.symbols_dir / f"{entry_key}.pkl"
+
+        if not entry_file.exists():
+            return None
+
         try:
-            entry_file = self.symbols_dir / f"{entry_key}.pkl"
-
-            if not entry_file.exists():
-                return None
-
             with open(entry_file, "rb") as f:
                 entry_data = pickle.load(f)
 
@@ -442,9 +605,44 @@ class RegistryManager:
 
             return entry
 
+        except PermissionError as e:
+            print(
+                f"FATAL: Cannot read registry entry due to permissions: {e}",
+                file=sys.stderr,
+            )
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            sys.exit(22)
+        except pickle.UnpicklingError as e:
+            print(
+                f"FATAL: Registry entry is corrupted " f"(invalid pickle data): {e}",
+                file=sys.stderr,
+            )
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            print(
+                "Delete the corrupted entry file or restore from backup.",
+                file=sys.stderr,
+            )
+            sys.exit(23)
+        except ImportError as e:
+            print(
+                f"FATAL: Cannot import required modules for entry "
+                f"deserialization: {e}",
+                file=sys.stderr,
+            )
+            print(f"Entry key: {entry_key}", file=sys.stderr)
+            sys.exit(24)
+        except KeyError as e:
+            print(f"FATAL: Registry entry missing required data: {e}", file=sys.stderr)
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            print(
+                "Entry data may be corrupted or from incompatible version.",
+                file=sys.stderr,
+            )
+            sys.exit(25)
         except Exception as e:
-            print(f"Entry load error for {entry_key}: {e}", file=sys.stderr)
-            return None
+            print(f"FATAL: Cannot load registry entry: {e}", file=sys.stderr)
+            print(f"Entry file: {entry_file}", file=sys.stderr)
+            sys.exit(26)
 
     def update_symbols(self, symbols: List[Symbol]) -> Dict[str, bool]:
         """
@@ -454,7 +652,7 @@ class RegistryManager:
             symbols: List of symbols to update
 
         Returns:
-            Dictionary mapping symbol keys to update success status
+            Dictionary mapping symbol keys to True (exits on failure)
         """
         start_time = time.time()
         results = {}
@@ -499,11 +697,10 @@ class RegistryManager:
                                 else {}
                             )
 
-                            success = self.register_symbol(symbol, embedding, metadata)
-                            results[entry_key] = success
-
-                            if success:
-                                updated_count += 1
+                            # register_symbol exits on failure
+                            self.register_symbol(symbol, embedding, metadata)
+                            results[entry_key] = True
+                            updated_count += 1
                         else:
                             results[entry_key] = True  # No update needed
 
@@ -519,9 +716,15 @@ class RegistryManager:
 
             return results
 
+        except SystemExit:
+            # Re-raise system exits from register_symbol
+            raise
         except Exception as e:
-            print(f"Symbols update error: {e}", file=sys.stderr)
-            return {self._get_entry_key(s.file_path, s.name): False for s in symbols}
+            print(f"FATAL: Symbols update failed: {e}", file=sys.stderr)
+            print(
+                f"Failed during batch update of {len(symbols)} symbols", file=sys.stderr
+            )
+            sys.exit(31)
 
     def _detect_file_changes(self, file_path: Path) -> ChangeType:
         """Detect changes in file for incremental updates."""
@@ -545,8 +748,10 @@ class RegistryManager:
 
             return ChangeType.UNCHANGED
 
-        except Exception:
-            return ChangeType.MODIFIED  # Safe fallback
+        except Exception as e:
+            print(f"FATAL: Cannot detect file changes: {e}", file=sys.stderr)
+            print(f"File: {file_path}", file=sys.stderr)
+            sys.exit(32)
 
     def _should_update_symbol(
         self, existing: Optional[RegistryEntry], new_symbol: Symbol
@@ -590,22 +795,42 @@ class RegistryManager:
                 if entry.last_updated < cutoff_time:
                     stale_keys.append(key)
 
-            # Remove from cache
-            for key in stale_keys:
-                del self._registry_cache[key]
-                cleaned_count += 1
+            # Remove from cache - fail fast on cache errors
+            try:
+                for key in stale_keys:
+                    del self._registry_cache[key]
+                    cleaned_count += 1
+            except Exception as e:
+                print(f"FATAL: Cannot clean registry cache: {e}", file=sys.stderr)
+                sys.exit(33)
 
-            # Clean up disk files
-            for entry_file in self.symbols_dir.glob("*.pkl"):
-                try:
+            # Clean up disk files - fail fast on file system errors
+            try:
+                for entry_file in self.symbols_dir.glob("*.pkl"):
                     file_age = entry_file.stat().st_mtime
                     if file_age < cutoff_time:
                         entry_file.unlink()
                         cleaned_count += 1
-                except Exception:
-                    continue
+            except PermissionError as e:
+                print(
+                    f"FATAL: Cannot clean registry files due to " f"permissions: {e}",
+                    file=sys.stderr,
+                )
+                print(f"Registry directory: {self.symbols_dir}", file=sys.stderr)
+                sys.exit(34)
+            except OSError as e:
+                print(
+                    f"FATAL: Cannot clean registry files due to " f"system error: {e}",
+                    file=sys.stderr,
+                )
+                print(f"Registry directory: {self.symbols_dir}", file=sys.stderr)
+                sys.exit(35)
+            except Exception as e:
+                print(f"FATAL: Cannot clean registry files: {e}", file=sys.stderr)
+                print(f"Registry directory: {self.symbols_dir}", file=sys.stderr)
+                sys.exit(36)
 
-            # Update index
+            # Update index - will exit on failure
             self._save_index()
             self._save_file_hashes()
 
@@ -613,9 +838,12 @@ class RegistryManager:
 
             return cleaned_count
 
+        except SystemExit:
+            # Re-raise system exits from save operations
+            raise
         except Exception as e:
-            print(f"Cleanup error: {e}", file=sys.stderr)
-            return 0
+            print(f"FATAL: Cleanup operation failed: {e}", file=sys.stderr)
+            sys.exit(37)
 
     def _calculate_avg_time(self, operation_type: str) -> float:
         """Calculate average time for operation type."""
@@ -668,8 +896,10 @@ class RegistryManager:
 
             return RegistryStatus.HEALTHY
 
-        except Exception:
-            return RegistryStatus.CORRUPTED
+        except Exception as e:
+            print(f"FATAL: Cannot determine registry status: {e}", file=sys.stderr)
+            print(f"Registry directory: {self.registry_dir}", file=sys.stderr)
+            sys.exit(38)
 
 
 def main():
@@ -715,15 +945,14 @@ def main():
         print(f"  Files tracked: {stats['storage_info']['files_tracked']}")
         print(f"  Cache hits: {stats['cache_stats']['hits']}")
         print(f"  Cache misses: {stats['cache_stats']['misses']}")
-        print(f"  Total operations: {stats['performance']['total_operations']}")
+        total_ops = stats["performance"]["total_operations"]
+        print(f"  Total operations: {total_ops}")
 
         if stats["index_data"]:
             index_data = stats["index_data"]
             print("\nIndex Information:")
             print(f"  Created: {time.ctime(index_data.get('created_at', 0))}")
-            print(
-                f"  Last updated: " f"{time.ctime(index_data.get('last_updated', 0))}"
-            )
+            print("  Last updated: " f"{time.ctime(index_data.get('last_updated', 0))}")
             print(f"  Version: {index_data.get('version', 'unknown')}")
 
 

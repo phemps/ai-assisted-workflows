@@ -2,8 +2,9 @@
 """
 Faiss Vector Similarity Detector for Continuous Improvement Framework
 
-Provides efficient vector similarity search using Faiss with graceful
-degradation to cosine similarity. Part of Claude Code Workflows - integrates
+Provides efficient vector similarity search using Faiss only.
+No fallback mechanisms.
+Requires faiss-cpu to be installed. Part of Claude Code Workflows - integrates
 with 8-agent orchestration system.
 """
 
@@ -40,32 +41,24 @@ except ImportError:
         print(f"Error importing Symbol: {e}", file=sys.stderr)
         sys.exit(1)
 
-# Optional Faiss imports with graceful degradation
-FAISS_AVAILABLE = False
+# Required Faiss imports - fail fast if unavailable
 try:
     import faiss
-
-    FAISS_AVAILABLE = True
 except ImportError:
-    FAISS_AVAILABLE = False
-
-# Scipy for fallback cosine similarity
-SCIPY_AVAILABLE = False
-try:
-    from scipy.spatial.distance import cosine as scipy_cosine
-
-    SCIPY_AVAILABLE = True
-except ImportError:
-    SCIPY_AVAILABLE = False
+    print(
+        "Error: faiss-cpu is required for SimilarityDetector.\n"
+        "Install with: pip install faiss-cpu\n"
+        "For GPU support: pip install faiss-gpu",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 class SimilarityMethod(Enum):
-    """Available similarity detection methods."""
+    """Available Faiss similarity detection methods."""
 
     FAISS_L2 = "faiss_l2"
     FAISS_COSINE = "faiss_cosine"
-    SCIPY_COSINE = "scipy_cosine"
-    NUMPY_COSINE = "numpy_cosine"
 
 
 class IndexStatus(Enum):
@@ -79,7 +72,7 @@ class IndexStatus(Enum):
 
 @dataclass
 class SimilarityConfig:
-    """Configuration for similarity detector following existing patterns."""
+    """Configuration for Faiss similarity detector."""
 
     # Similarity thresholds (compatible with comparison_framework.py)
     exact_match_threshold: float = 0.95
@@ -107,10 +100,6 @@ class SimilarityConfig:
     return_indices: bool = True
     include_self_matches: bool = False
 
-    # Fallback settings
-    use_faiss_fallback: bool = True
-    cosine_similarity_threshold: float = 0.1  # Min threshold for cosine
-
 
 @dataclass
 class SimilarityMatch:
@@ -123,7 +112,7 @@ class SimilarityMatch:
     query_symbol: Optional[Symbol] = None
     match_symbol: Optional[Symbol] = None
     confidence: float = 1.0
-    method: SimilarityMethod = SimilarityMethod.NUMPY_COSINE
+    method: SimilarityMethod = SimilarityMethod.FAISS_COSINE
 
     def __post_init__(self):
         """Validate similarity match data."""
@@ -137,7 +126,7 @@ class SimilarityMatch:
 
 class SimilarityDetector:
     """
-    Faiss-powered vector similarity detector with robust fallback mechanisms.
+    Faiss-powered vector similarity detector. Requires Faiss to be installed.
     Provides efficient similarity search with comprehensive caching and
     batch processing.
     """
@@ -170,23 +159,24 @@ class SimilarityDetector:
         self._search_times = []
         self._build_times = []
 
-        # Initialize similarity method
-        self._initialize_similarity_method()
+        # Initialize Faiss method
+        self._initialize_faiss_method()
 
-    def _initialize_similarity_method(self) -> None:
-        """Initialize the best available similarity method."""
-        if FAISS_AVAILABLE and self._try_initialize_faiss():
-            self._current_method = SimilarityMethod.FAISS_COSINE
-            print("Initialized Faiss similarity detection", file=sys.stderr)
-        elif SCIPY_AVAILABLE:
-            self._current_method = SimilarityMethod.SCIPY_COSINE
-            print("Using scipy cosine similarity fallback", file=sys.stderr)
-        else:
-            self._current_method = SimilarityMethod.NUMPY_COSINE
-            print("Using numpy cosine similarity fallback", file=sys.stderr)
+    def _initialize_faiss_method(self) -> None:
+        """Initialize Faiss similarity method - fail fast if unavailable."""
+        if not self._validate_faiss_installation():
+            print(
+                "Error: Faiss initialization failed. "
+                "Ensure faiss-cpu is properly installed.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
-    def _try_initialize_faiss(self) -> bool:
-        """Try to initialize Faiss with error handling."""
+        self._current_method = SimilarityMethod.FAISS_COSINE
+        print("Initialized Faiss similarity detection", file=sys.stderr)
+
+    def _validate_faiss_installation(self) -> bool:
+        """Validate Faiss installation with functional test."""
         try:
             # Test basic Faiss functionality
             test_dim = 10
@@ -198,11 +188,11 @@ class SimilarityDetector:
             _, _ = test_index.search(test_vectors[:1], 1)
             return True
         except Exception as e:
-            print(f"Failed to initialize Faiss: {e}", file=sys.stderr)
+            print(f"Faiss validation failed: {e}", file=sys.stderr)
             return False
 
     def is_available(self) -> bool:
-        """Check if advanced similarity methods are available."""
+        """Check if Faiss similarity methods are available."""
         return self._current_method in [
             SimilarityMethod.FAISS_L2,
             SimilarityMethod.FAISS_COSINE,
@@ -212,7 +202,7 @@ class SimilarityDetector:
         self, embeddings: np.ndarray, symbols: Optional[List[Symbol]] = None
     ) -> bool:
         """
-        Build similarity search index from embeddings.
+        Build Faiss similarity search index from embeddings.
 
         Args:
             embeddings: Numpy array of embeddings [n_vectors, embedding_dim]
@@ -223,6 +213,7 @@ class SimilarityDetector:
         """
         if len(embeddings) == 0:
             self._index_status = IndexStatus.EMPTY
+            print("Error: Cannot build index from empty embeddings", file=sys.stderr)
             return False
 
         start_time = time.time()
@@ -238,33 +229,26 @@ class SimilarityDetector:
                 norms[norms == 0] = 1.0
                 self._embeddings = self._embeddings / norms
 
-            # Build appropriate index
-            if self._current_method in [
-                SimilarityMethod.FAISS_COSINE,
-                SimilarityMethod.FAISS_L2,
-            ]:
-                success = self._build_faiss_index()
-            else:
-                # For scipy/numpy, we don't need to build an index
-                success = True
-                self._index = None
+            # Build Faiss index
+            success = self._build_faiss_index()
 
             if success:
                 self._index_status = IndexStatus.BUILT
                 build_time = time.time() - start_time
                 self._build_times.append(build_time)
 
-                msg = f"Built similarity index: {len(embeddings)} vectors, "
+                msg = f"Built Faiss index: {len(embeddings)} vectors, "
                 msg += f"{embeddings.shape[1]}D, {build_time:.3f}s"
                 print(msg, file=sys.stderr)
             else:
                 self._index_status = IndexStatus.ERROR
+                print("Error: Failed to build Faiss index", file=sys.stderr)
 
             return success
 
         except Exception as e:
             self._index_status = IndexStatus.ERROR
-            print(f"Index build error: {e}", file=sys.stderr)
+            print(f"Faiss index build error: {e}", file=sys.stderr)
             return False
 
     def _build_faiss_index(self) -> bool:
@@ -284,37 +268,51 @@ class SimilarityDetector:
                 self._index = faiss.IndexFlatIP(embedding_dim)
 
             # Move to GPU if requested and available
-            if self.config.use_gpu and faiss.get_num_gpus() > 0:
+            if self.config.use_gpu:
+                if faiss.get_num_gpus() == 0:
+                    print(
+                        "Error: GPU acceleration requested but " "no GPUs available",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+
                 try:
                     res = faiss.StandardGpuResources()
                     self._index = faiss.index_cpu_to_gpu(res, 0, self._index)
                     print("Using GPU acceleration for Faiss", file=sys.stderr)
                 except Exception as e:
-                    print(f"GPU setup failed, using CPU: {e}", file=sys.stderr)
+                    print(f"Error: GPU setup failed: {e}", file=sys.stderr)
+                    sys.exit(1)
 
             # Add embeddings to index
             self._index.add(self._embeddings)
             return True
 
         except Exception as e:
-            print(f"Faiss index build error: {e}", file=sys.stderr)
+            print(f"Error building Faiss index: {e}", file=sys.stderr)
             return False
 
     def find_similar(
         self, query_embedding: np.ndarray, threshold: float = None, k: int = None
     ) -> List[SimilarityMatch]:
         """
-        Find similar vectors to query embedding.
+        Find similar vectors to query embedding using Faiss.
 
         Args:
             query_embedding: Query vector to find similarities for
-            threshold: Minimum similarity threshold (uses config default if None)
+            threshold: Minimum similarity threshold
+                (uses config default if None)
             k: Maximum number of results (uses config default if None)
 
         Returns:
             List of similarity matches sorted by similarity score (desc)
         """
-        if self._index_status != IndexStatus.BUILT or len(query_embedding) == 0:
+        if self._index_status != IndexStatus.BUILT:
+            print("Error: Faiss index not built", file=sys.stderr)
+            return []
+
+        if len(query_embedding) == 0:
+            print("Error: Cannot search with empty query embedding", file=sys.stderr)
             return []
 
         threshold = threshold or self.config.medium_similarity_threshold
@@ -323,15 +321,7 @@ class SimilarityDetector:
         start_time = time.time()
 
         try:
-            if self._current_method in [
-                SimilarityMethod.FAISS_COSINE,
-                SimilarityMethod.FAISS_L2,
-            ]:
-                matches = self._faiss_search_similar(query_embedding, k)
-            elif self._current_method == SimilarityMethod.SCIPY_COSINE:
-                matches = self._scipy_search_similar(query_embedding, k)
-            else:
-                matches = self._numpy_search_similar(query_embedding, k)
+            matches = self._faiss_search_similar(query_embedding, k)
 
             # Filter by threshold and remove self-matches if configured
             filtered_matches = []
@@ -353,7 +343,7 @@ class SimilarityDetector:
             return filtered_matches[:k]
 
         except Exception as e:
-            print(f"Similarity search error: {e}", file=sys.stderr)
+            print(f"Faiss similarity search error: {e}", file=sys.stderr)
             return []
 
     def _faiss_search_similar(
@@ -365,8 +355,10 @@ class SimilarityDetector:
         # Normalize query if embeddings were normalized
         if self.config.normalize_vectors:
             norm = np.linalg.norm(query)
-            if norm > 0:
-                query = query / norm
+            if norm == 0:
+                print("Warning: Query embedding has zero norm", file=sys.stderr)
+                return []
+            query = query / norm
 
         # Search index
         distances, indices = self._index.search(query, min(k, self._index.ntotal))
@@ -375,6 +367,10 @@ class SimilarityDetector:
         for i in range(len(distances[0])):
             distance = distances[0][i]
             index = indices[0][i]
+
+            # Skip invalid indices
+            if index == -1:
+                continue
 
             # Convert distance to similarity score
             if self.config.index_type == "IndexFlatIP":
@@ -402,86 +398,12 @@ class SimilarityDetector:
 
         return matches
 
-    def _scipy_search_similar(
-        self, query_embedding: np.ndarray, k: int
-    ) -> List[SimilarityMatch]:
-        """Search for similar vectors using scipy cosine distance."""
-        similarities = []
-
-        for i, embedding in enumerate(self._embeddings):
-            # Calculate cosine similarity
-            distance = scipy_cosine(query_embedding, embedding)
-            similarity = max(0.0, 1.0 - distance)  # Convert distance to similarity
-
-            similarities.append((similarity, i, distance))
-
-        # Sort by similarity (descending) and take top k
-        similarities.sort(reverse=True)
-
-        matches = []
-        for similarity, index, distance in similarities[:k]:
-            match = SimilarityMatch(
-                query_index=0,  # Single query
-                match_index=index,
-                similarity_score=similarity,
-                distance=distance,
-                query_symbol=None,
-                match_symbol=(
-                    self._symbols[index]
-                    if self._symbols and index < len(self._symbols)
-                    else None
-                ),
-                confidence=0.85,  # Good confidence for scipy
-                method=self._current_method,
-            )
-            matches.append(match)
-
-        return matches
-
-    def _numpy_search_similar(
-        self, query_embedding: np.ndarray, k: int
-    ) -> List[SimilarityMatch]:
-        """Search for similar vectors using numpy cosine similarity."""
-        # Normalize vectors for cosine similarity
-        query_norm = query_embedding / np.linalg.norm(query_embedding)
-        embeddings_norms = self._embeddings / np.linalg.norm(
-            self._embeddings, axis=1, keepdims=True
-        )
-
-        # Calculate cosine similarities
-        similarities = np.dot(embeddings_norms, query_norm)
-
-        # Get top k indices
-        top_indices = np.argsort(similarities)[::-1][:k]
-
-        matches = []
-        for idx in top_indices:
-            similarity = similarities[idx]
-            distance = 1.0 - similarity
-
-            match = SimilarityMatch(
-                query_index=0,  # Single query
-                match_index=int(idx),
-                similarity_score=max(0.0, min(1.0, float(similarity))),
-                distance=float(distance),
-                query_symbol=None,
-                match_symbol=(
-                    self._symbols[int(idx)]
-                    if self._symbols and int(idx) < len(self._symbols)
-                    else None
-                ),
-                confidence=0.75,  # Basic confidence for numpy
-                method=self._current_method,
-            )
-            matches.append(match)
-
-        return matches
-
     def batch_similarity_search(
         self, embeddings: np.ndarray, threshold: float = None
     ) -> Dict[int, List[SimilarityMatch]]:
         """
-        Perform similarity search for multiple query embeddings efficiently.
+        Perform Faiss similarity search for multiple query
+        embeddings efficiently.
 
         Args:
             embeddings: Query embeddings [n_queries, embedding_dim]
@@ -490,7 +412,12 @@ class SimilarityDetector:
         Returns:
             Dictionary mapping query indices to their similarity matches
         """
-        if self._index_status != IndexStatus.BUILT or len(embeddings) == 0:
+        if self._index_status != IndexStatus.BUILT:
+            print("Error: Faiss index not built", file=sys.stderr)
+            return {}
+
+        if len(embeddings) == 0:
+            print("Error: Cannot search with empty embeddings", file=sys.stderr)
             return {}
 
         threshold = threshold or self.config.medium_similarity_threshold
@@ -517,7 +444,7 @@ class SimilarityDetector:
         self, embedding1: np.ndarray, embedding2: np.ndarray
     ) -> float:
         """
-        Compute similarity between two embeddings directly.
+        Compute cosine similarity between two embeddings directly.
 
         Args:
             embedding1: First embedding vector
@@ -548,11 +475,10 @@ class SimilarityDetector:
         return max(0.0, min(1.0, similarity))
 
     def get_detector_info(self) -> Dict[str, Any]:
-        """Get detector status and diagnostic information."""
+        """Get Faiss detector status and diagnostic information."""
         return {
             "method": (self._current_method.value if self._current_method else None),
-            "faiss_available": FAISS_AVAILABLE,
-            "scipy_available": SCIPY_AVAILABLE,
+            "faiss_available": True,  # Always true - exit if not available
             "is_available": self.is_available(),
             "index_status": self._index_status.value,
             "config": {
@@ -591,10 +517,16 @@ class SimilarityDetector:
                 ),
                 "symbols_count": len(self._symbols) if self._symbols else 0,
             },
+            "faiss_info": {
+                "num_gpus": faiss.get_num_gpus(),
+                "version": getattr(faiss, "__version__", "unknown"),
+                "index_type": self.config.index_type,
+                "using_gpu": self.config.use_gpu and faiss.get_num_gpus() > 0,
+            },
         }
 
     def clear_index(self) -> None:
-        """Clear the current similarity index and cached data."""
+        """Clear the current Faiss similarity index and cached data."""
         self._index = None
         self._embeddings = None
         self._symbols = None
@@ -604,11 +536,11 @@ class SimilarityDetector:
         self._search_times.clear()
         self._build_times.clear()
 
-        print("Cleared similarity index", file=sys.stderr)
+        print("Cleared Faiss similarity index", file=sys.stderr)
 
 
 def main():
-    """Main entry point for testing similarity detector functionality."""
+    """Main entry point for testing Faiss similarity detector functionality."""
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -631,26 +563,24 @@ def main():
         "--output", choices=["json", "summary"], default="summary", help="Output format"
     )
     parser.add_argument(
-        "--no-faiss", action="store_true", help="Disable Faiss and use fallback"
+        "--use-gpu", action="store_true", help="Enable GPU acceleration"
     )
 
     args = parser.parse_args()
 
     # Create configuration
-    config = SimilarityConfig(medium_similarity_threshold=args.threshold)
+    config = SimilarityConfig(
+        medium_similarity_threshold=args.threshold, use_gpu=args.use_gpu
+    )
 
-    # Initialize detector
+    # Initialize detector (will exit if Faiss not available)
     detector = SimilarityDetector(config, args.project_root)
 
-    # Override method if Faiss disabled
-    if args.no_faiss:
-        if SCIPY_AVAILABLE:
-            detector._current_method = SimilarityMethod.SCIPY_COSINE
-        else:
-            detector._current_method = SimilarityMethod.NUMPY_COSINE
-
     # Generate test embeddings
-    print(f"Generating {args.test_vectors} test vectors of dimension {args.vector_dim}")
+    print(
+        f"Generating {args.test_vectors} test vectors of "
+        f"dimension {args.vector_dim}"
+    )
     test_embeddings = np.random.random((args.test_vectors, args.vector_dim)).astype(
         np.float32
     )
@@ -661,8 +591,8 @@ def main():
     build_time = time.time() - start_time
 
     if not success:
-        print("Failed to build similarity index")
-        return
+        print("Error: Failed to build Faiss similarity index")
+        sys.exit(1)
 
     # Test similarity search
     query_vector = test_embeddings[0]  # Use first vector as query
@@ -693,19 +623,22 @@ def main():
         }
         print(json.dumps(result, indent=2))
     else:
-        print("Similarity Detector Test Results:")
+        print("Faiss Similarity Detector Test Results:")
         print(f"  Index built: {success}")
         print(f"  Build time: {build_time:.3f}s")
         print(f"  Search time: {search_time:.3f}s")
         print(f"  Matches found: {len(matches)}")
 
         detector_info = detector.get_detector_info()
-        print("\nDetector Info:")
+        print("\nFaiss Detector Info:")
         print(f"  Method: {detector_info['method']}")
-        print(f"  Faiss available: {detector_info['faiss_available']}")
         print(f"  Index status: {detector_info['index_status']}")
-        print(f"  Embeddings: {detector_info['index_info']['embeddings_count']}")
+        emb_count = detector_info["index_info"]["embeddings_count"]
+        print(f"  Embeddings: {emb_count}")
         print(f"  Dimensions: {detector_info['index_info']['embedding_dim']}")
+        print(f"  Faiss version: {detector_info['faiss_info']['version']}")
+        print(f"  GPUs available: {detector_info['faiss_info']['num_gpus']}")
+        print(f"  Using GPU: {detector_info['faiss_info']['using_gpu']}")
 
         if matches:
             print("\nTop 5 Matches:")

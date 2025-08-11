@@ -16,10 +16,12 @@ from typing import Any, Dict, List, Optional
 # Add utils to path for imports
 script_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(script_dir / "utils"))
+sys.path.insert(0, str(script_dir / "continuous-improvement"))
 
 try:
     from output_formatter import AnalysisResult, ResultFormatter
     from tech_stack_detector import TechStackDetector
+    from analyzers.symbol_extractor import SymbolExtractor
 except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)
@@ -351,6 +353,56 @@ class CIFramework:
                 (key, value, timestamp),
             )
 
+    def extract_project_symbols(self, use_serena: bool = True) -> AnalysisResult:
+        """
+        Extract symbols from project using integrated symbol extractor.
+
+        Args:
+            use_serena: Whether to attempt Serena MCP first (default: True)
+
+        Returns:
+            AnalysisResult containing symbol extraction findings
+        """
+        symbol_extractor = SymbolExtractor(self.project_root)
+        result = symbol_extractor.extract_symbols(use_serena=use_serena)
+
+        # Record symbol extraction metric
+        self.record_metric(
+            metric_type=CIMetricType.QUALITY_GATE,
+            name="symbol_extraction_count",
+            value=result.summary.get("total_symbols", 0),
+            metadata={
+                "files_processed": result.summary.get("files_processed", 0),
+                "extraction_method": result.summary.get("extraction_method", "unknown"),
+                "execution_time": result.summary.get("execution_time_seconds", 0),
+            },
+        )
+
+        # Generate recommendations based on symbol analysis
+        symbol_summary = result.summary.get("symbol_breakdown", {})
+
+        # Recommend refactoring if too many functions found
+        if symbol_summary.get("functions", 0) > 500:
+            self.record_recommendation(
+                category="code_quality",
+                title="Consider function refactoring",
+                description=f"Project contains {symbol_summary.get('functions')} functions. Consider breaking down large modules.",
+                priority="medium",
+                correlation_id=f"symbol_analysis_{int(time.time())}",
+            )
+
+        # Recommend architectural review if too many classes
+        if symbol_summary.get("classes", 0) > 200:
+            self.record_recommendation(
+                category="architecture",
+                title="Architectural complexity review",
+                description=f"Project contains {symbol_summary.get('classes')} classes. Consider architectural patterns review.",
+                priority="medium",
+                correlation_id=f"symbol_analysis_{int(time.time())}",
+            )
+
+        return result
+
 
 def main():
     """Main function for command-line usage."""
@@ -360,11 +412,15 @@ def main():
         description="Continuous Improvement Framework - Core Operations"
     )
     parser.add_argument(
-        "command", choices=["init", "report", "metrics", "recommendations"]
+        "command",
+        choices=["init", "report", "metrics", "recommendations", "extract-symbols"],
     )
     parser.add_argument("--project-root", default=".", help="Project root directory")
     parser.add_argument("--output-format", choices=["json", "console"], default="json")
     parser.add_argument("--days", type=int, default=7, help="Analysis period in days")
+    parser.add_argument(
+        "--no-serena", action="store_true", help="Skip Serena MCP, use AST/regex only"
+    )
 
     args = parser.parse_args()
 
@@ -390,6 +446,22 @@ def main():
     elif args.command == "recommendations":
         recs = framework.get_recommendations()
         print(json.dumps(recs, indent=2))
+
+    elif args.command == "extract-symbols":
+        result = framework.extract_project_symbols(use_serena=not args.no_serena)
+        if args.output_format == "console":
+            print("Symbol extraction completed:")
+            print(f"  Total symbols: {result.summary.get('total_symbols', 0)}")
+            print(f"  Files processed: {result.summary.get('files_processed', 0)}")
+            print(f"  Method: {result.summary.get('extraction_method', 'unknown')}")
+            print(f"  Time: {result.summary.get('execution_time_seconds', 0)}s")
+            print("  Symbol breakdown:")
+            for symbol_type, count in result.summary.get(
+                "symbol_breakdown", {}
+            ).items():
+                print(f"    {symbol_type}: {count}")
+        else:
+            print(result.to_json())
 
 
 if __name__ == "__main__":

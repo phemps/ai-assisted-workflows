@@ -10,7 +10,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
 
@@ -67,13 +67,17 @@ class SerenaFallbackExtractor:
                 "groups": [1, 2],
             },
             "javascript": {
-                "pattern": r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]\
-|require\([\'"]([^\'"]+)[\'"]\))',
+                "pattern": (
+                    r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]\|'
+                    r'require\([\'"]([^\'"]+)[\'"]\))'
+                ),
                 "groups": [1, 2],
             },
             "typescript": {
-                "pattern": r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]\
-|require\([\'"]([^\'"]+)[\'"]\))',
+                "pattern": (
+                    r'(?:import\s+.*?from\s+[\'"]([^\'"]+)[\'"]\|'
+                    r'require\([\'"]([^\'"]+)[\'"]\))'
+                ),
                 "groups": [1, 2],
             },
             "java": {"pattern": r"import\s+([^;]+);", "groups": [1]},
@@ -84,11 +88,17 @@ class SerenaFallbackExtractor:
             },
             "rust": {"pattern": r"use\s+([^;]+);", "groups": [1]},
             "php": {
-                "pattern": r"(?:use\s+([^;]+);|require_once\s+['\"]([^'\"]+)['\"]|include_once\s+['\"]([^'\"]+)['\"])",
+                "pattern": (
+                    r"(?:use\s+([^;]+);|require_once\s+['\"]([^'\"]+)\""
+                    r"['\"]|include_once\s+['\"]([^'\"]+)['\"])"
+                ),
                 "groups": [1, 2, 3],
             },
             "ruby": {
-                "pattern": r"(?:require\s+['\"]([^'\"]+)['\"]|require_relative\s+['\"]([^'\"]+)['\"])",
+                "pattern": (
+                    r"(?:require\s+['\"]([^'\"]+)['\"]|require_relative\s+"
+                    r"['\"]([^'\"]+)['\"])"
+                ),
                 "groups": [1, 2],
             },
             "swift": {"pattern": r"import\s+(\w+)", "groups": [1]},
@@ -102,7 +112,8 @@ class SerenaFallbackExtractor:
             ".js": [
                 (r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(", "function"),
                 (
-                    r"^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*(?::|=>)",
+                    r"^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*"
+                    r"(?:async\s+)?\([^)]*\)\s*(?::|=>)",
                     "arrow",
                 ),
                 (r"^\s*(?:export\s+)?class\s+(\w+)", "class"),
@@ -110,7 +121,8 @@ class SerenaFallbackExtractor:
             ".ts": [
                 (r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(", "function"),
                 (
-                    r"^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*(?::|=>)",
+                    r"^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*"
+                    r"(?:async\s+)?\([^)]*\)\s*(?::|=>)",
                     "arrow",
                 ),
                 (r"^\s*(?:export\s+)?class\s+(\w+)", "class"),
@@ -123,14 +135,14 @@ class SerenaFallbackExtractor:
             ],
             ".java": [
                 (
-                    r"^\s*(?:public|private|protected)?\s*(?:static\s+)?(?:final\s+)?"
-                    r"(?:abstract\s+)?class\s+(\w+)",
+                    r"^\s*(?:public|private|protected)?\s*(?:static\s+)?"
+                    r"(?:final\s+)?(?:abstract\s+)?class\s+(\w+)",
                     "class",
                 ),
                 (
-                    r"^\s*(?:public|private|protected)?\s*(?:static\s+)?(?:final\s+)?"
-                    r"(?:synchronized\s+)?(?:\w+\s+)*(\w+)\s*\([^)]*\)\s*"
-                    r"(?:throws\s+[\w,\s]+)?\s*\{",
+                    r"^\s*(?:public|private|protected)?\s*(?:static\s+)?"
+                    r"(?:final\s+)?(?:synchronized\s+)?(?:\w+\s+)*"
+                    r"(\w+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{",
                     "method",
                 ),
             ],
@@ -329,17 +341,37 @@ class SymbolExtractor:
         self.fallback_extractor = SerenaFallbackExtractor()
         self.result_formatter = ResultFormatter()
 
-        # Try to import Serena MCP tools
-        self.serena_available = self._check_serena_availability()
+        # Initialize Serena client with proper integration
+        self.serena_client = self._initialize_serena_client()
+        self.serena_available = self.serena_client is not None
 
-    def _check_serena_availability(self) -> bool:
-        """Check if Serena MCP tools are available."""
+    def _initialize_serena_client(self):
+        """Initialize Serena MCP client if available."""
         try:
-            # This would be the actual Serena MCP import when available
-            # import mcp_serena
-            return False  # For now, always use fallback
+            # Import SerenaClient from the core module
+            from ..core.serena_client import SerenaClient, MCPConfig
+
+            # Create client with project-specific configuration
+            config = MCPConfig(
+                use_ast_fallback=True,
+                enable_semantic_analysis=True,
+                max_symbols_per_request=1000,
+            )
+
+            client = SerenaClient(config, self.project_root)
+            return client
+
         except ImportError:
-            return False
+            # Fallback import for direct execution
+            try:
+                sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
+                from serena_client import SerenaClient, MCPConfig
+
+                config = MCPConfig(use_ast_fallback=True)
+                return SerenaClient(config, self.project_root)
+
+            except ImportError:
+                return None
 
     def extract_symbols(
         self, file_paths: Optional[List[Path]] = None, use_serena: bool = True
@@ -379,7 +411,7 @@ class SymbolExtractor:
 
                 # Try Serena MCP first if available and requested
                 if use_serena and self.serena_available:
-                    symbols = self._extract_with_serena(content, file_path)
+                    symbols = self.serena_client.extract_symbols([file_path])
                     if symbols:  # If Serena succeeded
                         all_symbols.extend(symbols)
                         processed_files += 1
@@ -410,11 +442,13 @@ class SymbolExtractor:
 
             findings.append(
                 {
-                    "finding_id": f"symbol_{symbol.symbol_type.value}_{len(findings)}",
-                    "title": f"{symbol.symbol_type.value.title()}: {symbol.name}",
+                    "finding_id": (
+                        f"symbol_{symbol.symbol_type.value}_{len(findings)}"
+                    ),
+                    "title": (f"{symbol.symbol_type.value.title()}: {symbol.name}"),
                     "description": (
-                        f"Found {symbol.symbol_type.value} '{symbol.name}' "
-                        f"in {symbol.scope} scope"
+                        f"Found {symbol.symbol_type.value} "
+                        f"'{symbol.name}' in {symbol.scope} scope"
                     ),
                     "severity": "info",
                     "file_path": symbol.file_path,
@@ -433,10 +467,31 @@ class SymbolExtractor:
 
         execution_time = time.time() - start_time
 
-        return AnalysisResult(
-            analysis_type="symbol_extraction",
-            findings=findings,
-            summary={
+        # Convert to proper AnalysisResult format
+        from output_formatter import AnalysisResult, AnalysisType, Finding, Severity
+
+        result = AnalysisResult(
+            analysis_type=AnalysisType.CODE_QUALITY,
+            script_name="symbol_extractor.py",
+            target_path=str(self.project_root),
+        )
+
+        # Add findings as proper Finding objects
+        for finding_data in findings:
+            finding = Finding(
+                finding_id=finding_data["finding_id"],
+                title=finding_data["title"],
+                description=finding_data["description"],
+                severity=Severity.INFO,
+                file_path=finding_data.get("file_path"),
+                line_number=finding_data.get("line_number"),
+                evidence=finding_data.get("evidence"),
+            )
+            result.add_finding(finding)
+
+        # Add metadata including summary information
+        result.metadata.update(
+            {
                 "total_symbols": len(all_symbols),
                 "files_processed": processed_files,
                 "extraction_method": (
@@ -446,22 +501,26 @@ class SymbolExtractor:
                 ),
                 "symbol_breakdown": symbol_summary,
                 "execution_time_seconds": round(execution_time, 2),
-            },
-            metadata={
                 "project_root": str(self.project_root),
                 "tech_stack": tech_config.name,
                 "detected_stacks": detected_stacks,
                 "serena_available": self.serena_available,
-                "timestamp": time.time(),
-            },
+                "serena_connection": (
+                    self.serena_client.get_connection_info()
+                    if self.serena_client
+                    else None
+                ),
+            }
         )
 
-    def _extract_with_serena(
-        self, content: str, file_path: Path
-    ) -> Optional[List[Symbol]]:
-        """Extract symbols using Serena MCP (placeholder for future implementation)."""
-        # This would contain the actual Serena MCP integration
-        # when the tool becomes available
+        result.set_execution_time(start_time)
+
+        return result
+
+    def get_serena_connection_info(self) -> Optional[Dict]:
+        """Get Serena MCP connection information for diagnostics."""
+        if self.serena_client:
+            return self.serena_client.get_connection_info()
         return None
 
     def _get_project_files(self, tech_config) -> List[Path]:
@@ -531,11 +590,39 @@ def main():
     parser.add_argument(
         "--output", choices=["json", "summary"], default="json", help="Output format"
     )
+    parser.add_argument(
+        "--test-serena", action="store_true", help="Test Serena MCP connection"
+    )
 
     args = parser.parse_args()
 
     # Initialize extractor
     extractor = SymbolExtractor(args.project_root)
+
+    # Test Serena connection if requested
+    if args.test_serena:
+        if extractor.serena_client:
+            test_result = extractor.serena_client.test_extraction()
+            print("Serena MCP Test Results:")
+            status = (
+                "SUCCESS" if test_result.metadata.get("test_successful") else "FAILED"
+            )
+            print(f"  Status: {status}")
+            if extractor.serena_client.get_connection_info():
+                conn_info = extractor.serena_client.get_connection_info()
+                print(f"  Connection: {conn_info['status']}")
+                print(f"  MCP Available: {conn_info['mcp_available']}")
+            print(
+                f"  Symbols Found: "
+                f"{test_result.metadata.get('symbols_extracted', 0)}"
+            )
+            print(
+                f"  Method: "
+                f"{test_result.metadata.get('extraction_method', 'unknown')}"
+            )
+        else:
+            print("Serena client not available")
+        return
 
     # Extract symbols
     result = extractor.extract_symbols(
@@ -547,15 +634,20 @@ def main():
         formatter = ResultFormatter()
         print(formatter.format_result(result))
     else:
-        summary = result.summary
+        metadata = result.metadata
         print("Symbol Extraction Complete:")
-        print(f"  Total symbols: {summary['total_symbols']}")
-        print(f"  Files processed: {summary['files_processed']}")
-        print(f"  Method used: {summary['extraction_method']}")
-        print(f"  Execution time: {summary['execution_time_seconds']}s")
+        print(f"  Total symbols: {metadata['total_symbols']}")
+        print(f"  Files processed: {metadata['files_processed']}")
+        print(f"  Method used: {metadata['extraction_method']}")
+        print(f"  Execution time: {metadata['execution_time_seconds']}s")
         print("  Symbol breakdown:")
-        for symbol_type, count in summary["symbol_breakdown"].items():
+        for symbol_type, count in metadata["symbol_breakdown"].items():
             print(f"    {symbol_type}: {count}")
+        if metadata.get("serena_connection"):
+            conn = metadata["serena_connection"]
+            print(
+                f"  Serena Status: {conn['status']} " f"(MCP: {conn['mcp_available']})"
+            )
 
 
 if __name__ == "__main__":

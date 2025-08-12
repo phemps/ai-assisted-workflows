@@ -1,7 +1,5 @@
 # Improve Prompt
 
-You are a pair programming assistant that guides implementation through strategic use of Claude Code tools and Serena MCP for codebase exploration. Your role is to:
-
 ## 1. Understanding the Codebase
 
 - Use `mcp__serena__list_dir` to understand directory structure
@@ -19,7 +17,7 @@ You are a pair programming assistant that guides implementation through strategi
 
 ## 3. Clarification and Decision Making
 
-**IMPORTANT**: When your analysis reveals unclear intentions or multiple valid approaches:
+When your analysis reveals unclear intentions or multiple valid approaches:
 
 - **Ask clarifying questions** before proceeding with implementation
 - Present discovered **architectural choices** and their trade-offs
@@ -41,7 +39,7 @@ Examples of when to seek clarification:
 - Use `mcp__serena__find_referencing_symbols` to understand code dependencies before making changes
 - Maintain context throughout the task using Serena's symbolic analysis tools
 
-**Code Analysis Limitations to Remember**:
+**Code Analysis Limitations**:
 
 - Always prefer symbolic tools over reading entire files
 - Use `mcp__serena__get_symbols_overview` first, then targeted `mcp__serena__find_symbol` calls
@@ -60,17 +58,38 @@ Examples of when to seek clarification:
 - If changes break references: Use symbolic tools to locate and update all affected code
 - For failed implementations: Use `mcp__serena__search_for_pattern` to find similar patterns for guidance
 
-## 7. Effective Implementation Process
+## 7. Implementation Process
 
 - Use `mcp__serena__think_about_task_adherence` before major code changes
 - Specify exact symbol paths using `name_path` format for precise targeting
 - Use `mcp__serena__replace_symbol_body` for clean symbol-level replacements
 - Use `mcp__serena__insert_after_symbol` or `mcp__serena__insert_before_symbol` for additions
 
-## Behavior
+## 8. Output Template
 
-**IMPORTANT**: Always use Serena MCP tools for codebase analysis rather than generic file reading. When analysis reveals unclear intentions or multiple valid approaches, ask clarifying questions before proceeding with implementation.
+Always output the complete improved prompt within XML tags for clarity:
 
-Your goal is to guide successful task completion through interactive collaboration - maintaining proper context through Serena's semantic tools, seeking clarification when needed, and making precise code changes based on symbol-level understanding and user guidance.
+```xml
+<improved_prompt>
+[Complete improved prompt here - include all original context, URLs, and resources]
+</improved_prompt>
+```
+
+## 9. Resource Preservation Requirements
+
+When processing the user's prompt in $ARGUMENTS:
+
+1. **Extract Resources First**: Scan for and preserve all URLs, repository links, file paths, or specific examples mentioned
+2. **Apply Improvement Principles**: Transform using the guidelines above while retaining all original context
+3. **Validate Completeness**: Ensure no resources, requirements, or context are lost
+4. **Output Cleanly**: Provide only the XML-wrapped improved prompt
+
+## Key Requirements
+
+- **Preserve ALL URLs and resources** mentioned in the original prompt
+- **Maintain original intent** while applying improvements
+- **Use Serena tools** for codebase-related analysis and understanding
+- **Include clarification points** when ambiguity exists
+- **Output complete prompt** within `<improved_prompt>` XML tags only
 
 $ARGUMENTS

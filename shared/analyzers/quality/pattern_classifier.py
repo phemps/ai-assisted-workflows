@@ -1,19 +1,51 @@
 #!/usr/bin/env python3
 """
 Pattern Classification Engine
-Part of Phase 2.3: Analysis Engine - Pattern Classification
+============================
 
-This module implements sophisticated pattern classification for code analysis,
-identifying anti-patterns, design patterns, code smells, and best practices.
+PURPOSE: Sophisticated pattern classification for comprehensive code analysis,
+identifying anti-patterns, design patterns, code smells, security issues, and best practices.
+Part of the analyzers/quality suite for pattern-based quality assessment.
+
+APPROACH:
+- Multi-detector orchestration (anti-patterns, code smells, security patterns)
+- AST-based pattern matching with confidence scoring
+- Comprehensive pattern taxonomy with severity classification
+- Detailed reporting with recommendations
+
+DEPENDENCIES: Python standard library only (ast, re, logging, abc, enum, dataclasses)
+
+USE CASES:
+- Code quality assessment through pattern detection
+- Security vulnerability identification
+- Design pattern recognition and anti-pattern detection
+- Comprehensive code smell analysis
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements pattern-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
 import ast
 import re
+import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
+
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+try:
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+except ImportError as e:
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
+    sys.exit(1)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -809,10 +841,66 @@ class SecurityPatternDetector(PatternDetector):
         return matches
 
 
-class CompositePatternClassifier:
-    """Combines multiple pattern detectors for comprehensive analysis."""
+class CompositePatternClassifier(BaseAnalyzer):
+    """Combines multiple pattern detectors for comprehensive analysis extending BaseAnalyzer infrastructure."""
 
-    def __init__(self, detectors: Optional[List[PatternDetector]] = None):
+    def __init__(
+        self,
+        config: Optional[AnalyzerConfig] = None,
+        detectors: Optional[List[PatternDetector]] = None,
+    ):
+        # Create pattern classification-specific configuration
+        pattern_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".vue",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "migrations",
+                "test",
+                "tests",
+                "__tests__",
+                "spec",
+                "specs",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("quality", pattern_config)
+
+        # Initialize pattern-specific components
         if detectors:
             self.detectors = detectors
         else:
@@ -821,6 +909,168 @@ class CompositePatternClassifier:
                 AntiPatternDetector(),
                 CodeSmellDetector(),
                 SecurityPatternDetector(),
+            ]
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Implement pattern classification analysis logic for target path.
+
+        Args:
+            target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
+
+        Returns:
+            List of pattern classification findings
+        """
+        target = Path(target_path)
+
+        if target.is_file():
+            try:
+                relative_path = str(target.relative_to(Path.cwd()))
+            except ValueError:
+                relative_path = str(target)
+
+            return self._analyze_file_patterns(str(target), relative_path)
+
+        return []
+
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """
+        Get pattern classifier-specific metadata.
+
+        Returns:
+            Dictionary with analyzer-specific metadata
+        """
+        return {
+            "analysis_type": "pattern_classification",
+            "pattern_detectors": {
+                "anti_patterns": "Code anti-patterns and design issues",
+                "code_smells": "Code quality and maintainability issues",
+                "security_patterns": "Security vulnerabilities and risks",
+            },
+            "pattern_types": [pt.value for pt in PatternType],
+            "severity_levels": [ps.value for ps in PatternSeverity],
+            "supported_languages": [
+                "Python",
+                "JavaScript",
+                "TypeScript",
+                "Java",
+                "C#",
+                "PHP",
+                "Ruby",
+                "Go",
+                "Rust",
+                "C++",
+                "C",
+                "Swift",
+                "Kotlin",
+                "Scala",
+                "Dart",
+                "Vue",
+            ],
+            "dependencies": "Python standard library only (ast, re, logging, abc, enum, dataclasses)",
+            "use_cases": [
+                "Code quality assessment through pattern detection",
+                "Security vulnerability identification",
+                "Design pattern recognition and anti-pattern detection",
+                "Comprehensive code smell analysis",
+            ],
+        }
+
+    def _analyze_file_patterns(
+        self, file_path: str, relative_path: str
+    ) -> List[Dict[str, Any]]:
+        """Analyze a single file for pattern classification."""
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+
+            if not content.strip():
+                return []
+
+            findings = []
+
+            # Run pattern classification
+            try:
+                pattern_matches = self.classify_patterns(content, relative_path)
+
+                # Convert PatternMatch objects to findings format
+                for match in pattern_matches:
+                    findings.append(
+                        {
+                            "type": "pattern_classification",
+                            "severity": match.severity.value,
+                            "message": f"{match.pattern_name}: {match.description}",
+                            "file_path": relative_path,
+                            "line_number": match.start_line,
+                            "metadata": {
+                                "pattern_name": match.pattern_name,
+                                "pattern_type": match.pattern_type.value,
+                                "confidence": match.confidence,
+                                "recommendation": match.recommendation,
+                                "code_snippet": match.code_snippet[:200] + "..."
+                                if len(match.code_snippet) > 200
+                                else match.code_snippet,
+                                "start_line": match.start_line,
+                                "end_line": match.end_line,
+                                **match.metadata,
+                            },
+                        }
+                    )
+
+                logger.debug(
+                    f"Found {len(pattern_matches)} patterns in {relative_path}"
+                )
+
+            except Exception as e:
+                logger.error(f"Pattern classification failed for {relative_path}: {e}")
+                findings.append(
+                    {
+                        "type": "analysis_error",
+                        "severity": "low",
+                        "message": f"Pattern classification failed: {str(e)}",
+                        "file_path": relative_path,
+                        "line_number": 1,
+                        "metadata": {"error_type": type(e).__name__},
+                    }
+                )
+
+            # Add file analysis completion info
+            findings.append(
+                {
+                    "type": "pattern_analysis",
+                    "severity": "info",
+                    "message": "File analyzed for code patterns",
+                    "file_path": relative_path,
+                    "line_number": 1,
+                    "metadata": {
+                        "total_lines": len(content.splitlines()),
+                        "detectors_run": [
+                            type(detector).__name__ for detector in self.detectors
+                        ],
+                        "patterns_found": len(
+                            [
+                                f
+                                for f in findings
+                                if f["type"] == "pattern_classification"
+                            ]
+                        ),
+                    },
+                }
+            )
+
+            return findings
+
+        except Exception as e:
+            logger.error(f"Error analyzing file {file_path}: {e}")
+            return [
+                {
+                    "type": "analysis_error",
+                    "severity": "low",
+                    "message": f"Failed to analyze file: {str(e)}",
+                    "file_path": relative_path,
+                    "line_number": 1,
+                    "metadata": {"error_type": type(e).__name__},
+                }
             ]
 
     def classify_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
@@ -966,41 +1216,181 @@ Patterns by Type:
         return report
 
 
+# Legacy function for backward compatibility
+def classify_code_patterns(
+    target_path: str,
+    output_format: str = "json",
+    detectors: Optional[List[PatternDetector]] = None,
+) -> Dict[str, Any]:
+    """
+    Legacy function wrapper for backward compatibility.
+
+    Args:
+        target_path: Path to analyze
+        output_format: Output format (json, console, summary)
+        detectors: Optional list of specific pattern detectors to use
+
+    Returns:
+        Analysis results
+    """
+    try:
+        config = AnalyzerConfig(target_path=target_path, output_format=output_format)
+
+        analyzer = CompositePatternClassifier(config=config, detectors=detectors)
+
+        # Use BaseAnalyzer's analyze for full directory analysis
+        results = analyzer.analyze()
+
+        # Convert AnalysisResult to dict for backward compatibility
+        return {
+            "success": results.success if hasattr(results, "success") else True,
+            "findings": [
+                finding.__dict__ if hasattr(finding, "__dict__") else finding
+                for finding in (
+                    results.findings if hasattr(results, "findings") else []
+                )
+            ],
+            "metadata": results.metadata if hasattr(results, "metadata") else {},
+            "execution_time": results.execution_time
+            if hasattr(results, "execution_time")
+            else 0,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in legacy pattern classification: {e}")
+        return {"success": False, "error": str(e), "findings": []}
+
+
 def main():
-    """Example usage of the pattern classification system."""
-    sample_code = """
-def process_user_data(username, password, email, phone, address):
-    # Hardcoded password - security issue
-    admin_password = "admin123"
+    """Main entry point with BaseAnalyzer CLI interface."""
+    import argparse
 
-    # SQL injection risk
-    query = f"SELECT * FROM users WHERE username = '{username}'"
-    cursor.execute(query)
+    parser = argparse.ArgumentParser(
+        description="Pattern Classifier - Comprehensive Code Pattern Analysis Tool"
+    )
+    parser.add_argument("target_path", help="Path to analyze (file or directory)")
+    parser.add_argument(
+        "--output-format",
+        choices=["json", "console", "summary"],
+        default="console",
+        help="Output format (default: console)",
+    )
+    parser.add_argument(
+        "--max-files",
+        type=int,
+        default=5000,
+        help="Maximum number of files to analyze (default: 5000)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="Batch size for file processing (default: 50)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Analysis timeout in seconds (default: 120)",
+    )
 
-    # Long method with many parameters
-    if user_type == "admin":
-        admin_logic()
-    elif user_type == "moderator":
-        moderator_logic()
-    elif user_type == "user":
-        user_logic()
-    elif user_type == "guest":
-        guest_logic()
-    elif user_type == "premium":
-        premium_logic()
+    args = parser.parse_args()
 
-    return result
-"""
+    try:
+        # Create analyzer configuration
+        config = AnalyzerConfig(
+            target_path=args.target_path,
+            output_format=args.output_format,
+            max_files=args.max_files,
+            batch_size=args.batch_size,
+            timeout_seconds=args.timeout,
+        )
 
-    # Initialize classifier
-    classifier = CompositePatternClassifier()
+        # Initialize analyzer
+        analyzer = CompositePatternClassifier(config=config)
 
-    # Classify patterns
-    matches = classifier.classify_patterns(sample_code, "example.py")
+        # Run analysis using BaseAnalyzer infrastructure
+        results = analyzer.analyze()
 
-    # Generate report
-    report = PatternAnalysisReport(matches)
-    print(report.generate_detailed_report())
+        # Output results using BaseAnalyzer's standard format
+        if args.output_format == "json":
+            import json
+
+            # Convert AnalysisResult to dict for JSON serialization
+            findings_list = []
+            if hasattr(results, "findings"):
+                for finding in results.findings:
+                    if hasattr(finding, "message"):
+                        finding_dict = {
+                            "message": str(finding.message),
+                            "file_path": str(getattr(finding, "file_path", "Unknown")),
+                            "line_number": str(
+                                getattr(finding, "line_number", "Unknown")
+                            ),
+                            "severity": str(getattr(finding, "severity", "Unknown")),
+                            "type": str(getattr(finding, "type", "Unknown")),
+                        }
+                        findings_list.append(finding_dict)
+                    else:
+                        findings_list.append(str(finding))
+
+            result_dict = {
+                "success": results.success if hasattr(results, "success") else True,
+                "findings": findings_list,
+                "metadata": results.metadata if hasattr(results, "metadata") else {},
+                "execution_time": results.execution_time
+                if hasattr(results, "execution_time")
+                else 0,
+            }
+            print(json.dumps(result_dict, indent=2))
+        elif args.output_format == "console":
+            print("\nPattern Classification Results:")
+            print("=" * 50)
+
+            success = results.success if hasattr(results, "success") else True
+            if success:
+                findings = results.findings if hasattr(results, "findings") else []
+                print(f"Total findings: {len(findings)}")
+
+                for finding in findings:
+                    # Handle Finding objects (from BaseAnalyzer)
+                    if hasattr(finding, "message"):
+                        message = finding.message
+                        file_path = getattr(finding, "file_path", "Unknown")
+                        line_number = getattr(finding, "line_number", "Unknown")
+                        severity = getattr(finding, "severity", "Unknown")
+                    elif hasattr(finding, "get"):
+                        # Handle dict findings (legacy)
+                        message = finding.get("message", "Unknown issue")
+                        file_path = finding.get("file_path", "Unknown")
+                        line_number = finding.get("line_number", "Unknown")
+                        severity = finding.get("severity", "Unknown")
+                    else:
+                        # Default fallback
+                        message = str(finding)
+                        file_path = "Unknown"
+                        line_number = "Unknown"
+                        severity = "Unknown"
+
+                    print(f"\n• {message}")
+                    print(f"  File: {file_path}")
+                    print(f"  Line: {line_number}")
+                    print(f"  Severity: {severity}")
+            else:
+                error_msg = (
+                    results.error if hasattr(results, "error") else "Unknown error"
+                )
+                print(f"Analysis failed: {error_msg}")
+
+        else:  # summary
+            findings_count = (
+                len(results.findings) if hasattr(results, "findings") else 0
+            )
+            print(f"Pattern classification completed: {findings_count} findings")
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

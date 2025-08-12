@@ -1,14 +1,39 @@
 #!/usr/bin/env python3
 """
 Analysis Result Aggregation System
-Part of Phase 2.4: Analysis Engine - Result Aggregation
+==================================
 
-This module aggregates results from multiple analysis engines (duplicate detection,
-pattern classification, etc.) into unified, actionable reports with prioritization
-and correlation analysis.
+PURPOSE: Unified aggregation and reporting system for comprehensive analysis results,
+combining findings from multiple analysis engines (duplicate detection, pattern classification,
+security scanning, etc.) into actionable, prioritized reports with correlation analysis.
+Part of the analyzers/quality suite for comprehensive result management.
+
+APPROACH:
+- Multi-source result aggregation with unified AnalysisResult format
+- Priority-based categorization and confidence scoring
+- File-level and project-level summary generation
+- Cross-analysis correlation and insight detection
+- Comprehensive reporting with executive summaries and action plans
+
+DEPENDENCIES:
+- code_duplication_analyzer for DuplicateMatch integration
+- pattern_classifier for PatternMatch integration
+- Python standard library (json, datetime, pathlib, collections)
+
+USE CASES:
+- Comprehensive quality assessment report generation
+- Multi-dimensional analysis result consolidation
+- Executive reporting and actionable insights
+- Development team quality dashboards
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements aggregation-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
 import json
+import sys
 from typing import Dict, List, Tuple, Set, Optional, Any
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -17,11 +42,29 @@ import logging
 from enum import Enum
 from collections import defaultdict, Counter
 
-from .code_duplication_analyzer import DuplicateMatch
-from .pattern_classifier import (
-    PatternMatch,
-    PatternSeverity,
-)
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+try:
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+except ImportError as e:
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    from .code_duplication_analyzer import DuplicateMatch
+    from .pattern_classifier import (
+        PatternMatch,
+        PatternSeverity,
+    )
+except ImportError:
+    # Handle direct script execution
+    from code_duplication_analyzer import DuplicateMatch
+    from pattern_classifier import (
+        PatternMatch,
+        PatternSeverity,
+    )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -323,13 +366,206 @@ class ResultCorrelator:
         return correlations
 
 
-class AnalysisAggregator:
-    """Main aggregator that combines and organizes analysis results."""
+class AnalysisAggregator(BaseAnalyzer):
+    """Main aggregator that combines and organizes analysis results extending BaseAnalyzer infrastructure."""
 
-    def __init__(self):
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create result aggregation-specific configuration
+        aggregation_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".vue",
+                ".json",
+                ".yaml",
+                ".yml",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "migrations",
+                "test",
+                "tests",
+                "__tests__",
+                "spec",
+                "specs",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("quality", aggregation_config)
+
+        # Initialize aggregation-specific components
         self.converter = ResultConverter()
         self.correlator = ResultCorrelator()
         self.results: List[AnalysisResult] = []
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Implement result aggregation analysis logic for target path.
+
+        Args:
+            target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
+
+        Returns:
+            List of aggregation findings with summary statistics
+        """
+        target = Path(target_path)
+
+        if target.is_file():
+            try:
+                relative_path = str(target.relative_to(Path.cwd()))
+            except ValueError:
+                relative_path = str(target)
+
+            return self._analyze_file_aggregation(str(target), relative_path)
+
+        return []
+
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """
+        Get result aggregator-specific metadata.
+
+        Returns:
+            Dictionary with analyzer-specific metadata
+        """
+        return {
+            "analysis_type": "result_aggregation",
+            "aggregation_capabilities": {
+                "duplicate_analysis": "DuplicateMatch integration and conversion",
+                "pattern_analysis": "PatternMatch integration and conversion",
+                "custom_analysis": "AnalysisResult direct integration",
+                "correlation_analysis": "Cross-analysis correlation detection",
+                "priority_classification": "Multi-level priority assignment",
+            },
+            "result_formats": {
+                "analysis_result": "Unified AnalysisResult format",
+                "file_summaries": "Per-file analysis summaries",
+                "project_summaries": "Project-wide analysis summaries",
+                "executive_reports": "High-level executive summaries",
+                "action_plans": "Prioritized action recommendations",
+            },
+            "priority_levels": [p.name.lower() for p in Priority],
+            "analysis_types": [at.value for at in AnalysisType],
+            "supported_languages": [
+                "Python",
+                "JavaScript",
+                "TypeScript",
+                "Java",
+                "C#",
+                "PHP",
+                "Ruby",
+                "Go",
+                "Rust",
+                "C++",
+                "C",
+                "Swift",
+                "Kotlin",
+                "Scala",
+                "Dart",
+                "Vue",
+                "JSON",
+                "YAML",
+            ],
+            "dependencies": [
+                "code_duplication_analyzer",
+                "pattern_classifier",
+                "Python standard library (json, datetime, pathlib, collections)",
+            ],
+            "use_cases": [
+                "Comprehensive quality assessment report generation",
+                "Multi-dimensional analysis result consolidation",
+                "Executive reporting and actionable insights",
+                "Development team quality dashboards",
+            ],
+        }
+
+    def _analyze_file_aggregation(
+        self, file_path: str, relative_path: str
+    ) -> List[Dict[str, Any]]:
+        """Analyze aggregation capabilities and generate summary for a single file."""
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+
+            if not content.strip():
+                return []
+
+            findings = []
+
+            # Generate aggregation metadata for this file
+            # Since this is a result aggregator, we provide information about aggregation capabilities
+            # rather than analyzing the file content directly
+
+            findings.append(
+                {
+                    "type": "result_aggregation",
+                    "severity": "info",
+                    "message": "File ready for result aggregation analysis",
+                    "file_path": relative_path,
+                    "line_number": 1,
+                    "metadata": {
+                        "total_lines": len(content.splitlines()),
+                        "file_size_bytes": len(content),
+                        "aggregation_ready": True,
+                        "supported_formats": [
+                            "DuplicateMatch",
+                            "PatternMatch",
+                            "AnalysisResult",
+                        ],
+                        "aggregation_capabilities": {
+                            "priority_classification": "5-level priority system (CRITICAL to INFO)",
+                            "correlation_detection": "Cross-file pattern correlation",
+                            "summary_generation": "File and project-level summaries",
+                            "executive_reporting": "High-level insights and action plans",
+                        },
+                    },
+                }
+            )
+
+            return findings
+
+        except Exception as e:
+            logger.error(f"Error analyzing file {file_path}: {e}")
+            return [
+                {
+                    "type": "analysis_error",
+                    "severity": "low",
+                    "message": f"Failed to analyze file: {str(e)}",
+                    "file_path": relative_path,
+                    "line_number": 1,
+                    "metadata": {"error_type": type(e).__name__},
+                }
+            ]
 
     def add_duplicate_analysis(self, matches: List[DuplicateMatch]) -> None:
         """Add duplicate detection results."""
@@ -698,64 +934,185 @@ Based on the analysis results, here's a recommended action plan:
         return plan
 
 
+# Legacy function for backward compatibility
+def aggregate_analysis_results(
+    target_path: str,
+    output_format: str = "json",
+    analysis_results: Optional[List[AnalysisResult]] = None,
+) -> Dict[str, Any]:
+    """
+    Legacy function wrapper for backward compatibility.
+
+    Args:
+        target_path: Path to analyze
+        output_format: Output format (json, console, summary)
+        analysis_results: Optional list of pre-computed analysis results
+
+    Returns:
+        Analysis results
+    """
+    try:
+        config = AnalyzerConfig(target_path=target_path, output_format=output_format)
+
+        analyzer = AnalysisAggregator(config=config)
+
+        # Add any provided analysis results
+        if analysis_results:
+            analyzer.add_custom_analysis(analysis_results)
+
+        # Use BaseAnalyzer's analyze for full directory analysis
+        results = analyzer.analyze()
+
+        # Convert AnalysisResult to dict for backward compatibility
+        return {
+            "success": results.success if hasattr(results, "success") else True,
+            "findings": [
+                finding.__dict__ if hasattr(finding, "__dict__") else finding
+                for finding in (
+                    results.findings if hasattr(results, "findings") else []
+                )
+            ],
+            "metadata": results.metadata if hasattr(results, "metadata") else {},
+            "execution_time": results.execution_time
+            if hasattr(results, "execution_time")
+            else 0,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in legacy result aggregation: {e}")
+        return {"success": False, "error": str(e), "findings": []}
+
+
 def main():
-    """Example usage of the result aggregation system."""
-    from .code_duplication_analyzer import CompositeDuplicateDetector, CodeBlock
-    from .pattern_classifier import CompositePatternClassifier
+    """Main entry point with BaseAnalyzer CLI interface."""
+    import argparse
 
-    # Sample data
-    sample_code = """
-def process_user_data(username, password, email, phone, address, city, state, zip_code):
-    # This is a long parameter list
-    admin_password = "admin123"  # Hardcoded secret
+    parser = argparse.ArgumentParser(
+        description="Result Aggregator - Comprehensive Analysis Result Consolidation Tool"
+    )
+    parser.add_argument("target_path", help="Path to analyze (file or directory)")
+    parser.add_argument(
+        "--output-format",
+        choices=["json", "console", "summary"],
+        default="console",
+        help="Output format (default: console)",
+    )
+    parser.add_argument(
+        "--max-files",
+        type=int,
+        default=5000,
+        help="Maximum number of files to analyze (default: 5000)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="Batch size for file processing (default: 50)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Analysis timeout in seconds (default: 120)",
+    )
 
-    query = f"SELECT * FROM users WHERE username = '{username}'"  # SQL injection
-    cursor.execute(query)
+    args = parser.parse_args()
 
-    if user_type == "admin":
-        admin_logic()
-    elif user_type == "moderator":
-        moderator_logic()
-    elif user_type == "user":
-        user_logic()
-    elif user_type == "guest":
-        guest_logic()
-    elif user_type == "premium":
-        premium_logic()
+    try:
+        # Create analyzer configuration
+        config = AnalyzerConfig(
+            target_path=args.target_path,
+            output_format=args.output_format,
+            max_files=args.max_files,
+            batch_size=args.batch_size,
+            timeout_seconds=args.timeout,
+        )
 
-    return result
-"""
+        # Initialize analyzer
+        analyzer = AnalysisAggregator(config=config)
 
-    # Create sample analysis results
-    aggregator = AnalysisAggregator()
+        # Run analysis using BaseAnalyzer infrastructure
+        results = analyzer.analyze()
 
-    # Add duplicate detection results (simulated)
-    sample_blocks = [
-        CodeBlock(sample_code, "example1.py", 1, 20),
-        CodeBlock(sample_code, "example2.py", 30, 49),  # Simulated duplicate
-    ]
+        # Output results using BaseAnalyzer's standard format
+        if args.output_format == "json":
+            import json
 
-    duplicate_detector = CompositeDuplicateDetector()
-    duplicate_matches = duplicate_detector.detect_all_duplicates(sample_blocks)
-    aggregator.add_duplicate_analysis(duplicate_matches)
+            # Convert AnalysisResult to dict for JSON serialization
+            findings_list = []
+            if hasattr(results, "findings"):
+                for finding in results.findings:
+                    if hasattr(finding, "message"):
+                        finding_dict = {
+                            "message": str(finding.message),
+                            "file_path": str(getattr(finding, "file_path", "Unknown")),
+                            "line_number": str(
+                                getattr(finding, "line_number", "Unknown")
+                            ),
+                            "severity": str(getattr(finding, "severity", "Unknown")),
+                            "type": str(getattr(finding, "type", "Unknown")),
+                        }
+                        findings_list.append(finding_dict)
+                    else:
+                        findings_list.append(str(finding))
 
-    # Add pattern classification results
-    pattern_classifier = CompositePatternClassifier()
-    pattern_matches = pattern_classifier.classify_patterns(sample_code, "example.py")
-    aggregator.add_pattern_analysis(pattern_matches)
+            result_dict = {
+                "success": results.success if hasattr(results, "success") else True,
+                "findings": findings_list,
+                "metadata": results.metadata if hasattr(results, "metadata") else {},
+                "execution_time": results.execution_time
+                if hasattr(results, "execution_time")
+                else 0,
+            }
+            print(json.dumps(result_dict, indent=2))
+        elif args.output_format == "console":
+            print("\nResult Aggregation Analysis Results:")
+            print("=" * 50)
 
-    # Generate comprehensive report
-    report_generator = ComprehensiveAnalysisReport(aggregator)
+            success = results.success if hasattr(results, "success") else True
+            if success:
+                findings = results.findings if hasattr(results, "findings") else []
+                print(f"Total findings: {len(findings)}")
 
-    print("=== EXECUTIVE SUMMARY ===")
-    print(report_generator.generate_executive_summary())
+                for finding in findings:
+                    # Handle Finding objects (from BaseAnalyzer)
+                    if hasattr(finding, "message"):
+                        message = finding.message
+                        file_path = getattr(finding, "file_path", "Unknown")
+                        line_number = getattr(finding, "line_number", "Unknown")
+                        severity = getattr(finding, "severity", "Unknown")
+                    elif hasattr(finding, "get"):
+                        # Handle dict findings (legacy)
+                        message = finding.get("message", "Unknown issue")
+                        file_path = finding.get("file_path", "Unknown")
+                        line_number = finding.get("line_number", "Unknown")
+                        severity = finding.get("severity", "Unknown")
+                    else:
+                        # Default fallback
+                        message = str(finding)
+                        file_path = "Unknown"
+                        line_number = "Unknown"
+                        severity = "Unknown"
 
-    print("\n=== ACTION PLAN ===")
-    print(report_generator.generate_action_plan())
+                    print(f"\n• {message}")
+                    print(f"  File: {file_path}")
+                    print(f"  Line: {line_number}")
+                    print(f"  Severity: {severity}")
+            else:
+                error_msg = (
+                    results.error if hasattr(results, "error") else "Unknown error"
+                )
+                print(f"Analysis failed: {error_msg}")
 
-    # Export results
-    aggregator.export_results("json")
-    print(f"\nExported {len(aggregator.results)} results to JSON")
+        else:  # summary
+            findings_count = (
+                len(results.findings) if hasattr(results, "findings") else 0
+            )
+            print(f"Result aggregation completed: {findings_count} findings")
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

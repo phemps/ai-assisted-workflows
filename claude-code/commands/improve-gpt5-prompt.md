@@ -1,5 +1,9 @@
 # Improve GPT-5 Prompt
 
+This command takes a user's initial request and transforms it into a sophisticated GPT-5 prompt that leverages advanced reasoning patterns, structured thinking, and comprehensive planning phases. The resulting prompt will be more likely to produce thorough, accurate, and well-structured responses.
+
+## Process Overview
+
 Transform the user's prompt in $ARGUMENTS into an optimized GPT-5 prompt following these steps:
 
 ## 1. Apply Core GPT-5 Principles
@@ -92,33 +96,29 @@ Before providing your final response:
 
 ## Output Template
 
-```
-<request>
-[Refined request with clear objectives]
-</request>
+Always output the complete optimized prompt within XML tags for clarity:
 
-<instructions>
-1. First, create a brief plan outlining your approach
-2. Explain your reasoning for this approach
-3. Execute the plan step by step
-4. Validate each major output against requirements
-5. Provide final summary confirming all objectives met
-</instructions>
-
-<constraints>
-- Verbosity: [appropriate level]
-- Style: [matched to use case]
-- Format: [optimal structure]
-</constraints>
-
-[Additional spec blocks if needed]
+```xml
+<optimized_prompt>
+[Complete GPT-5 optimized prompt here - include all original context, URLs, and resources]
+</optimized_prompt>
 ```
 
-## Special Considerations
+## Implementation Steps
 
-- For ongoing context: "Be prepared to handle follow-up questions without losing context"
-- For transparency: "Every so often, explain notable actions you're taking"
-- For TODO tracking: Implement mental checklist structure
-- For complex workflows: Use decomposition and validation checkpoints
+When processing the user's prompt in $ARGUMENTS:
+
+1. **Extract Resources First**: Scan for and preserve all URLs, repository links, file paths, or specific examples
+2. **Apply GPT-5 Structure**: Transform using the principles above while retaining all original context
+3. **Validate Completeness**: Ensure no resources or requirements are lost
+4. **Output Cleanly**: Provide only the XML-wrapped optimized prompt
+
+## Key Requirements
+
+- **Preserve ALL URLs and resources** mentioned in the original prompt
+- **Maintain original intent** while applying GPT-5 improvements
+- **Use structured format** with clear sections and instructions
+- **Include validation steps** for comprehensive responses
+- **Output complete prompt** within `<optimized_prompt>` XML tags only
 
 $ARGUMENTS

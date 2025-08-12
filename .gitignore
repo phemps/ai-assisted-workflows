@@ -84,6 +84,7 @@ $RECYCLE.BIN/
 *.tmp
 *.temp
 .cache/
+.serena/cache/
 
 # Node.js (for MCP tools)
 node_modules/

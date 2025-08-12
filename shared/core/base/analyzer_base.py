@@ -474,6 +474,21 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             help=f"Timeout in seconds (default: {self.config.timeout_seconds})",
         )
 
+        # Add severity filtering and summary arguments
+        cli.parser.add_argument(
+            "--min-severity",
+            choices=["critical", "high", "medium", "low"],
+            default=self.config.min_severity,
+            help=f"Minimum severity level (default: {self.config.min_severity})",
+        )
+
+        cli.parser.add_argument(
+            "--summary",
+            action="store_true",
+            default=self.config.summary_mode,
+            help="Show only top 10 critical/high severity findings",
+        )
+
         return cli
 
     def run_cli(self) -> int:
@@ -494,17 +509,28 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             self.config.max_file_size_mb = args.max_file_size
             self.config.batch_size = args.batch_size
             self.config.timeout_seconds = args.timeout
+            self.config.min_severity = args.min_severity
+            self.config.summary_mode = args.summary
 
             # Run analysis
             result = self.analyze()
 
             # Output results
-            if args.output_format == "console":
+            if self.config.output_format == "console":
                 print(self.ResultFormatter.format_console_output(result))
-            elif args.output_format == "summary":
-                print(result.to_json(summary_mode=True, min_severity=args.min_severity))
+            elif self.config.output_format == "summary":
+                print(
+                    result.to_json(
+                        summary_mode=True, min_severity=self.config.min_severity
+                    )
+                )
             else:  # json (default)
-                print(result.to_json())
+                print(
+                    result.to_json(
+                        summary_mode=self.config.summary_mode,
+                        min_severity=self.config.min_severity,
+                    )
+                )
 
             return 0
 

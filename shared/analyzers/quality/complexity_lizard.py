@@ -1,29 +1,81 @@
 #!/usr/bin/env python3
 """
-Code complexity analysis using Lizard - a multi-language complexity analyzer.
+Code Complexity Analyzer using Lizard - Multi-language Complexity Analysis
+=========================================================================
+
+PURPOSE: Specialized code complexity analyzer using Lizard library.
+Part of the shared/analyzers/quality suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Cyclomatic complexity analysis across multiple languages
+- Function length and parameter count metrics
+- Industry-standard thresholds for complexity levels
+- Batch processing for large codebases
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements complexity-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
+
 Supports: C/C++/C#, Java, JavaScript, Python, Ruby, PHP, Swift, Go, Rust, TypeScript, etc.
 """
 
 import sys
 import subprocess
-import time
+import re
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
-# Add utils to path
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from shared.core.utils.output_formatter import ResultFormatter  # noqa: E402
-from shared.core.utils.tech_stack_detector import TechStackDetector  # noqa: E402
+# Import after path setup
+try:
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+except ImportError as e:
+    print(f"Error importing BaseAnalyzer: {e}", file=sys.stderr)
+    sys.exit(1)
 
 
-class LizardComplexityAnalyzer:
-    """Wrapper around Lizard for code complexity analysis."""
+class LizardComplexityAnalyzer(BaseAnalyzer):
+    """Wrapper around Lizard for code complexity analysis using BaseAnalyzer infrastructure."""
 
-    def __init__(self):
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create quality-specific configuration
+        quality_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".java",
+                ".cpp",
+                ".c",
+                ".h",
+                ".go",
+                ".rs",
+                ".swift",
+                ".kt",
+                ".cs",
+                ".rb",
+                ".php",
+                ".m",
+                ".mm",
+                ".scala",
+                ".dart",
+                ".lua",
+                ".perl",
+                ".r",
+            },
+            batch_size=100,  # Process files in batches for Lizard
+            max_files=5000,
+        )
+
+        # Initialize base analyzer
+        super().__init__("complexity", quality_config)
 
         # Thresholds based on industry standards
         self.thresholds = {
@@ -52,118 +104,98 @@ class LizardComplexityAnalyzer:
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
-    def get_filtered_files(self, target_path: str) -> List[str]:
-        """Get list of files to analyze using universal exclusion system."""
-        import os
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Implement complexity analysis logic for target path.
 
-        files_to_analyze = []
+        Args:
+            target_path: Path to analyze (single file or batch from BaseAnalyzer)
 
-        # Walk through directory structure and apply universal filtering
-        for root, dirs, files in os.walk(target_path):
-            for file in files:
-                file_path = os.path.join(root, file)
+        Returns:
+            List of complexity findings
+        """
+        findings = []
 
-                # Use universal exclusion system
-                if self.tech_detector.should_analyze_file(file_path, target_path):
-                    # Only include supported file extensions
-                    if any(
-                        file.endswith(ext)
-                        for ext in [
-                            ".py",
-                            ".js",
-                            ".ts",
-                            ".tsx",
-                            ".jsx",
-                            ".java",
-                            ".cpp",
-                            ".c",
-                            ".h",
-                            ".go",
-                            ".rs",
-                            ".swift",
-                            ".kt",
-                            ".cs",
-                            ".rb",
-                            ".php",
-                        ]
-                    ):
-                        files_to_analyze.append(file_path)
+        # For complexity analysis, we process the file with Lizard
+        if Path(target_path).is_file():
+            # Single file analysis
+            lizard_output = self._run_lizard_on_file(target_path)
+            findings.extend(self._parse_lizard_output(lizard_output, target_path))
 
-        return files_to_analyze
+        return findings
 
-    def run_lizard(self, target_path: str) -> Dict[str, Any]:
-        """Run lizard on filtered files with smart filtering."""
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """
+        Get complexity analyzer-specific metadata.
+
+        Returns:
+            Dictionary with analyzer-specific metadata
+        """
+        return {
+            "analysis_type": "code_complexity",
+            "complexity_metrics": [
+                "cyclomatic_complexity",
+                "function_length",
+                "parameter_count",
+            ],
+            "thresholds": self.thresholds,
+            "supported_languages": [
+                "Python",
+                "JavaScript",
+                "TypeScript",
+                "Java",
+                "C/C++",
+                "C#",
+                "Ruby",
+                "PHP",
+                "Swift",
+                "Go",
+                "Rust",
+                "Kotlin",
+                "Scala",
+                "Dart",
+                "Lua",
+                "Perl",
+                "R",
+            ],
+            "tool": "Lizard",
+            "tool_installed": self.check_lizard_installed(),
+        }
+
+    def _run_lizard_on_file(self, file_path: str) -> str:
+        """Run Lizard on a single file and return output."""
         try:
-            # Get filtered list of files to analyze
-            files_to_analyze = self.get_filtered_files(target_path)
+            cmd = [
+                "lizard",
+                "-C",
+                "999",  # Set high to get all results
+                "-L",
+                "999",  # Set high to get all results
+                "-a",
+                "999",  # Set high to get all results
+                file_path,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                return result.stdout
+            return ""
+        except Exception:
+            return ""
 
-            if not files_to_analyze:
-                return {"files": []}
-
-            all_output = ""
-            batch_size = (
-                100  # Process files in batches to avoid "Argument list too long"
-            )
-
-            # Process files in batches
-            for i in range(0, len(files_to_analyze), batch_size):
-                batch = files_to_analyze[i : i + batch_size]
-
-                # Run lizard on this batch
-                cmd = [
-                    "lizard",
-                    "-C",
-                    "999",  # Set high to get all results
-                    "-L",
-                    "999",  # Set high to get all results
-                    "-a",
-                    "999",  # Set high to get all results
-                ] + batch
-
-                result = subprocess.run(cmd, capture_output=True, text=True)
-
-                if result.returncode == 0:
-                    all_output += result.stdout + "\n"
-                elif result.stderr:
-                    # Continue with other batches even if one fails
-                    continue
-
-            # Parse combined output (no additional filtering needed since we pre-filtered)
-            return self.parse_default_output(all_output, [], target_path)
-
-        except Exception as e:
-            return {"error": str(e)}
-
-    def parse_default_output(
-        self, output: str, exclusion_patterns: list = None, target_path: str = ""
-    ) -> Dict[str, Any]:
-        """Parse Lizard default output into structured data with filtering."""
-        import re
-
-        if exclusion_patterns is None:
-            exclusion_patterns = []
+    def _parse_lizard_output(self, output: str, file_path: str) -> List[Dict[str, Any]]:
+        """Parse Lizard output and convert to findings."""
+        findings = []
+        if not output:
+            return findings
 
         lines = output.strip().split("\n")
-        files_data = {}
 
-        # Skip header lines and summary lines
-        data_lines = []
         for line in lines:
-            if (
-                not line.startswith("=")
-                and not line.startswith("-")
-                and "NLOC" not in line
-                and "file analyzed" not in line
-                and "No thresholds" not in line
-                and "Total nloc" not in line
-                and line.strip()
-                and "@" in line
-            ):  # Only lines with function@location format
-                data_lines.append(line)
+            # Skip non-data lines
+            if not line.strip() or "@" not in line:
+                continue
 
-        for line in data_lines:
             # Parse format: NLOC CCN token PARAM length location
-            # Example: 19 3 75 2 20 authorize@103-122@/path/to/file.ts
             parts = line.strip().split()
             if len(parts) < 6:
                 continue
@@ -171,10 +203,10 @@ class LizardComplexityAnalyzer:
             try:
                 nloc = int(parts[0])
                 ccn = int(parts[1])
-                token_count = int(parts[2])
+                # token_count = int(parts[2])  # Not used in current implementation
                 param_count = int(parts[3])
-                length = int(parts[4])
-                location = " ".join(parts[5:])  # Join remaining parts for location
+                # length = int(parts[4])  # Not used in current implementation
+                location = " ".join(parts[5:])
 
                 # Parse location: function_name@start-end@filepath
                 match = re.match(r"(.+)@(\d+)-(\d+)@(.+)", location)
@@ -183,35 +215,68 @@ class LizardComplexityAnalyzer:
 
                 func_name = match.group(1)
                 start_line = int(match.group(2))
-                end_line = int(match.group(3))
-                filepath = match.group(4)
 
-                # Apply smart filtering - skip files that should be excluded
-                if not self.tech_detector.should_analyze_file(
-                    filepath, target_path or ""
-                ):
-                    continue
+                # Check cyclomatic complexity
+                ccn_severity = self.get_severity("cyclomatic_complexity", ccn)
+                if ccn_severity in ["high", "medium"]:
+                    findings.append(
+                        {
+                            "title": "High Cyclomatic Complexity",
+                            "description": f"Function '{func_name}' has cyclomatic complexity of {ccn}",
+                            "severity": ccn_severity,
+                            "file_path": file_path,
+                            "line_number": start_line,
+                            "recommendation": "Consider breaking down this function. Aim for complexity < 10",
+                            "metadata": {
+                                "function_name": func_name,
+                                "cyclomatic_complexity": ccn,
+                                "lines_of_code": nloc,
+                                "parameters": param_count,
+                            },
+                        }
+                    )
 
-                if filepath not in files_data:
-                    files_data[filepath] = {"filename": filepath, "functions": []}
+                # Check function length
+                length_severity = self.get_severity("function_length", nloc)
+                if length_severity in ["high", "medium"]:
+                    findings.append(
+                        {
+                            "title": "Long Function",
+                            "description": f"Function '{func_name}' is {nloc} lines long",
+                            "severity": length_severity,
+                            "file_path": file_path,
+                            "line_number": start_line,
+                            "recommendation": "Consider breaking down this function. Aim for < 50 lines",
+                            "metadata": {
+                                "function_name": func_name,
+                                "lines_of_code": nloc,
+                                "cyclomatic_complexity": ccn,
+                            },
+                        }
+                    )
 
-                func_data = {
-                    "name": func_name,
-                    "cyclomatic_complexity": ccn,
-                    "nloc": nloc,
-                    "parameter_count": param_count,
-                    "start_line": start_line,
-                    "end_line": end_line,
-                    "token_count": token_count,
-                    "length": length,
-                }
-                files_data[filepath]["functions"].append(func_data)
+                # Check parameter count
+                param_severity = self.get_severity("parameter_count", param_count)
+                if param_severity in ["high", "medium"]:
+                    findings.append(
+                        {
+                            "title": "Too Many Parameters",
+                            "description": f"Function '{func_name}' has {param_count} parameters",
+                            "severity": param_severity,
+                            "file_path": file_path,
+                            "line_number": start_line,
+                            "recommendation": "Consider using parameter objects or configuration classes",
+                            "metadata": {
+                                "function_name": func_name,
+                                "parameter_count": param_count,
+                            },
+                        }
+                    )
 
             except (ValueError, IndexError):
-                # Skip lines that don't match expected format
                 continue
 
-        return {"files": list(files_data.values())}
+        return findings
 
     def get_severity(self, metric_type: str, value: float) -> str:
         """Determine severity based on thresholds."""
@@ -226,148 +291,83 @@ class LizardComplexityAnalyzer:
         else:
             return "info"
 
-    def analyze(self, target_path: str):
-        """Main analysis function."""
-        start_time = time.time()
-        result = ResultFormatter.create_code_quality_result(
-            "complexity_lizard.py", target_path
-        )
+    def analyze_with_lizard(self, target_path: str) -> Any:
+        """
+        Run full Lizard analysis on directory (legacy method for backward compatibility).
+        This processes all files at once rather than using BaseAnalyzer's batch processing.
+        """
+        self.start_analysis()
+        result = self.create_result("complexity_analysis")
 
         try:
             # Check lizard is installed
             if not self.check_lizard_installed():
                 result.set_error("Lizard is not installed. Run: pip install lizard")
-                return result
+                return self.complete_analysis(result)
 
-            # Run lizard analysis
-            lizard_output = self.run_lizard(target_path)
+            # Get all files to analyze using BaseAnalyzer's scanning
+            files_to_analyze = self.scan_directory(target_path)
 
-            if "error" in lizard_output:
-                result.set_error(lizard_output["error"])
-                return result
+            if not files_to_analyze:
+                result.add_info("No files found matching complexity analyzer criteria")
+                return self.complete_analysis(result)
 
-            # Process results
-            finding_id = 1
+            # Run Lizard on all files at once (Lizard's batch mode)
+            all_findings = []
+            for i in range(0, len(files_to_analyze), self.config.batch_size):
+                batch = files_to_analyze[i : i + self.config.batch_size]
+                batch_paths = [str(f) for f in batch]
 
-            for file_data in lizard_output.get("files", []):
-                file_path = file_data.get("filename", "")
+                # Run Lizard on batch
+                cmd = ["lizard", "-C", "999", "-L", "999", "-a", "999"] + batch_paths
 
-                for func_data in file_data.get("functions", []):
-                    func_name = func_data.get("name", "unknown")
-                    ccn = func_data.get("cyclomatic_complexity", 0)
-                    length = func_data.get("nloc", 0)  # lines of code
-                    params = func_data.get("parameter_count", 0)
-                    line_num = func_data.get("start_line", 1)
+                try:
+                    result_output = subprocess.run(cmd, capture_output=True, text=True)
+                    if result_output.returncode == 0:
+                        # Parse output for all files in batch
+                        for file_path in batch_paths:
+                            file_findings = self._parse_lizard_output(
+                                result_output.stdout, file_path
+                            )
+                            all_findings.extend(file_findings)
+                except Exception as e:
+                    self.logger.warning(f"Error running Lizard on batch: {e}")
 
-                    # Check cyclomatic complexity
-                    ccn_severity = self.get_severity("cyclomatic_complexity", ccn)
-                    if ccn_severity in ["high", "medium"]:
-                        finding = ResultFormatter.create_finding(
-                            f"CMPLX{finding_id:03d}",
-                            "High Cyclomatic Complexity",
-                            f"Function '{func_name}' has cyclomatic complexity of {ccn}",
-                            ccn_severity,
-                            file_path,
-                            line_num,
-                            "Consider breaking down this function. Aim for complexity < 10",
-                            {
-                                "function_name": func_name,
-                                "cyclomatic_complexity": ccn,
-                                "lines_of_code": length,
-                                "parameters": params,
-                            },
-                        )
-                        result.add_finding(finding)
-                        finding_id += 1
-
-                    # Check function length
-                    length_severity = self.get_severity("function_length", length)
-                    if length_severity in ["high", "medium"]:
-                        finding = ResultFormatter.create_finding(
-                            f"CMPLX{finding_id:03d}",
-                            "Long Function",
-                            f"Function '{func_name}' is {length} lines long",
-                            length_severity,
-                            file_path,
-                            line_num,
-                            "Consider breaking down this function. Aim for < 50 lines",
-                            {
-                                "function_name": func_name,
-                                "lines_of_code": length,
-                                "cyclomatic_complexity": ccn,
-                            },
-                        )
-                        result.add_finding(finding)
-                        finding_id += 1
-
-                    # Check parameter count
-                    param_severity = self.get_severity("parameter_count", params)
-                    if param_severity in ["high", "medium"]:
-                        finding = ResultFormatter.create_finding(
-                            f"CMPLX{finding_id:03d}",
-                            "Too Many Parameters",
-                            f"Function '{func_name}' has {params} parameters",
-                            param_severity,
-                            file_path,
-                            line_num,
-                            "Consider using parameter objects or configuration classes",
-                            {"function_name": func_name, "parameter_count": params},
-                        )
-                        result.add_finding(finding)
-                        finding_id += 1
+            # Add findings to result
+            self._add_findings_to_result(result, all_findings)
 
             # Add metadata
-            result.metadata = {
-                "total_files": len(lizard_output.get("files", [])),
-                "total_functions": sum(
-                    len(f.get("functions", [])) for f in lizard_output.get("files", [])
-                ),
-                "thresholds": self.thresholds,
-            }
+            self._add_metadata_to_result(
+                result, target_path, files_to_analyze, all_findings
+            )
 
         except Exception as e:
-            result.set_error(f"Analysis failed: {str(e)}")
+            result.set_error(f"Complexity analysis failed: {str(e)}")
 
-        result.set_execution_time(start_time)
-        return result
+        return self.complete_analysis(result)
+
+
+# Legacy function for backward compatibility
+def analyze_complexity(target_path: str = ".") -> Any:
+    """
+    Legacy function for backward compatibility.
+
+    Args:
+        target_path: Path to analyze
+
+    Returns:
+        AnalysisResult from LizardComplexityAnalyzer
+    """
+    analyzer = LizardComplexityAnalyzer()
+    # Use the Lizard batch mode for legacy compatibility
+    return analyzer.analyze_with_lizard(target_path)
 
 
 def main():
     """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Analyze code complexity using Lizard")
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console", "summary"],
-        default="json",
-        help="Output format (default: json)",
-    )
-    parser.add_argument(
-        "--summary", action="store_true", help="Show only high/critical findings"
-    )
-    parser.add_argument(
-        "--min-severity",
-        choices=["critical", "high", "medium", "low"],
-        default="low",
-        help="Minimum severity level (default: low)",
-    )
-
-    args = parser.parse_args()
-
     analyzer = LizardComplexityAnalyzer()
-    result = analyzer.analyze(args.target_path)
-
-    # Output based on format choice
-    if args.output_format == "console":
-        print(ResultFormatter.format_console_output(result))
-    elif args.output_format == "summary":
-        print(result.to_json(summary_mode=True, min_severity=args.min_severity))
-    else:  # json (default)
-        print(result.to_json(summary_mode=args.summary, min_severity=args.min_severity))
-        # Print console summary to stderr for human readability
-        print(ResultFormatter.format_console_output(result), file=sys.stderr)
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

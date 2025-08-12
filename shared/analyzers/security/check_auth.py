@@ -1,37 +1,100 @@
 #!/usr/bin/env python3
 """
-Authentication Security Analysis Script
-Analyzes authentication and authorization patterns for security vulnerabilities.
+Authentication Security Analyzer - Advanced Authentication/Authorization Analysis
+===============================================================================
+
+PURPOSE: Specialized authentication and authorization security analyzer.
+Part of the shared/analyzers/security suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Pattern-based detection for authentication vulnerabilities
+- Authorization flaw identification
+- JWT/token security analysis
+- Session management security review
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements security-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
-import sys
 import re
-import json
+import sys
+import os
 import time
-from typing import Dict, List, Any
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 
-# Add utils to path for cross-platform and output_formatter imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.cross_platform import PlatformDetector
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class AuthSecurityAnalyzer:
+class AuthSecurityAnalyzer(BaseAnalyzer):
     """Analyzes authentication and authorization security patterns."""
 
-    def __init__(self):
-        self.platform = PlatformDetector()
-        self.formatter = ResultFormatter()
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create security-specific configuration
+        security_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".vue",
+                ".xml",
+                ".json",
+                ".yml",
+                ".yaml",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "migrations",
+                "test",
+                "tests",
+                "__tests__",
+                "spec",
+                "specs",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("security", security_config)
 
         # Authentication vulnerabilities
         self.auth_patterns = {
@@ -176,13 +239,73 @@ class AuthSecurityAnalyzer:
             },
         }
 
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Implement security analysis logic for target path.
+
+        Args:
+            target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
+
+        Returns:
+            List of security findings
+        """
+        target = Path(target_path)
+
+        if target.is_file():
+            try:
+                relative_path = str(target.relative_to(Path.cwd()))
+            except ValueError:
+                relative_path = str(target)
+            return self._analyze_file_auth(str(target), relative_path)
+
+        return []
+
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """
+        Get security analyzer-specific metadata.
+
+        Returns:
+            Dictionary with analyzer-specific metadata
+        """
+        return {
+            "analysis_type": "authentication_security",
+            "pattern_categories": {
+                "authentication_patterns": len(self.auth_patterns),
+                "authorization_patterns": len(self.authz_patterns),
+                "token_patterns": len(self.token_patterns),
+            },
+            "total_patterns": (
+                len(self.auth_patterns)
+                + len(self.authz_patterns)
+                + len(self.token_patterns)
+            ),
+            "supported_languages": [
+                "Python",
+                "JavaScript",
+                "TypeScript",
+                "Java",
+                "C#",
+                "PHP",
+                "Ruby",
+                "Go",
+                "Rust",
+                "C/C++",
+                "Swift",
+                "Kotlin",
+                "Scala",
+            ],
+            "security_categories": ["authentication", "authorization", "tokens"],
+        }
+
     def analyze_auth_security(
         self, target_path: str, min_severity: str = "low"
     ) -> Dict[str, Any]:
         """Analyze authentication security in the target path."""
 
         start_time = time.time()
-        result = ResultFormatter.create_security_result("check_auth.py", target_path)
+        result = self.ResultFormatter.create_security_result(
+            "check_auth.py", target_path
+        )
 
         if not os.path.exists(target_path):
             result.set_error(f"Path does not exist: {target_path}")
@@ -218,7 +341,7 @@ class AuthSecurityAnalyzer:
 
                             # Convert findings to Finding objects
                             for finding_data in file_findings:
-                                finding = ResultFormatter.create_finding(
+                                finding = self.ResultFormatter.create_finding(
                                     finding_id=f"AUTH_{vulnerability_summary[finding_data['vuln_type']] + 1:03d}",
                                     title=finding_data["vuln_type"]
                                     .replace("_", " ")
@@ -241,7 +364,7 @@ class AuthSecurityAnalyzer:
                                 vulnerability_summary[finding_data["vuln_type"]] += 1
 
                         except Exception as e:
-                            error_finding = ResultFormatter.create_finding(
+                            error_finding = self.ResultFormatter.create_finding(
                                 finding_id=f"ERROR_{file_count:03d}",
                                 title="Analysis Error",
                                 description=f"Error analyzing file: {str(e)}",
@@ -561,50 +684,26 @@ class AuthSecurityAnalyzer:
         return any(filename.endswith(ext) for ext in analyze_extensions)
 
 
+# Legacy function for backward compatibility
+def analyze_auth_security(target_path: str = ".") -> Any:
+    """
+    Legacy function for backward compatibility.
+
+    Args:
+        target_path: Path to analyze
+
+    Returns:
+        AnalysisResult from AuthSecurityAnalyzer
+    """
+    analyzer = AuthSecurityAnalyzer()
+    return analyzer.analyze(target_path)
+
+
 def main():
     """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze authentication security in codebase"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--min-severity",
-        choices=["low", "medium", "high", "critical"],
-        default="low",
-        help="Minimum severity level to report",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format",
-    )
-
-    args = parser.parse_args()
-
     analyzer = AuthSecurityAnalyzer()
-    result = analyzer.analyze_auth_security(args.target_path, args.min_severity)
-
-    if args.output_format == "console":
-        # Simple console output
-        if result.get("success", False):
-            print(f"Authentication Security Analysis Results for: {args.target_path}")
-            print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
-            print(f"Execution Time: {result.get('execution_time', 0)}s")
-            print(f"\nFindings: {len(result.get('findings', []))}")
-            for finding in result.get("findings", []):
-                file_path = finding.get("file_path", "unknown")
-                line = finding.get("line_number", 0)
-                desc = finding.get("description", "No description")
-                severity = finding.get("severity", "unknown")
-                print(f"  {file_path}:{line} - {desc} [{severity}]")
-        else:
-            error_msg = result.get("error_message", "Unknown error")
-            print(f"Error: {error_msg}")
-    else:  # json (default)
-        print(json.dumps(result, indent=2))
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

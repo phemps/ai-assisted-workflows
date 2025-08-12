@@ -35,6 +35,7 @@ from .fs_utils import (
     process_files_in_batches,
 )
 from .profiler_base import BaseProfiler, ProfilerConfig, create_profiler_config
+from .analyzer_base import BaseAnalyzer, AnalyzerConfig, create_analyzer_config
 
 __all__ = [
     # Error handling
@@ -78,4 +79,8 @@ __all__ = [
     "BaseProfiler",
     "ProfilerConfig",
     "create_profiler_config",
+    # Analyzer base classes
+    "BaseAnalyzer",
+    "AnalyzerConfig",
+    "create_analyzer_config",
 ]

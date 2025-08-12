@@ -12,7 +12,7 @@ import tempfile
 import pytest
 from pathlib import Path
 
-from shared.analyzers.quality.duplicate_detection import (
+from analyzers.quality.code_duplication_analyzer import (
     CompositeDuplicateDetector,
     CodeBlock,
 )

@@ -3,7 +3,7 @@
 Test suite for duplicate detection algorithm
 """
 
-from shared.analyzers.quality.duplicate_detection import (
+from analyzers.quality.code_duplication_analyzer import (
     CodeBlock,
     ExactDuplicateDetector,
     StructuralDuplicateDetector,

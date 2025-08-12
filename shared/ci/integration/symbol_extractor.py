@@ -107,7 +107,7 @@ class SerenaFallbackExtractor:
             "c": {"pattern": r"#include\s+[<\"]([^>\"]+)[>\"]", "groups": [1]},
         }
 
-        # Function patterns from complexity_metrics.py
+        # Function patterns from complexity_lizard.py
         self.function_patterns = {
             ".js": [
                 (r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(", "function"),

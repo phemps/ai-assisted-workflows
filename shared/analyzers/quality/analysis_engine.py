@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 import logging
 
-from .duplicate_detection import CompositeDuplicateDetector, CodeBlock
+from .code_duplication_analyzer import CompositeDuplicateDetector, CodeBlock
 from .pattern_classifier import CompositePatternClassifier
 from .result_aggregator import (
     AnalysisAggregator,

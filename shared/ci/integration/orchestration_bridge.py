@@ -21,7 +21,7 @@ sys.path.insert(0, str(script_dir / "continuous-improvement" / "core"))
 
 # Import core duplication detection components - REQUIRED
 try:
-    from duplicate_finder import DuplicateFinder, DuplicateFinderConfig
+    from semantic_duplicate_detector import DuplicateFinder, DuplicateFinderConfig
 except ImportError as e:
     print(f"FATAL: DuplicateFinder not available: {e}", file=sys.stderr)
     sys.exit(1)

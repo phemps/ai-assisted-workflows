@@ -1,18 +1,44 @@
 #!/usr/bin/env python3
 """
-Duplicate Finder - Main Detection Logic for Continuous Improvement Framework
+Semantic Duplicate Detector - Advanced CI Pipeline Tool
+=======================================================
 
-FAIL-FAST ORCHESTRATOR requiring ALL 4 core components:
-- SerenaClient (MCP integration)
-- EmbeddingEngine (CodeBERT/transformers)
-- SimilarityDetector (Faiss indexing)
-- RegistryManager (SQLite storage)
+PURPOSE: Advanced semantic duplicate detection using machine learning for CI pipeline integration.
+Part of the continuous improvement system for development workflow optimization.
 
-NO FALLBACKS: Any component failure → sys.exit(1) with clear error message.
-NO GRACEFUL DEGRADATION: Complete success or immediate exit.
-NO PARTIAL RESULTS: Either full analysis or termination.
+APPROACH:
+- Symbol-level semantic analysis using CodeBERT embeddings
+- Vector similarity search using Facebook AI Similarity Search (Faiss)
+- MCP integration via Serena client for symbol extraction
+- SQLite registry for caching and incremental analysis
 
-Part of Claude Code Workflows - integrates with 8-agent orchestration system.
+DEPENDENCIES (ALL REQUIRED - FAIL-FAST):
+- SerenaClient: MCP integration for symbol extraction
+- EmbeddingEngine: CodeBERT/transformers for semantic embeddings
+- SimilarityDetector: Faiss indexing for similarity search
+- RegistryManager: SQLite storage for caching and registry
+
+USE CASES:
+- Advanced duplicate detection in development workflow
+- Semantic similarity analysis beyond structural matching
+- CI pipeline integration with caching and incremental updates
+- ML-powered code analysis for refactoring recommendations
+
+DISTINCTION FROM code_duplication_analyzer.py:
+- This uses advanced ML techniques for semantic understanding
+- Requires heavy dependencies (transformers, Faiss, MCP)
+- Designed for CI pipeline integration with caching
+- Part of the continuous improvement system
+
+For lightweight traditional duplicate detection, see:
+shared/analyzers/quality/code_duplication_analyzer.py
+
+NOTE: For lightweight traditional duplicate detection suitable for quality gates,
+see shared/analyzers/quality/code_duplication_analyzer.py
+This tool requires ML dependencies and is designed for CI pipeline integration.
+
+FAIL-FAST BEHAVIOR: Any component failure → sys.exit(1) with clear error message.
+NO FALLBACKS: Complete success or immediate exit.
 """
 
 import argparse

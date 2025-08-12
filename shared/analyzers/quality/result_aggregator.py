@@ -17,7 +17,7 @@ import logging
 from enum import Enum
 from collections import defaultdict, Counter
 
-from .duplicate_detection import DuplicateMatch
+from .code_duplication_analyzer import DuplicateMatch
 from .pattern_classifier import (
     PatternMatch,
     PatternSeverity,
@@ -700,7 +700,7 @@ Based on the analysis results, here's a recommended action plan:
 
 def main():
     """Example usage of the result aggregation system."""
-    from .duplicate_detection import CompositeDuplicateDetector, CodeBlock
+    from .code_duplication_analyzer import CompositeDuplicateDetector, CodeBlock
     from .pattern_classifier import CompositePatternClassifier
 
     # Sample data

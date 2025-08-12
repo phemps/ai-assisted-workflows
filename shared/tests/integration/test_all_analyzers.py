@@ -42,7 +42,7 @@ class AnalysisRunner:
             "performance_database": "performance/profile_database.py",
             # Code quality analysis
             "code_quality": "quality/complexity_lizard.py",
-            "code_quality_metrics": "quality/complexity_metrics.py",
+            "code_quality_metrics": "quality/complexity_lizard.py",
             "code_quality_coverage": "quality/coverage_analysis.py",
             # Architecture analysis
             "architecture_patterns": "architecture/pattern_evaluation.py",

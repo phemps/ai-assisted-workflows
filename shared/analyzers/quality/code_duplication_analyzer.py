@@ -1,10 +1,37 @@
 #!/usr/bin/env python3
 """
-Duplicate Detection Algorithm Implementation
-Part of Phase 2.2: Analysis Engine - Duplicate Detection
+Code Duplication Analyzer - Traditional Quality Analysis Tool
+=============================================================
 
-This module implements sophisticated duplicate code detection algorithms
-that build upon the symbol extraction and comparison framework.
+PURPOSE: Lightweight code duplication analysis for quality assessment and reporting.
+Part of the analyzers/quality suite for general code quality metrics.
+
+APPROACH:
+- Exact matching via content hashing
+- Structural similarity via AST comparison
+- Token-based semantic analysis
+- Pure Python implementation (no external ML dependencies)
+
+DEPENDENCIES: Python standard library only (ast, hashlib, difflib)
+
+USE CASES:
+- Quality gate analysis in CI/CD
+- Code review duplication reports
+- General codebase health assessment
+- Lightweight duplication scanning
+
+DISTINCTION FROM semantic_duplicate_detector.py:
+- This is a traditional, lightweight approach suitable for general quality analysis
+- No ML dependencies - works in any Python environment
+- Focused on exact and structural matches
+- Part of the quality analysis suite
+
+For advanced semantic duplicate detection using ML embeddings, see:
+shared/ci/core/semantic_duplicate_detector.py
+
+NOTE: For advanced semantic duplicate detection using ML embeddings,
+see shared/ci/core/semantic_duplicate_detector.py
+This tool focuses on traditional structural and content-based analysis.
 """
 
 import ast

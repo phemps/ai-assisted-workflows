@@ -36,14 +36,14 @@ Execute code quality analysis scripts via Bash tool for measurable quality metri
 3. **Interactive fallback if not found**:
    - List searched locations: `.claude/scripts/analyze/code_quality/` and `$HOME/.claude/scripts/analyze/code_quality/`
    - Ask user: "Could not locate code_quality analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (complexity_lizard.py, complexity_metrics.py)
+   - Validate provided path contains expected scripts (complexity_lizard.py, complexity_lizard.py)
    - Set SCRIPT_PATH to user-provided location
 
 **THEN - Execute with resolved SCRIPT_PATH:**
 
 ```bash
 python [SCRIPT_PATH]/complexity_lizard.py . --output-format json
-python [SCRIPT_PATH]/complexity_metrics.py . --output-format json
+python [SCRIPT_PATH]/complexity_lizard.py . --output-format json
 ```
 
 ## Output Requirements

@@ -8,44 +8,9 @@ This system proactively monitors codebases for duplicate code, automatically fix
 
 ### Core Architecture
 
-```
+````
 GitHub Commit → GitHub Actions → orchestration_bridge.py →
-├── DuplicateFinder (consolidated detection)
-├── DecisionMatrix (CTO decision logic)
-├── claude /todo-orchestrate (automatic fixes)
-└── gh issue create (manual reviews)
-```
-
-## Quick Start
-
-### 1. Installation
-
-```bash
-# Run the setup command
-claude /setup-ci-monitoring --threshold=0.85 --auto-refactor=false
-
-# Or manually check system status
-claude /ci-monitoring-status --verbose
-```
-
-### 2. Manual Analysis
-
-```bash
-# Find duplicates in current project
-python shared/ci/integration/orchestration_bridge.py
-
-# Generate metrics report
-python shared/ci/metrics/ci_metrics_collector.py report
-
-# Check registry status
-python shared/ci/core/registry_manager.py --status
-```
-
-## System Components
-
-### Core Detection System
-
-**DuplicateFinder** (`core/duplicate_finder.py`)
+├── DuplicateFinder (`core/semantic_duplicate_detector.py`)
 
 - Single consolidated detection system (1,072 lines)
 - Requires all 4 core components: Serena MCP, CodeBERT, Faiss, SQLite
@@ -77,7 +42,7 @@ config = DuplicateFinderConfig(
     include_symbol_types=["function", "class", "method"],
     min_symbol_length=20                # Minimum code length to analyze
 )
-```
+````
 
 ### Registry Management
 

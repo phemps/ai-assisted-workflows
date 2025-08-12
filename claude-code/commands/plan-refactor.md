@@ -26,14 +26,14 @@
    3. **Interactive fallback if not found**:
       - List searched locations: `.claude/scripts/` and `$HOME/.claude/scripts/`
       - Ask user: "Could not locate analysis scripts. Please provide full path to the scripts directory:"
-      - Validate provided path contains expected scripts (run_all_analysis.py, complexity_metrics.py, coupling_analysis.py, check_bottlenecks.py)
+      - Validate provided path contains expected scripts (run_all_analysis.py, complexity_lizard.py, coupling_analysis.py, check_bottlenecks.py)
       - Set SCRIPT_PATH to user-provided location
 
    **THEN - Execute with resolved SCRIPT_PATH:**
 
    ```bash
    python [SCRIPT_PATH]/run_all_analysis.py . --output-format json
-   python [SCRIPT_PATH]/complexity_metrics.py . --output-format json
+   python [SCRIPT_PATH]/complexity_lizard.py . --output-format json
    python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
    python [SCRIPT_PATH]/check_bottlenecks.py . --output-format json
    ```

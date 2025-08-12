@@ -276,7 +276,7 @@ Test the setup:
 claude mcp list
 
 # Test code analysis
-python shared/lib/scripts/continuous-improvement/core/duplicate_finder.py --test
+python shared/lib/scripts/continuous-improvement/core/semantic_duplicate_detector.py --test
 ```
 
 ## Integration Status

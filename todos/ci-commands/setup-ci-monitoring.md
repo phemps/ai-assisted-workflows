@@ -57,7 +57,7 @@
 3. **Expected**: All existing symbols cataloged in registry
 
 4. **Action**: Generate baseline duplicate analysis
-5. **Command**: `python shared/ci/core/duplicate_finder.py --baseline --threshold $THRESHOLD`
+5. **Command**: `python shared/ci/core/semantic_duplicate_detector.py --baseline --threshold $THRESHOLD`
 6. **Expected**: Existing duplicates identified and logged
 
 7. **Action**: Create initial improvement report

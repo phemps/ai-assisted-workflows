@@ -17,7 +17,11 @@ from symbol_extractor import Symbol, SymbolType
 
 # Import consolidated duplicate finder
 sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
-from duplicate_finder import DuplicateFinder, DuplicateFinderConfig, AnalysisMode
+from semantic_duplicate_detector import (
+    DuplicateFinder,
+    DuplicateFinderConfig,
+    AnalysisMode,
+)
 
 
 def create_sample_symbols():

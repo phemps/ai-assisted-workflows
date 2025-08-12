@@ -28,7 +28,7 @@
 ## Phase 2: Core Components Health Check
 
 1. **Action**: Test duplicate detection system
-2. **Command**: `python shared/ci/core/duplicate_finder.py --test --threshold 0.85`
+2. **Command**: `python shared/ci/core/semantic_duplicate_detector.py --test --threshold 0.85`
 3. **Expected**: DuplicateFinder initializes with all 4 core components
 4. **On failure**: Components missing (MCP, CodeBERT, Faiss, SQLite)
 

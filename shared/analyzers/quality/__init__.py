@@ -10,7 +10,7 @@ This module provides comprehensive code quality analysis tools including:
 Part of the Claude Code Workflows Analysis Engine (Phase 2).
 """
 
-from .duplicate_detection import (
+from .code_duplication_analyzer import (
     CodeBlock,
     DuplicateMatch,
     DuplicationDetector,

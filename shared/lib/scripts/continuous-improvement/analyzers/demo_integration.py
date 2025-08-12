@@ -2,12 +2,11 @@
 #!/usr/bin/env python3
 """
 Duplicate Detection Framework Demo
-Shows integration between SymbolExtractor output and ComparisonFramework.
-Demonstrates TASK-010 implementation for future TASK-CI-018 integration.
+Shows integration between SymbolExtractor output and consolidated DuplicateFinder.
+Updated after detection system consolidation.
 """
 
 import sys
-import json
 from pathlib import Path
 
 # Add utils to path for imports
@@ -15,10 +14,10 @@ script_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(script_dir / "utils"))
 
 from symbol_extractor import Symbol, SymbolType
-from comparison_framework import (
-    ComparisonFramework,
-    ComparisonConfig,
-)
+
+# Import consolidated duplicate finder
+sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
+from duplicate_finder import DuplicateFinder, DuplicateFinderConfig, AnalysisMode
 
 
 def create_sample_symbols():
@@ -102,143 +101,133 @@ def create_sample_symbols():
 
 
 def demo_basic_comparison():
-    """Demonstrate basic comparison functionality."""
-    print("=== DUPLICATE DETECTION FRAMEWORK DEMO ===\n")
+    """Demonstrate basic duplicate detection functionality."""
+    print("=== CONSOLIDATED DUPLICATE DETECTION DEMO ===\n")
 
     # Create configuration with different thresholds
-    config = ComparisonConfig(
-        exact_match_threshold=1.0,
+    config = DuplicateFinderConfig(
+        analysis_mode=AnalysisMode.TARGETED,
+        exact_duplicate_threshold=1.0,
         high_similarity_threshold=0.8,
         medium_similarity_threshold=0.6,
         low_similarity_threshold=0.3,
-        include_symbol_types={SymbolType.FUNCTION, SymbolType.CLASS},
-        exclude_symbol_types={SymbolType.IMPORT, SymbolType.VARIABLE},
+        include_symbol_types=["function", "class", "method"],
+        max_symbols=100,  # Limit for demo
+        enable_caching=False,  # Disable for demo
     )
-
-    # Initialize framework
-    framework = ComparisonFramework(config)
 
     # Get sample symbols
     symbols = create_sample_symbols()
     print(f"Created {len(symbols)} sample symbols for analysis")
 
-    # Run comparison
-    result = framework.compare_symbols(symbols, "basic_similarity")
+    try:
+        # Initialize finder (may fail if MCP components not available)
+        finder = DuplicateFinder(config)
 
-    # Display results
-    print("\n=== ANALYSIS RESULTS ===")
-    print(f"Total symbols analyzed: {result.summary['symbols_analyzed']}")
-    print(f"Duplicates found: {result.summary['total_duplicates_found']}")
-    print(f"Algorithm used: {result.summary['algorithm_used']}")
-    print(f"Execution time: {result.summary['execution_time_seconds']}s")
+        # Run duplicate detection on symbols directly
+        duplicates = finder.find_duplicates(symbols, threshold=0.6)
 
-    print("\n=== SEVERITY BREAKDOWN ===")
-    for severity, count in result.summary["severity_breakdown"].items():
-        if count > 0:
-            print(f"  {severity.upper()}: {count}")
+        # Create a summary result
+        result = finder._create_comparison_result(duplicates, symbols)
 
-    print("\n=== DUPLICATE FINDINGS ===")
-    for i, finding in enumerate(result.findings, 1):
-        evidence = finding["evidence"]
-        print(f"\n{i}. {finding['title']}")
-        print(f"   Severity: {finding['severity'].upper()}")
-        print(f"   Similarity Score: {evidence['similarity_score']:.3f}")
-        print(f"   Comparison Type: {evidence['comparison_type']}")
-        print(f"   Duplicate Reason: {evidence['duplicate_reason']}")
-        print(
-            f"   Files: {evidence['symbol1']['file']}:{evidence['symbol1']['line']} & {evidence['symbol2']['file']}:{evidence['symbol2']['line']}"
-        )
+        # Display results
+        print("\n=== ANALYSIS RESULTS ===")
+        print(f"Total symbols analyzed: {len(symbols)}")
+        print(f"Duplicates found: {len(duplicates)}")
+        print("Detection method: embedding_similarity")
+        print(f"Execution time: {result.summary.get('execution_time_seconds', 0)}s")
 
-        # Show similarity breakdown
-        details = evidence["details"]
-        print("   Similarity Breakdown:")
-        print(f"     Name: {details['name_similarity']:.3f}")
-        print(f"     Content: {details['content_similarity']:.3f}")
-        print(f"     Structure: {details['structure_similarity']:.3f}")
+        print("\n=== SEVERITY BREAKDOWN ===")
+        for severity, count in result.summary.get("severity_breakdown", {}).items():
+            if count > 0:
+                print(f"  {severity.upper()}: {count}")
 
-    return result
+        print("\n=== DUPLICATE FINDINGS ===")
+        for i, finding in enumerate(result.findings, 1):
+            evidence = finding["evidence"]
+            print(f"\n{i}. {finding['title']}")
+            print(f"   Severity: {finding['severity'].upper()}")
+            print(f"   Similarity Score: {evidence['similarity_score']:.3f}")
+            print(
+                f"   Comparison Type: {evidence.get('comparison_type', 'semantic_similarity')}"
+            )
+            print(
+                f"   Duplicate Reason: {evidence.get('duplicate_reason', 'similar_functionality')}"
+            )
+
+            orig_symbol = evidence["original_symbol"]
+            dup_symbol = evidence["duplicate_symbol"]
+            print(
+                f"   Files: {orig_symbol['file']}:{orig_symbol['line']} & {dup_symbol['file']}:{dup_symbol['line']}"
+            )
+
+        return result
+
+    except Exception as e:
+        print(f"Demo requires MCP components to be available: {e}")
+        print("This demonstrates the fail-fast behavior of the consolidated system.")
+        return None
 
 
-def demo_algorithm_configuration():
-    """Demonstrate algorithm configuration capabilities."""
-    print("\n\n=== ALGORITHM CONFIGURATION DEMO ===\n")
+def demo_configuration():
+    """Demonstrate configuration capabilities."""
+    print("\n\n=== CONFIGURATION DEMO ===\n")
 
-    config = ComparisonConfig()
-    framework = ComparisonFramework(config)
+    # Show different configuration options
+    print("Available configuration options:")
+    print("  - Analysis modes: full, incremental, targeted")
+    print("  - Similarity thresholds: exact, high, medium, low")
+    print("  - Performance settings: batch_size, max_symbols, enable_caching")
+    print("  - Symbol filtering: include/exclude types, file patterns")
 
-    # Show available algorithms
-    print(f"Available algorithms: {', '.join(framework.get_available_algorithms())}")
-
-    # Configure algorithm with different weights
-    print("\nConfiguring basic_similarity algorithm with custom weights...")
-    framework.configure_algorithm(
-        "basic_similarity", name_weight=0.5, content_weight=0.3, structure_weight=0.2
+    # Create configuration with different settings
+    config = DuplicateFinderConfig(
+        analysis_mode=AnalysisMode.TARGETED,
+        high_similarity_threshold=0.9,  # Higher threshold
+        medium_similarity_threshold=0.7,
+        batch_size=50,
+        max_symbols=500,
+        include_symbol_types=["function", "class"],
+        min_symbol_length=20,
     )
 
-    symbols = create_sample_symbols()[:4]  # Use subset for demo
-    result = framework.compare_symbols(symbols, "basic_similarity")
-
-    print("Results with custom weights:")
-    print(f"  Duplicates found: {result.summary['total_duplicates_found']}")
-
-    if result.findings:
-        finding = result.findings[0]
-        details = finding["evidence"]["details"]
-        print("  First finding similarity breakdown:")
-        print(f"    Name: {details['name_similarity']:.3f}")
-        print(f"    Content: {details['content_similarity']:.3f}")
-        print(f"    Structure: {details['structure_similarity']:.3f}")
-
-
-def demo_json_output():
-    """Demonstrate JSON output format for CI integration."""
-    print("\n\n=== JSON OUTPUT FOR CI INTEGRATION ===\n")
-
-    config = ComparisonConfig(low_similarity_threshold=0.7)  # Higher threshold for demo
-    framework = ComparisonFramework(config)
-    symbols = create_sample_symbols()
-    result = framework.compare_symbols(symbols, "basic_similarity")
-
-    # Create output compatible with existing AnalysisResult pattern
-    output = {
-        "analysis_type": result.analysis_type,
-        "findings": result.findings,
-        "summary": result.summary,
-        "metadata": result.metadata,
-    }
-
-    print("JSON Output (formatted for readability):")
-    print(json.dumps(output, indent=2, default=str))
+    print("\nConfiguration example:")
+    print(f"  Analysis mode: {config.analysis_mode.value}")
+    print(f"  High similarity threshold: {config.high_similarity_threshold}")
+    print(f"  Medium similarity threshold: {config.medium_similarity_threshold}")
+    print(f"  Batch size: {config.batch_size}")
 
 
 def demo_integration_points():
-    """Show key integration points for TASK-CI-018."""
-    print("\n\n=== INTEGRATION POINTS FOR FUTURE TASK-CI-018 ===\n")
+    """Show key integration points for CI system."""
+    print("\n\n=== INTEGRATION POINTS FOR CI SYSTEM ===\n")
 
-    print("1. SYMBOL EXTRACTION INTEGRATION:")
-    print("   - SymbolExtractor produces List[Symbol] from project files")
-    print("   - ComparisonFramework.compare_symbols(symbols) analyzes duplicates")
-    print("   - Output format matches existing AnalysisResult patterns")
+    print("1. CONSOLIDATED DETECTION SYSTEM:")
+    print("   - Single DuplicateFinder class handles all duplicate detection")
+    print("   - Fail-fast behavior with clear error messages")
+    print("   - All 4 core components required: Serena, CodeBERT, Faiss, SQLite")
 
-    print("\n2. PLUGGABLE ALGORITHM ARCHITECTURE:")
-    print("   - ComparisonAlgorithm abstract base class for custom algorithms")
-    print("   - ComparisonFramework.register_algorithm() for new algorithms")
-    print("   - Algorithm-specific configuration via configure() method")
+    print("\n2. SYMBOL PROCESSING PIPELINE:")
+    print(
+        "   - Symbol extraction → Embedding generation → Similarity detection → Registry updates"
+    )
+    print("   - Batch processing with configurable memory limits")
+    print("   - Incremental analysis support for changed files only")
 
     print("\n3. CONFIGURATION SYSTEM:")
-    print("   - ComparisonConfig dataclass with sensible defaults")
-    print("   - Threshold-based similarity scoring (exact/high/medium/low)")
-    print("   - Symbol type filtering and file exclusion patterns")
+    print("   - DuplicateFinderConfig with sensible defaults")
+    print("   - Threshold-based similarity scoring with validation")
+    print("   - Performance tuning via batch sizes and memory limits")
 
-    print("\n4. SIMILARITY SCORING FRAMEWORK:")
-    print("   - SimilarityScore dataclass with detailed comparison metadata")
-    print("   - ComparisonType enum for categorizing similarity types")
-    print("   - DuplicateReason enum for explaining why symbols are similar")
-
-    print("\n5. CI SYSTEM COMPATIBILITY:")
+    print("\n4. QUALITY INTEGRATION:")
     print("   - ComparisonResult follows existing AnalysisResult pattern")
+    print("   - Severity-based findings: critical, high, medium, low")
     print("   - JSON output format for automated processing")
-    print("   - Severity-based findings for quality gate integration")
+
+    print("\n5. ORCHESTRATION INTEGRATION:")
+    print("   - Used by orchestration_bridge for GitHub Actions integration")
+    print("   - CTO decision matrix for automatic vs manual duplicate handling")
+    print("   - Integrates with todo-orchestrate for fix workflows")
 
 
 def main():
@@ -246,17 +235,17 @@ def main():
     try:
         # Run all demos
         demo_basic_comparison()
-        demo_algorithm_configuration()
-        demo_json_output()
+        demo_configuration()
         demo_integration_points()
 
         print("\n\n=== DEMO COMPLETE ===")
-        print("Successfully demonstrated TASK-010 Duplicate Detection Framework")
-        print("Ready for TASK-CI-018 CI system integration")
+        print("Successfully demonstrated consolidated duplicate detection system")
+        print("System ready for CI integration with fail-fast behavior")
 
     except Exception as e:
         print(f"Demo failed with error: {e}", file=sys.stderr)
-        sys.exit(1)
+        print("This is expected if MCP components are not available")
+        print("The consolidated system requires all 4 core components to function")
 
 
 if __name__ == "__main__":

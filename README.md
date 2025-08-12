@@ -16,7 +16,7 @@
 ./claude-code/install.sh              # Install to current directory
 ./claude-code/install.sh ~            # Install globally
 /setup-dev-monitoring                 # Optional: Setup unified dev logging
-/setup-continuous-improvement         # Setup AI-powered code improvement
+/setup-ci-monitoring                 # Setup AI-powered code improvement
 ```
 
 **Key Features:**
@@ -63,10 +63,10 @@ The flagship feature of this system is an AI-powered continuous improvement engi
 
 ```bash
 # Setup the continuous improvement system
-claude /setup-continuous-improvement
+claude /setup-ci-monitoring
 
 # Check system health and recent activity
-claude /continuous-improvement-status
+claude /ci-monitoring-status
 
 # Trigger comprehensive workflow orchestration
 claude /todo-orchestrate implementation-plan.md
@@ -80,7 +80,7 @@ claude /add-code-posttooluse-quality-gates
 
 ```bash
 # Quick health check
-$ claude /continuous-improvement-status
+$ claude /ci-monitoring-status
 🔍 Continuous Improvement Status Report
 
 📊 System Health:
@@ -116,7 +116,7 @@ $ claude /continuous-improvement-status
 /create-project mobile-task-app --from-todos ./todos/todos.md
 
 # Setup continuous improvement system
-/setup-continuous-improvement --threshold=0.85 --auto-refactor=simple
+/setup-ci-monitoring --threshold=0.85 --auto-refactor=simple
 
 # Setup development monitoring
 /setup-dev-monitoring
@@ -151,7 +151,7 @@ $ claude /continuous-improvement-status
 /analyze-security
 
 # Setup continuous improvement for existing project
-/setup-continuous-improvement
+/setup-ci-monitoring
 
 # The system will:
 # - Detect your current tech stack automatically
@@ -172,8 +172,8 @@ $ claude /continuous-improvement-status
 
 ### Continuous Improvement Commands
 
-**Setup:** `/setup-continuous-improvement` - Initialize AI-powered code quality system
-**Monitoring:** `/continuous-improvement-status` - Health check and activity overview
+**Setup:** `/setup-ci-monitoring` - Initialize AI-powered code quality system
+**Monitoring:** `/ci-monitoring-status` - Health check and activity overview
 **Quality Gates:** `/add-code-precommit-checks`, `/add-code-posttooluse-quality-gates`
 **Development:** `/setup-dev-monitoring` - Live service monitoring dashboard
 
@@ -271,20 +271,20 @@ See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for complete technical spec
 
 ```bash
 # Custom threshold configuration
-claude /setup-continuous-improvement --threshold=0.75 --auto-refactor=complex
+claude /setup-ci-monitoring --threshold=0.75 --auto-refactor=complex
 
 # Language-specific settings
-claude /setup-continuous-improvement --languages=python,typescript,rust
+claude /setup-ci-monitoring --languages=python,typescript,rust
 
 # Integration with existing CI/CD
-claude /setup-continuous-improvement --github-actions --pre-commit-hooks
+claude /setup-ci-monitoring --github-actions --pre-commit-hooks
 ```
 
 ### Monitoring and Metrics
 
 ```bash
 # Detailed system status
-claude /continuous-improvement-status --verbose --history-days=30
+claude /ci-monitoring-status --verbose --history-days=30
 
 # Generate comprehensive metrics report
 python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report
@@ -332,8 +332,8 @@ MIT License - See LICENSE file for details.
 
 ```bash
 ./claude-code/install.sh
-claude /setup-continuous-improvement
-claude /continuous-improvement-status
+claude /setup-ci-monitoring
+claude /ci-monitoring-status
 ```
 
 _Experience intelligent, automated code quality management with AI-powered workflow orchestration._

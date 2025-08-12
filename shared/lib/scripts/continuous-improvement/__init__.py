@@ -13,7 +13,7 @@ from pathlib import Path
 # Framework components
 from .detection.quality_gate_detector import QualityGateDetector, QualityGateStatus
 from .framework.ci_framework import CIFramework, CIPhase, CIMetricType
-from .integration.orchestration_bridge import OrchestrationBridge, MessageType
+from .integration.orchestration_bridge import SimplifiedOrchestrationBridge
 from .metrics.ci_metrics_collector import (
     BuildMetrics,
     CIMetricsCollector,
@@ -39,9 +39,8 @@ __all__ = [
     "CIFramework",
     "CIPhase",
     "CIMetricType",
-    # Orchestration Integration
-    "OrchestrationBridge",
-    "MessageType",
+    # Orchestration Integration (Simplified)
+    "SimplifiedOrchestrationBridge",
     # Quality Gate Detection
     "QualityGateDetector",
     "QualityGateStatus",
@@ -67,17 +66,19 @@ def initialize_ci_framework(project_root: str = ".") -> CIFramework:
     return CIFramework(project_root)
 
 
-def create_orchestration_bridge(project_root: str = ".") -> OrchestrationBridge:
+def create_orchestration_bridge(
+    project_root: str = ".",
+) -> SimplifiedOrchestrationBridge:
     """
-    Create an orchestration bridge for agent system integration.
+    Create a simplified orchestration bridge for agent system integration.
 
     Args:
         project_root: Path to the project root directory
 
     Returns:
-        OrchestrationBridge instance
+        SimplifiedOrchestrationBridge instance
     """
-    return OrchestrationBridge(project_root)
+    return SimplifiedOrchestrationBridge(project_root)
 
 
 def setup_quality_gate_detection(project_root: str = ".") -> QualityGateDetector:

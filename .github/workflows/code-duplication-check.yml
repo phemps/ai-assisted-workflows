@@ -1,0 +1,89 @@
+name: Code Duplication Detection
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-duplicates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write # For creating GitHub issues
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better analysis
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          # Install required Python packages for duplication detection
+          pip install torch transformers faiss-cpu
+          pip install python-dateutil requests
+
+      - name: Setup Claude Code
+        run: |
+          # Install Claude Code CLI (placeholder - adjust for actual installation)
+          # This would be the actual claude installation command
+          echo "Setting up Claude Code CLI..."
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, get files changed compared to base branch
+            git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
+          else
+            # For pushes, get files changed in last commit
+            git diff --name-only HEAD~1 HEAD > changed_files.txt
+          fi
+          echo "Changed files:"
+          cat changed_files.txt
+
+      - name: Run duplication detection
+        id: duplication-check
+        run: |
+          cd shared/lib/scripts/continuous-improvement/integration
+
+          # Run simplified orchestration bridge
+          if [ -s ../../../../../changed_files.txt ]; then
+            # Analyze only changed files for faster execution
+            python orchestration_bridge.py --changed-files $(cat ../../../../../changed_files.txt | tr '\n' ' ')
+          else
+            # Full analysis if no specific files changed
+            python orchestration_bridge.py
+          fi
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `${{ steps.duplication-check.outputs.stdout }}`;
+            const comment = `## 🔍 Code Duplication Analysis Results
+
+            ${output}
+
+            This analysis was performed automatically using the simplified orchestration bridge that delegates to Claude Code's todo-orchestrate workflow for automatic fixes.
+
+            - ✅ **Automatic fixes**: Handled via \`claude /todo-orchestrate\`
+            - 📝 **Manual reviews**: Created as GitHub issues with technical-debt labels
+            - ⏭️ **Low-risk duplicates**: Automatically skipped based on CTO decision matrix
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

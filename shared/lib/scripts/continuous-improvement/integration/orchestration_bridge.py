@@ -1,410 +1,475 @@
 #!/usr/bin/env python3
 """
-Orchestration Bridge for Continuous Improvement
-Integrates CI workflow with the 8-agent orchestration system.
-Part of Claude Code Workflows.
+Orchestration Bridge for Code Duplication Detection
+Bridges duplication detection with Claude Code todo-orchestrate workflow.
+Removes duplication by directly calling existing claude commands.
+
+DESIGN PRINCIPLE: Don't recreate existing workflows - call them.
 """
 
 import json
+import subprocess
 import sys
-import time
-import uuid
-from datetime import datetime
-from enum import Enum
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Add utils and framework to path for imports
+# Add utils and core components to path
 script_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(script_dir / "utils"))
-sys.path.insert(0, str(script_dir / "continuous-improvement" / "framework"))
+sys.path.insert(0, str(script_dir / "continuous-improvement" / "core"))
 
+# Import core duplication detection components - REQUIRED
 try:
-    from output_formatter import AnalysisResult
-    from ci_framework import CIFramework, CIPhase, CIMetricType
+    from duplicate_finder import DuplicateFinder, DuplicateFinderConfig
 except ImportError as e:
-    print(f"Error importing dependencies: {e}", file=sys.stderr)
+    print(f"FATAL: DuplicateFinder not available: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import CTO decision logic - REQUIRED
+try:
+    from decision_matrix import DecisionMatrix, ActionType, DuplicationContext
+except ImportError as e:
+    print(f"FATAL: DecisionMatrix not available: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class MessageType(Enum):
-    """Message types for agent communication."""
+class SimplifiedOrchestrationBridge:
+    """
+    Simplified bridge that delegates to existing Claude Code workflows.
 
-    CI_ANALYSIS_REQUEST = "CI_ANALYSIS_REQUEST"
-    CI_RECOMMENDATION = "CI_RECOMMENDATION"
-    CI_METRICS_REPORT = "CI_METRICS_REPORT"
-    CI_IMPROVEMENT_TASK = "CI_IMPROVEMENT_TASK"
-    CI_STATUS_UPDATE = "CI_STATUS_UPDATE"
+    Purpose: When CTO decision logic determines a fix is needed, create a
+    simple implementation plan and pass it to claude /todo-orchestrate.
 
-
-class OrchestrationBridge:
-    """Bridge between CI framework and build-orchestrator agent system."""
+    No duplication of workflow logic - just calls the existing command.
+    """
 
     def __init__(self, project_root: str = "."):
         self.project_root = Path(project_root).resolve()
-        self.ci_framework = CIFramework(project_root)
-        self.agent_name = "continuous-improvement"
+        self.duplicate_finder = self._initialize_duplicate_finder()
+        self.decision_matrix = DecisionMatrix()
 
-    def create_message(
-        self,
-        message_type: MessageType,
-        to_agent: str,
-        payload: Dict[str, Any],
-        correlation_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Create standardized message for agent communication."""
-        return {
-            "messageId": str(uuid.uuid4()),
-            "correlationId": correlation_id or str(uuid.uuid4()),
-            "timestamp": datetime.now().isoformat(),
-            "from": self.agent_name,
-            "to": to_agent,
-            "type": message_type.value,
-            "version": "1.0",
-            "payload": payload,
-        }
-
-    def request_ci_analysis(self, correlation_id: str) -> Dict[str, Any]:
-        """Request CI analysis from build-orchestrator."""
-        payload = {
-            "analysisType": "CONTINUOUS_IMPROVEMENT",
-            "scope": "PROJECT_WIDE",
-            "requestedBy": self.agent_name,
-            "context": {
-                "projectRoot": str(self.project_root),
-                "analysisPhase": CIPhase.ANALYZE.value,
-                "metricsAvailable": self._check_metrics_availability(),
-            },
-        }
-
-        return self.create_message(
-            MessageType.CI_ANALYSIS_REQUEST,
-            "build-orchestrator",
-            payload,
-            correlation_id,
-        )
-
-    def create_ci_task_message(
-        self, recommendation: Dict[str, Any], correlation_id: str
-    ) -> Dict[str, Any]:
-        """Create CI improvement task message for build-orchestrator."""
-        task_id = f"CI-{int(time.time() * 1000)}"
-
-        payload = {
-            "taskId": task_id,
-            "title": f"CI Improvement: {recommendation['category']}",
-            "description": recommendation["description"],
-            "phase": 1,  # CI tasks are phase 1 - foundational
-            "dependencies": [],
-            "context": {
-                "ciRecommendation": recommendation,
-                "priority": recommendation["priority"],
-                "category": recommendation["category"],
-                "automationLevel": self._determine_automation_level(recommendation),
-                "requiredAgents": self._determine_required_agents(recommendation),
-            },
-        }
-
-        return self.create_message(
-            MessageType.CI_IMPROVEMENT_TASK,
-            "build-orchestrator",
-            payload,
-            correlation_id,
-        )
-
-    def create_metrics_report(
-        self, metrics_data: List[Dict[str, Any]], correlation_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Create metrics report for quality-monitor integration."""
-        payload = {
-            "reportType": "CI_METRICS",
-            "timestamp": datetime.now().isoformat(),
-            "metricsCount": len(metrics_data),
-            "metrics": metrics_data,
-            "trends": self._analyze_metrics_trends(metrics_data),
-            "qualityGateImpact": self._assess_quality_gate_impact(metrics_data),
-        }
-
-        return self.create_message(
-            MessageType.CI_METRICS_REPORT, "quality-monitor", payload, correlation_id
-        )
-
-    def process_orchestrator_response(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        """Process response from build-orchestrator."""
-        message_type = message.get("type")
-        payload = message.get("payload", {})
-        correlation_id = message.get("correlationId")
-
-        response = {
-            "status": "processed",
-            "correlation_id": correlation_id,
-            "actions": [],
-        }
-
-        if message_type == "TASK_ASSIGNMENT":
-            # CI improvement task assigned
-            task_id = payload.get("taskId")
-            response["actions"].append(
-                {
-                    "type": "TASK_RECEIVED",
-                    "taskId": task_id,
-                    "next_step": "begin_implementation",
-                }
+    def _initialize_duplicate_finder(self) -> DuplicateFinder:
+        """Initialize duplicate finder with fail-fast behavior."""
+        try:
+            config = DuplicateFinderConfig(
+                analysis_mode="targeted", enable_caching=True, batch_size=50
             )
+            return DuplicateFinder(config, self.project_root)
+        except Exception as e:
+            print(f"FATAL: Cannot initialize DuplicateFinder: {e}", file=sys.stderr)
+            sys.exit(1)
 
-            # Record task assignment in CI framework
-            self.ci_framework.record_metric(
-                CIMetricType.QUALITY_GATE,
-                CIPhase.IMPLEMENT,
-                1.0,
-                metadata={
-                    "task_id": task_id,
-                    "category": payload.get("context", {}).get("category"),
-                    "priority": payload.get("context", {}).get("priority"),
-                },
-                correlation_id=correlation_id,
-                agent_source="build-orchestrator",
-            )
+    def process_duplicates_for_github_actions(
+        self, changed_files: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Main entry point for GitHub Actions workflow.
 
-        elif message_type == "VALIDATION_REQUEST":
-            # Orchestrator requesting validation of CI approach
-            response["actions"].append(
-                {
-                    "type": "VALIDATION_REQUESTED",
-                    "subject": payload.get("subject"),
-                    "next_step": "perform_ci_validation",
-                }
-            )
+        1. Run duplicate detection
+        2. Use CTO decision matrix
+        3. For automatic fixes: call claude /todo-orchestrate
+        4. For manual review: create GitHub issue
 
-        return response
+        Args:
+            changed_files: Optional list of changed files to focus analysis
 
-    def generate_ci_recommendations(
-        self, analysis_result: AnalysisResult
-    ) -> List[Dict[str, Any]]:
-        """Generate CI recommendations based on analysis results."""
-        recommendations = []
-
-        # Analyze findings for CI opportunities
-        for finding in analysis_result.findings:
-            if finding.severity.value in ["critical", "high"]:
-                # High-impact findings become CI recommendations
-                priority = "high" if finding.severity.value == "critical" else "medium"
-                description = f"Address {finding.title}: " f"{finding.description}"
-
-                rec_data = {
-                    "category": "quality_improvement",
-                    "priority": priority,
-                    "description": description,
-                    "metadata": {
-                        "finding_id": finding.finding_id,
-                        "file_path": finding.file_path,
-                        "original_recommendation": finding.recommendation,
-                        "evidence": finding.evidence,
-                    },
-                }
-
-                rec_id = self.ci_framework.create_recommendation(
-                    category=rec_data["category"],
-                    priority=rec_data["priority"],
-                    description=rec_data["description"],
-                    metadata=rec_data["metadata"],
+        Returns:
+            Processing results for GitHub Actions
+        """
+        try:
+            # Step 1: Analyze for duplicates
+            print("🔍 Analyzing project for code duplication...")
+            if changed_files:
+                # Convert to Path objects and run incremental analysis
+                changed_paths = [Path(f) for f in changed_files]
+                analysis_result = self.duplicate_finder.incremental_analysis(
+                    changed_paths
                 )
-
-                rec_data["id"] = rec_id
-                recommendations.append(rec_data)
-
-        # Add trend-based recommendations
-        trend_recs = self._generate_trend_recommendations()
-        recommendations.extend(trend_recs)
-
-        return recommendations
-
-    def _check_metrics_availability(self) -> Dict[str, Any]:
-        """Check what CI metrics are available."""
-        recent_metrics = self.ci_framework.get_metrics(
-            since=datetime.now().replace(hour=0, minute=0, second=0)
-        )
-
-        metrics_by_type = {}
-        for metric in recent_metrics:
-            metric_type = metric["metric_type"]
-            if metric_type not in metrics_by_type:
-                metrics_by_type[metric_type] = 0
-            metrics_by_type[metric_type] += 1
-
-        return {
-            "totalMetrics": len(recent_metrics),
-            "metricTypes": list(metrics_by_type.keys()),
-            "metricCounts": metrics_by_type,
-            "hasRecentData": len(recent_metrics) > 0,
-        }
-
-    def _determine_automation_level(self, recommendation: Dict[str, Any]) -> str:
-        """Determine automation level for CI recommendation."""
-        category = recommendation.get("category", "")
-        priority = recommendation.get("priority", "")
-
-        # High-priority quality improvements can be automated
-        automated_categories = ["quality_improvement", "build_optimization"]
-        if category in automated_categories and priority == "high":
-            return "FULL_AUTO"
-        elif category in ["testing", "linting"]:
-            return "SEMI_AUTO"
-        else:
-            return "MANUAL"
-
-    def _determine_required_agents(self, recommendation: Dict[str, Any]) -> List[str]:
-        """Determine which agents are required for CI recommendation."""
-        category = recommendation.get("category", "")
-
-        agent_mapping = {
-            "quality_improvement": ["quality-monitor", "fullstack-developer"],
-            "build_optimization": ["fullstack-developer", "git-manager"],
-            "testing": ["quality-monitor", "fullstack-developer"],
-            "documentation": ["documenter", "fullstack-developer"],
-            "security": ["quality-monitor", "fullstack-developer"],
-        }
-
-        return agent_mapping.get(category, ["fullstack-developer"])
-
-    def _analyze_metrics_trends(
-        self, metrics_data: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Analyze trends in metrics data."""
-        if not metrics_data:
-            return {"trend": "no_data"}
-
-        # Group by metric type
-        metrics_by_type = {}
-        for metric in metrics_data:
-            metric_type = metric["metric_type"]
-            if metric_type not in metrics_by_type:
-                metrics_by_type[metric_type] = []
-            metrics_by_type[metric_type].append(metric["value"])
-
-        trends = {}
-        for metric_type, values in metrics_by_type.items():
-            if len(values) >= 2:
-                recent_avg = sum(values[: len(values) // 2]) / (len(values) // 2)
-                older_avg = sum(values[len(values) // 2 :]) / (
-                    len(values) - len(values) // 2
-                )
-
-                if recent_avg > older_avg * 1.1:
-                    trends[metric_type] = "improving"
-                elif recent_avg < older_avg * 0.9:
-                    trends[metric_type] = "declining"
-                else:
-                    trends[metric_type] = "stable"
             else:
-                trends[metric_type] = "insufficient_data"
+                analysis_result = self.duplicate_finder.analyze_project()
 
-        return trends
+            findings_count = len(analysis_result.findings)
+            print(f"📊 Found {findings_count} potential duplicate(s)")
 
-    def _assess_quality_gate_impact(
-        self, metrics_data: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """Assess impact of metrics on quality gates."""
-        quality_metrics = [
-            m
-            for m in metrics_data
-            if m["metric_type"] in ["quality_gate", "test_coverage", "build_time"]
-        ]
-
-        if not quality_metrics:
-            return {"impact": "no_quality_data"}
-
-        # < 80% success
-        failing_gates = [m for m in quality_metrics if m["value"] < 0.8]
-
-        gate_threshold = len(quality_metrics) * 0.3
-        impact = "high" if len(failing_gates) > gate_threshold else "low"
-
-        return {
-            "totalQualityMetrics": len(quality_metrics),
-            "failingGates": len(failing_gates),
-            "impact": impact,
-            "recommendAction": len(failing_gates) > 0,
-        }
-
-    def _generate_trend_recommendations(self) -> List[Dict[str, Any]]:
-        """Generate recommendations based on metric trends."""
-        recommendations = []
-
-        # Analyze trends for each metric type
-        for metric_type in CIMetricType:
-            trend_analysis = self.ci_framework.analyze_trends(metric_type)
-
-            is_declining = trend_analysis.get("trend") == "declining"
-            has_enough_data = trend_analysis.get("metrics_count", 0) > 3
-
-            if is_declining and has_enough_data:
-                description = (
-                    f"Declining trend detected in " f"{metric_type.value} metrics"
-                )
-
-                rec_data = {
-                    "category": "performance_optimization",
-                    "priority": "medium",
-                    "description": description,
-                    "metadata": {
-                        "trend_analysis": trend_analysis,
-                        "metric_type": metric_type.value,
-                        "generated_by": "trend_analysis",
-                    },
+            if findings_count == 0:
+                return {
+                    "status": "success",
+                    "action": "no_duplicates_found",
+                    "results": [],
                 }
 
-                rec_id = self.ci_framework.create_recommendation(
-                    category=rec_data["category"],
-                    priority=rec_data["priority"],
-                    description=rec_data["description"],
-                    metadata=rec_data["metadata"],
-                )
+            # Step 2: Process each finding through CTO decision matrix
+            results = []
+            for finding in analysis_result.findings:
+                result = self._process_single_duplicate(finding)
+                results.append(result)
 
-                rec_data["id"] = rec_id
-                recommendations.append(rec_data)
+            # Step 3: Create summary
+            summary = self._create_summary(results)
 
-        return recommendations
+            return {
+                "status": "success",
+                "findings_processed": findings_count,
+                "summary": summary,
+                "results": results,
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "message": "Duplicate analysis failed - see logs for details",
+            }
+
+    def _process_single_duplicate(self, finding: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single duplicate finding through CTO decision matrix."""
+        try:
+            # Convert finding to DuplicationContext
+            context = self._finding_to_context(finding)
+
+            # Get CTO decision
+            decision = self.decision_matrix.evaluate(context)
+
+            if decision.action == ActionType.AUTOMATIC_FIX:
+                return self._execute_automatic_fix(finding, context)
+            elif decision.action == ActionType.HUMAN_REVIEW:
+                return self._create_github_issue(finding, context)
+            else:  # SKIP
+                return {
+                    "action": "skipped",
+                    "reason": decision.justification,
+                    "finding_id": finding.get("finding_id", "unknown"),
+                }
+
+        except Exception as e:
+            return {
+                "action": "error",
+                "error": str(e),
+                "finding_id": finding.get("finding_id", "unknown"),
+            }
+
+    def _execute_automatic_fix(
+        self, finding: Dict[str, Any], context: DuplicationContext
+    ) -> Dict[str, Any]:
+        """Execute automatic fix by calling claude /todo-orchestrate."""
+        try:
+            # Create simple implementation plan
+            plan_text = self._create_implementation_plan(finding, context)
+
+            # Write plan to temporary file
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+                f.write(plan_text)
+                plan_file_path = f.name
+
+            # Call claude with todo-orchestrate command
+            print(
+                f"🤖 Executing automatic fix via claude /todo-orchestrate for {finding.get('title', 'duplicate')}"
+            )
+
+            result = self._call_claude_todo_orchestrate(plan_file_path)
+
+            # Clean up temporary file
+            Path(plan_file_path).unlink(missing_ok=True)
+
+            return {
+                "action": "automatic_fix",
+                "status": result.get("status", "unknown"),
+                "finding_id": finding.get("finding_id", "unknown"),
+                "orchestration_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "automatic_fix",
+                "status": "error",
+                "error": str(e),
+                "finding_id": finding.get("finding_id", "unknown"),
+            }
+
+    def _create_implementation_plan(
+        self, finding: Dict[str, Any], context: DuplicationContext
+    ) -> str:
+        """Create a simple implementation plan for todo-orchestrate."""
+        evidence = finding.get("evidence", {})
+
+        return f"""# Code Duplication Refactoring Plan
+
+## Overview
+**Finding**: {finding.get('title', 'Code Duplication Detected')}
+**Similarity Score**: {evidence.get('similarity_score', 0):.2%}
+**Files Affected**: {context.file_count}
+**Priority**: {"High" if context.similarity_score > 0.8 else "Medium"}
+
+## Description
+{finding.get('description', 'Duplicate code patterns detected that should be consolidated.')}
+
+## Implementation Tasks
+
+### Phase 1: Analysis and Planning
+- [ ] Use Serena to identify all instances of the duplicate code pattern
+- [ ] Analyze dependencies and usage patterns
+- [ ] Determine optimal refactoring approach (extract method, create shared utility, etc.)
+
+### Phase 2: Refactoring Implementation
+- [ ] Create shared component/function to consolidate duplicate code
+- [ ] Update all affected files to use the shared implementation
+- [ ] Ensure consistent parameter passing and return values
+
+### Phase 3: Validation
+- [ ] Run all existing tests to ensure no regressions
+- [ ] Add tests for the new shared component if needed
+- [ ] Verify code still functions as expected
+
+## Files to Review
+{self._format_file_list(evidence)}
+
+## Acceptance Criteria
+- [ ] All duplicate code consolidated into shared component
+- [ ] No functional changes to existing behavior
+- [ ] All tests passing
+- [ ] Code quality gates satisfied
+
+## Quality Gates
+- All existing tests must pass
+- No linting errors
+- Code coverage maintained or improved
+"""
+
+    def _format_file_list(self, evidence: Dict[str, Any]) -> str:
+        """Format file list from evidence."""
+        files = []
+        if "original_symbol" in evidence:
+            files.append(f"- {evidence['original_symbol'].get('file', 'unknown')}")
+        if "duplicate_symbol" in evidence:
+            files.append(f"- {evidence['duplicate_symbol'].get('file', 'unknown')}")
+        return (
+            "\n".join(files) if files else "- Files will be identified during analysis"
+        )
+
+    def _call_claude_todo_orchestrate(self, plan_file_path: str) -> Dict[str, Any]:
+        """Call claude with the todo-orchestrate command."""
+        try:
+            # Build claude command
+            cmd = ["claude", f"/todo-orchestrate {plan_file_path}"]
+
+            print(f"Executing: {' '.join(cmd)}")
+
+            # Execute command with timeout
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.project_root),
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minutes timeout
+            )
+
+            if result.returncode == 0:
+                return {
+                    "status": "success",
+                    "stdout": result.stdout,
+                    "message": "todo-orchestrate completed successfully",
+                }
+            else:
+                return {
+                    "status": "failure",
+                    "returncode": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                    "message": "todo-orchestrate failed",
+                }
+
+        except subprocess.TimeoutExpired:
+            return {
+                "status": "timeout",
+                "message": "todo-orchestrate timed out after 5 minutes",
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "message": "Failed to execute todo-orchestrate",
+            }
+
+    def _create_github_issue(
+        self, finding: Dict[str, Any], context: DuplicationContext
+    ) -> Dict[str, Any]:
+        """Create GitHub issue for manual review cases."""
+        try:
+            evidence = finding.get("evidence", {})
+
+            # Create issue title
+            title = f"Code Duplication Review: {finding.get('title', 'Duplicate Code Detected')}"
+
+            # Create issue body
+            body = f"""## Code Duplication Detected
+
+**Similarity Score**: {evidence.get('similarity_score', 0):.2%}
+**Severity**: {finding.get('severity', 'unknown').upper()}
+**Files Affected**: {context.file_count}
+
+### Description
+{finding.get('description', 'Duplicate code patterns detected that require manual review.')}
+
+### Evidence
+- **Similarity Score**: {evidence.get('similarity_score', 0):.2%}
+- **Confidence**: {evidence.get('confidence', 0):.2%}
+- **Comparison Type**: {evidence.get('comparison_type', 'unknown')}
+
+### Files Involved
+{self._format_file_list(evidence)}
+
+### Recommended Action
+Manual review is recommended because:
+- {context.cross_module_impact and "Cross-module impact detected"}
+- {context.is_public_api and "Public API affected"}
+- {context.test_coverage_percentage < 70 and "Low test coverage"}
+
+### Next Steps
+1. Review the duplicate code patterns
+2. Determine if consolidation is appropriate
+3. If consolidating, create implementation plan
+4. Test thoroughly due to complexity/risk factors
+"""
+
+            # Use GitHub CLI to create issue
+            result = self._create_issue_with_gh_cli(title, body)
+
+            return {
+                "action": "github_issue",
+                "status": result.get("status", "unknown"),
+                "finding_id": finding.get("finding_id", "unknown"),
+                "issue_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "github_issue",
+                "status": "error",
+                "error": str(e),
+                "finding_id": finding.get("finding_id", "unknown"),
+            }
+
+    def _create_issue_with_gh_cli(self, title: str, body: str) -> Dict[str, Any]:
+        """Create GitHub issue using gh CLI."""
+        try:
+            cmd = [
+                "gh",
+                "issue",
+                "create",
+                "--title",
+                title,
+                "--body",
+                body,
+                "--label",
+                "code-duplication,technical-debt",
+            ]
+
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.project_root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                issue_url = result.stdout.strip()
+                return {
+                    "status": "success",
+                    "issue_url": issue_url,
+                    "message": f"GitHub issue created: {issue_url}",
+                }
+            else:
+                return {
+                    "status": "failure",
+                    "returncode": result.returncode,
+                    "stderr": result.stderr,
+                    "message": "Failed to create GitHub issue",
+                }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "message": "Error creating GitHub issue",
+            }
+
+    def _finding_to_context(self, finding: Dict[str, Any]) -> DuplicationContext:
+        """Convert finding dict to DuplicationContext for decision matrix."""
+        evidence = finding.get("evidence", {})
+
+        return DuplicationContext(
+            similarity_score=evidence.get("similarity_score", 0),
+            file_count=2,  # Minimum for duplicates
+            total_line_count=evidence.get("total_lines", 50),
+            symbol_types=evidence.get("symbol_types", ["function"]),
+            cross_module_impact=evidence.get("cross_module", False),
+            test_coverage_percentage=evidence.get("test_coverage", 75.0),
+            cyclomatic_complexity=evidence.get("complexity", 5),
+            dependency_count=evidence.get("dependencies", 3),
+            is_public_api=evidence.get("is_public", False),
+            has_documentation=evidence.get("documented", True),
+            last_modified_days_ago=evidence.get("last_modified_days", 30),
+        )
+
+    def _create_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Create summary of processing results."""
+        summary = {
+            "automatic_fixes": 0,
+            "github_issues": 0,
+            "skipped": 0,
+            "errors": 0,
+            "successes": 0,
+        }
+
+        for result in results:
+            action = result.get("action", "unknown")
+            status = result.get("status", "unknown")
+
+            if action == "automatic_fix":
+                summary["automatic_fixes"] += 1
+            elif action == "github_issue":
+                summary["github_issues"] += 1
+            elif action == "skipped":
+                summary["skipped"] += 1
+            elif action == "error":
+                summary["errors"] += 1
+
+            if status == "success":
+                summary["successes"] += 1
+
+        return summary
 
 
 def main():
-    """Main function for command-line usage."""
+    """Main entry point for GitHub Actions workflow."""
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="CI Orchestration Bridge - Agent System Integration"
+        description="Simplified orchestration bridge for code duplication"
     )
     parser.add_argument(
-        "command", choices=["test-message", "analyze", "recommendations"]
+        "--changed-files", nargs="*", help="List of changed files to analyze"
     )
     parser.add_argument("--project-root", default=".", help="Project root directory")
-    parser.add_argument("--correlation-id", help="Correlation ID for message tracking")
 
     args = parser.parse_args()
 
-    bridge = OrchestrationBridge(args.project_root)
-    correlation_id = args.correlation_id or str(uuid.uuid4())
+    # Initialize bridge
+    bridge = SimplifiedOrchestrationBridge(args.project_root)
 
-    if args.command == "test-message":
-        # Test message creation
-        message = bridge.request_ci_analysis(correlation_id)
-        print("Test message created:")
-        print(json.dumps(message, indent=2))
+    # Process duplicates
+    result = bridge.process_duplicates_for_github_actions(args.changed_files)
 
-    elif args.command == "analyze":
-        # Generate CI analysis report
-        result = bridge.ci_framework.generate_ci_report()
-        recommendations = bridge.generate_ci_recommendations(result)
+    # Output results as JSON for GitHub Actions
+    print(json.dumps(result, indent=2))
 
-        print("CI Analysis Results:")
-        print(result.to_json())
-        print(f"\nGenerated {len(recommendations)} recommendations")
-
-    elif args.command == "recommendations":
-        # Show pending recommendations
-        recs = bridge.ci_framework.get_recommendations()
-        print(f"Pending CI Recommendations: {len(recs)}")
-        print(json.dumps(recs, indent=2))
+    # Exit with appropriate code
+    if result.get("status") == "error":
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 
 if __name__ == "__main__":

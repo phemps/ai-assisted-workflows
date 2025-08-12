@@ -26,7 +26,7 @@ Tech Stack
 
 Structure
 
-ClaudeWorkflows/
+ai-assisted-workflows/
 ├── claude-code/ # Main workflow system
 │ ├── agents/ # 8-agent orchestration definitions (9 files)
 │ ├── commands/ # Slash command implementations (25 files)

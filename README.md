@@ -101,7 +101,7 @@ $ claude /ci-monitoring-status
   Medium Priority: 2
 
 🚀 Next Steps:
-  - Review recommendations: python3 shared/lib/scripts/continuous-improvement/framework/ci_framework.py recommendations
+  - Review recommendations: python3 shared/ci/framework/ci_framework.py recommendations
 ```
 
 ## 🚀 Workflow Examples
@@ -287,13 +287,13 @@ claude /setup-ci-monitoring --github-actions --pre-commit-hooks
 claude /ci-monitoring-status --verbose --history-days=30
 
 # Generate comprehensive metrics report
-python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report
+python shared/ci/metrics/ci_metrics_collector.py report
 
 # View pending recommendations
-python shared/lib/scripts/continuous-improvement/framework/ci_framework.py recommendations
+python shared/ci/framework/ci_framework.py recommendations
 
 # Manual analysis triggers
-python shared/lib/scripts/continuous-improvement/framework/ci_framework.py extract-symbols
+python shared/ci/framework/ci_framework.py extract-symbols
 ```
 
 ## 📁 WIP Workflows

@@ -1,0 +1,85 @@
+name: Continuous Code Improvement
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  analyze-duplicates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          pip install torch transformers faiss-cpu
+          pip install python-dateutil requests numpy
+
+      - name: Load Registry Cache
+        uses: actions/cache@v3
+        with:
+          path: .ci-registry/
+          key: ci-registry-${{ hashFiles('**/*.py', '**/*.ts', '**/*.js', '**/*.go', '**/*.rs') }}
+          restore-keys: |
+            ci-registry-
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
+          else
+            git diff --name-only HEAD~1 HEAD > changed_files.txt
+          fi
+          echo "Changed files:"
+          cat changed_files.txt
+
+      - name: Analyze Changes for Duplicates
+        id: duplicate-analysis
+        run: |
+          cd shared/lib/scripts/continuous-improvement/integration
+
+          if [ -s ../../../../../changed_files.txt ]; then
+            python orchestration_bridge.py --changed-files $(cat ../../../../../changed_files.txt | tr '\n' ' ')
+          else
+            python orchestration_bridge.py
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `${{ steps.duplicate-analysis.outputs.stdout }}`;
+            const comment = `## 🔍 Code Duplication Analysis Results
+
+            ${output}
+
+            This analysis uses the simplified orchestration bridge that delegates to Claude Code's todo-orchestrate workflow.
+
+            - ✅ **Automatic fixes**: Handled via \`claude /todo-orchestrate\`
+            - 📝 **Manual reviews**: GitHub issues created with \`code-duplication\` label
+            - ⏭️ **Low-risk duplicates**: Skipped based on CTO decision matrix
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

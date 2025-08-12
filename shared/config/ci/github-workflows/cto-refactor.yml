@@ -1,0 +1,59 @@
+name: CTO Refactor Decision
+
+on:
+  repository_dispatch:
+    types: [cto-refactor-request]
+
+jobs:
+  cto-decision:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          pip install torch transformers faiss-cpu
+          pip install python-dateutil requests numpy
+
+      - name: Setup Claude Code CLI
+        run: |
+          # This would be the actual claude installation command
+          echo "Setting up Claude Code CLI..."
+          # Placeholder for actual installation
+
+      - name: Process CTO Decision
+        run: |
+          cd shared/lib/scripts/continuous-improvement/integration
+          python orchestration_bridge.py \
+            --correlation-id "${{ github.event.client_payload.correlation_id }}"
+
+      - name: Report Results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const correlation_id = "${{ github.event.client_payload.correlation_id }}";
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 CTO Decision Processed
+
+              **Correlation ID**: ${correlation_id}
+              **Processing**: Complete
+              **Status**: Check individual PRs/issues for specific actions taken
+
+              The CTO decision matrix has been applied to the duplicate detection findings.
+              `
+            });

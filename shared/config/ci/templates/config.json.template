@@ -1,0 +1,43 @@
+{
+  "project_name": "{{PROJECT_NAME}}",
+  "thresholds": {
+    "exact_duplicate": 0.95,
+    "near_duplicate": {{THRESHOLD}},
+    "similar_pattern": 0.75
+  },
+  "auto_refactor": {{AUTO_REFACTOR}},
+  "ignore_patterns": [
+    "**/node_modules/**",
+    "**/venv/**",
+    "**/.git/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/__pycache__/**",
+    "**/target/**",
+    "**/vendor/**"
+  ],
+  "cto_escalation": {
+    "enabled": true,
+    "triggers": {
+      "complex_refactor_symbol_count": 5,
+      "cross_file_duplicates": true,
+      "architectural_changes": true,
+      "high_risk_refactor": true
+    },
+    "auto_pr_threshold": 0.9,
+    "review_threshold": 0.7
+  },
+  "detection_settings": {
+    "batch_size": 50,
+    "max_symbols": 10000,
+    "enable_caching": true,
+    "enable_incremental": true,
+    "min_symbol_length": 10
+  },
+  "quality_gates": {
+    "require_tests": true,
+    "min_coverage": 70,
+    "max_complexity": 10,
+    "fail_on_regression": true
+  }
+}

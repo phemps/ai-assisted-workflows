@@ -28,17 +28,17 @@
 ## Phase 2: Core Components Health Check
 
 1. **Action**: Test duplicate detection system
-2. **Command**: `python shared/lib/scripts/continuous-improvement/core/duplicate_finder.py --test --threshold 0.85`
+2. **Command**: `python shared/ci/core/duplicate_finder.py --test --threshold 0.85`
 3. **Expected**: DuplicateFinder initializes with all 4 core components
 4. **On failure**: Components missing (MCP, CodeBERT, Faiss, SQLite)
 
 5. **Action**: Check registry manager status
-6. **Command**: `python shared/lib/scripts/continuous-improvement/core/registry_manager.py --status --project $(pwd)`
+6. **Command**: `python shared/ci/core/registry_manager.py --status --project $(pwd)`
 7. **Expected**: Registry database accessible with symbol count
 8. **On failure**: Registry initialization required
 
 9. **Action**: Verify orchestration bridge connectivity
-10. **Command**: `python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py --dry-run --project-root $(pwd)`
+10. **Command**: `python shared/ci/integration/orchestration_bridge.py --dry-run --project-root $(pwd)`
 11. **Expected**: Orchestration bridge runs without errors
 12. **On failure**: Integration components not configured
 
@@ -57,7 +57,7 @@
 ## Phase 4: Metrics and Activity Overview
 
 1. **Action**: Check recent CI metrics collection
-2. **Command**: `python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report --days $HISTORY_DAYS`
+2. **Command**: `python shared/ci/metrics/ci_metrics_collector.py report --days $HISTORY_DAYS`
 3. **Expected**: Metrics report with duplication analysis activity
 4. **On failure**: No recent CI activity recorded
 
@@ -103,9 +103,9 @@
   Languages Monitored: [$LANGUAGES]
 
 🚀 Next Steps:
-  - Run manual analysis: python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py
+  - Run manual analysis: python shared/ci/integration/orchestration_bridge.py
   - View detailed metrics: /ci-monitoring-status --verbose
-  - Generate full report: python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report
+  - Generate full report: python shared/ci/metrics/ci_metrics_collector.py report
   - Setup missing components: /setup-ci-monitoring
   - Complete MCP integration: cat .ci-registry/mcp-setup.md
 ```

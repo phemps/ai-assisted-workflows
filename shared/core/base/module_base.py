@@ -98,7 +98,7 @@ class CIModuleBase:
     def create_result(self, result_type: str = "analysis") -> Any:
         """Create appropriate result object for this module."""
         if result_type == "analysis":
-            return self.ResultFormatter.create_analysis_result(
+            return self.ResultFormatter.create_performance_result(
                 f"{self.module_name}.py", str(self.project_root)
             )
         elif result_type == "architecture":
@@ -109,8 +109,12 @@ class CIModuleBase:
             return self.ResultFormatter.create_monitoring_result(
                 f"{self.module_name}.py", f"CI Framework - {self.module_name}"
             )
+        elif result_type == "performance":
+            return self.ResultFormatter.create_performance_result(
+                f"{self.module_name}.py", str(self.project_root)
+            )
         else:
-            return self.ResultFormatter.create_analysis_result(
+            return self.ResultFormatter.create_performance_result(
                 f"{self.module_name}.py", str(self.project_root)
             )
 
@@ -186,7 +190,7 @@ class CIAnalysisModule(CIModuleBase):
             import time
 
             execution_time = time.time() - self.analysis_start_time
-            result.set_execution_time_from_duration(execution_time)
+            result.set_execution_time(self.analysis_start_time)
             self.log_operation(
                 "analysis_completed", {"execution_time": f"{execution_time:.3f}s"}
             )

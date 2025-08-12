@@ -34,6 +34,7 @@ from .fs_utils import (
     DirectoryWatcher,
     process_files_in_batches,
 )
+from .profiler_base import BaseProfiler, ProfilerConfig, create_profiler_config
 
 __all__ = [
     # Error handling
@@ -73,4 +74,8 @@ __all__ = [
     "atomic_write",
     "DirectoryWatcher",
     "process_files_in_batches",
+    # Profiler base classes
+    "BaseProfiler",
+    "ProfilerConfig",
+    "create_profiler_config",
 ]

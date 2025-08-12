@@ -1,33 +1,79 @@
 #!/usr/bin/env python3
 """
-Performance analysis script: Database query analysis and N+1 detection.
-Part of Claude Code Workflows.
+Database Performance Profiler - Advanced Database Query Analysis
+=================================================================
+
+PURPOSE: Specialized database performance profiler using pattern-based analysis.
+Part of the shared/analyzers/performance suite using BaseProfiler infrastructure.
+
+APPROACH:
+- N+1 query pattern detection
+- Slow query pattern identification
+- ORM lazy loading analysis
+- Advanced regex-based pattern matching for database-specific issues
+
+EXTENDS: BaseProfiler for common profiling infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements database-specific profiling logic in profile_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
 import re
 import sys
-import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-
+# Import base profiler infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 try:
-    from shared.core.utils.output_formatter import ResultFormatter, AnalysisResult
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.profiler_base import BaseProfiler, ProfilerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base profiler: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class DatabaseProfiler:
+class DatabaseProfiler(BaseProfiler):
     """Analyze database usage patterns for performance issues."""
 
-    def __init__(self):
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[ProfilerConfig] = None):
+        # Create database-specific configuration
+        db_config = config or ProfilerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".sql",
+                ".prisma",
+                ".kt",
+                ".scala",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "migrations",
+            },
+        )
+
+        # Initialize base profiler
+        super().__init__("database", db_config)
         # N+1 Query patterns
         self.n_plus_one_patterns = {
             "loop_query": {
@@ -85,58 +131,36 @@ class DatabaseProfiler:
             },
         }
 
-        # File extensions to scan
-        self.code_extensions = {
-            ".py",
-            ".js",
-            ".ts",
-            ".java",
-            ".cs",
-            ".php",
-            ".rb",
-            ".go",
-            ".sql",
-            ".prisma",
-            ".kt",
-            ".scala",
-        }
+        # Database-specific initialization complete
 
-        # Files to skip
-        self.skip_patterns = {
-            "node_modules",
-            ".git",
-            "__pycache__",
-            ".pytest_cache",
-            "venv",
-            "env",
-            ".venv",
-            "dist",
-            "build",
-            ".next",
-            "coverage",
-            ".nyc_output",
-            "target",
-            "vendor",
-            "migrations",
-        }
+    def profile_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Implement database-specific profiling logic.
 
-    def should_scan_file(self, file_path: Path) -> bool:
-        """Determine if file should be scanned."""
-        # Skip directories in skip_patterns
-        for part in file_path.parts:
-            if part in self.skip_patterns:
-                return False
+        Args:
+            target_path: Path to analyze (single file only - BaseProfiler handles directory iteration)
 
-        # Check file extension
-        suffix = file_path.suffix.lower()
-        return suffix in self.code_extensions
+        Returns:
+            List of database profiling findings for this specific file
+        """
+        # BaseProfiler calls this method for each individual file
+        # So target_path should always be a single file here
+        target = Path(target_path)
 
-    def scan_file(self, file_path: Path) -> List[Dict[str, Any]]:
+        if target.is_file():
+            return self._scan_file_for_db_issues(target)
+
+        return []
+
+    def _scan_file_for_db_issues(self, file_path: Path) -> List[Dict[str, Any]]:
         """
         Scan a single file for database performance issues.
 
+        Args:
+            file_path: Path to the file to scan
+
         Returns:
-            List of findings dictionaries
+            List of database findings dictionaries
         """
         findings = []
 
@@ -184,11 +208,48 @@ class DatabaseProfiler:
                         )
                     )
 
-        except Exception:
+        except Exception as e:
             # Log error but continue scanning
-            pass
+            self.logger.warning(f"Error scanning {file_path}: {e}")
 
         return findings
+
+    def get_profiler_metadata(self) -> Dict[str, Any]:
+        """
+        Get database profiler-specific metadata.
+
+        Returns:
+            Dictionary with profiler-specific metadata
+        """
+        return {
+            "pattern_categories": {
+                "n_plus_one_patterns": len(self.n_plus_one_patterns),
+                "slow_query_patterns": len(self.slow_query_patterns),
+                "orm_patterns": len(self.orm_patterns),
+            },
+            "total_patterns": (
+                len(self.n_plus_one_patterns)
+                + len(self.slow_query_patterns)
+                + len(self.orm_patterns)
+            ),
+            "supported_databases": [
+                "MySQL",
+                "PostgreSQL",
+                "SQLite",
+                "MongoDB",
+                "SQL Server",
+                "Oracle",
+                "Redis",
+            ],
+            "supported_orms": [
+                "SQLAlchemy",
+                "Django ORM",
+                "Sequelize",
+                "Prisma",
+                "Hibernate",
+                "ActiveRecord",
+            ],
+        }
 
     def _find_pattern_matches(
         self,
@@ -216,115 +277,27 @@ class DatabaseProfiler:
             context_lines = lines[context_start:context_end]
 
             finding = {
-                "category": category,
-                "pattern_type": pattern_name,
+                "title": f"{category}: {pattern_name.replace('_', ' ').title()}",
+                "description": pattern_info["description"],
+                "severity": pattern_info["severity"],
                 "file_path": str(file_path),
                 "line_number": line_start,
-                "line_content": (
-                    lines[line_start - 1].strip() if line_start <= len(lines) else ""
-                ),
-                "context": "\n".join(context_lines),
-                "matched_text": match.group(0)[:100],  # Limit length
-                "severity": pattern_info["severity"],
-                "description": pattern_info["description"],
+                "recommendation": self._get_recommendation(pattern_name),
+                "metadata": {
+                    "category": category,
+                    "pattern_type": pattern_name,
+                    "line_content": (
+                        lines[line_start - 1].strip()
+                        if line_start <= len(lines)
+                        else ""
+                    ),
+                    "context": "\n".join(context_lines),
+                    "matched_text": match.group(0)[:100],  # Limit length
+                },
             }
             findings.append(finding)
 
         return findings
-
-    def scan_directory(self, target_path: str) -> List[Dict[str, Any]]:
-        """
-        Scan directory recursively for database performance issues.
-
-        Args:
-            target_path: Path to scan
-
-        Returns:
-            List of all findings
-        """
-        all_findings = []
-        target = Path(target_path)
-
-        if target.is_file():
-            if self.should_scan_file(target):
-                all_findings.extend(self.scan_file(target))
-        elif target.is_dir():
-            for file_path in target.rglob("*"):
-                if file_path.is_file() and self.should_scan_file(file_path):
-                    all_findings.extend(self.scan_file(file_path))
-
-        return all_findings
-
-    def analyze(self, target_path: str) -> AnalysisResult:
-        """
-        Main analysis function.
-
-        Args:
-            target_path: Path to analyze
-
-        Returns:
-            AnalysisResult object
-        """
-        start_time = time.time()
-        result = ResultFormatter.create_performance_result(
-            "profile_database.py", target_path
-        )
-
-        try:
-            # Scan for database issues
-            findings = self.scan_directory(target_path)
-
-            # Convert to Finding objects
-            finding_id = 1
-            for finding_data in findings:
-                # Determine severity and recommendation
-                severity = finding_data["severity"]
-                recommendation = self._get_recommendation(finding_data["pattern_type"])
-
-                finding = ResultFormatter.create_finding(
-                    f"PERF{finding_id:03d}",
-                    f"{finding_data['category']}: {finding_data['pattern_type']}",
-                    finding_data["description"],
-                    severity,
-                    finding_data["file_path"],
-                    finding_data["line_number"],
-                    recommendation,
-                    {
-                        "category": finding_data["category"],
-                        "pattern_type": finding_data["pattern_type"],
-                        "line_content": finding_data["line_content"],
-                        "context": finding_data["context"],
-                        "matched_text": finding_data["matched_text"],
-                    },
-                )
-                result.add_finding(finding)
-                finding_id += 1
-
-            # Add metadata
-            unique_files = set(f["file_path"] for f in findings)
-            result.metadata = {
-                "files_scanned": len(unique_files),
-                "patterns_checked": len(self.n_plus_one_patterns)
-                + len(self.slow_query_patterns)
-                + len(self.orm_patterns),
-                "categories": {
-                    "n_plus_one": len(
-                        [f for f in findings if f["category"] == "N+1 Query"]
-                    ),
-                    "slow_query": len(
-                        [f for f in findings if f["category"] == "Slow Query"]
-                    ),
-                    "orm_usage": len(
-                        [f for f in findings if f["category"] == "ORM Usage"]
-                    ),
-                },
-            }
-
-        except Exception as e:
-            result.set_error(f"Analysis failed: {str(e)}")
-
-        result.set_execution_time(start_time)
-        return result
 
     def _get_recommendation(self, pattern_type: str) -> str:
         """Get recommendation for specific pattern type."""
@@ -346,51 +319,9 @@ class DatabaseProfiler:
 
 def main():
     """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze database usage patterns and performance issues"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console", "summary"],
-        default="json",
-        help="Output format (default: json)",
-    )
-    parser.add_argument(
-        "--summary",
-        action="store_true",
-        help="Limit output to top 10 critical/high findings for large codebases",
-    )
-    parser.add_argument(
-        "--min-severity",
-        choices=["critical", "high", "medium", "low"],
-        default="low",
-        help="Minimum severity level (default: low)",
-    )
-
-    args = parser.parse_args()
-
     profiler = DatabaseProfiler()
-    result = profiler.analyze(args.target_path)
-
-    # Auto-enable summary mode for large result sets
-    if len(result.findings) > 50 and not args.summary:
-        print(
-            f"⚠️ Large result set detected ({len(result.findings)} findings). Consider using --summary flag.",
-            file=sys.stderr,
-        )
-
-    # Output based on format choice
-    if args.output_format == "console":
-        print(ResultFormatter.format_console_output(result))
-    elif args.output_format == "summary":
-        print(result.to_json(summary_mode=True, min_severity=args.min_severity))
-    else:  # json (default)
-        print(result.to_json(summary_mode=args.summary, min_severity=args.min_severity))
-        # Also print console summary to stderr for human readability
-        print(ResultFormatter.format_console_output(result), file=sys.stderr)
+    exit_code = profiler.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

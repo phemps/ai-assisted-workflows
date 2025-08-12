@@ -997,11 +997,12 @@ class CompositePatternClassifier(BaseAnalyzer):
                 for match in pattern_matches:
                     findings.append(
                         {
-                            "type": "pattern_classification",
+                            "title": f"{match.pattern_name}",
+                            "description": f"{match.pattern_name}: {match.description}",
                             "severity": match.severity.value,
-                            "message": f"{match.pattern_name}: {match.description}",
                             "file_path": relative_path,
                             "line_number": match.start_line,
+                            "recommendation": match.recommendation,
                             "metadata": {
                                 "pattern_name": match.pattern_name,
                                 "pattern_type": match.pattern_type.value,
@@ -1025,11 +1026,12 @@ class CompositePatternClassifier(BaseAnalyzer):
                 logger.error(f"Pattern classification failed for {relative_path}: {e}")
                 findings.append(
                     {
-                        "type": "analysis_error",
+                        "title": "Pattern Analysis Error",
+                        "description": f"Pattern classification failed: {str(e)}",
                         "severity": "low",
-                        "message": f"Pattern classification failed: {str(e)}",
                         "file_path": relative_path,
                         "line_number": 1,
+                        "recommendation": "Check file format and syntax for pattern analysis compatibility",
                         "metadata": {"error_type": type(e).__name__},
                     }
                 )
@@ -1037,11 +1039,12 @@ class CompositePatternClassifier(BaseAnalyzer):
             # Add file analysis completion info
             findings.append(
                 {
-                    "type": "pattern_analysis",
+                    "title": "Pattern Analysis Complete",
+                    "description": "File analyzed for code patterns",
                     "severity": "info",
-                    "message": "File analyzed for code patterns",
                     "file_path": relative_path,
                     "line_number": 1,
+                    "recommendation": "Review identified patterns for code quality improvements",
                     "metadata": {
                         "total_lines": len(content.splitlines()),
                         "detectors_run": [
@@ -1064,11 +1067,12 @@ class CompositePatternClassifier(BaseAnalyzer):
             logger.error(f"Error analyzing file {file_path}: {e}")
             return [
                 {
-                    "type": "analysis_error",
+                    "title": "File Analysis Error",
+                    "description": f"Failed to analyze file: {str(e)}",
                     "severity": "low",
-                    "message": f"Failed to analyze file: {str(e)}",
                     "file_path": relative_path,
                     "line_number": 1,
+                    "recommendation": "Verify file accessibility and format for pattern analysis",
                     "metadata": {"error_type": type(e).__name__},
                 }
             ]
@@ -1262,135 +1266,10 @@ def classify_code_patterns(
 
 
 def main():
-    """Main entry point with BaseAnalyzer CLI interface."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Pattern Classifier - Comprehensive Code Pattern Analysis Tool"
-    )
-    parser.add_argument("target_path", help="Path to analyze (file or directory)")
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console", "summary"],
-        default="console",
-        help="Output format (default: console)",
-    )
-    parser.add_argument(
-        "--max-files",
-        type=int,
-        default=5000,
-        help="Maximum number of files to analyze (default: 5000)",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=50,
-        help="Batch size for file processing (default: 50)",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=120,
-        help="Analysis timeout in seconds (default: 120)",
-    )
-
-    args = parser.parse_args()
-
-    try:
-        # Create analyzer configuration
-        config = AnalyzerConfig(
-            target_path=args.target_path,
-            output_format=args.output_format,
-            max_files=args.max_files,
-            batch_size=args.batch_size,
-            timeout_seconds=args.timeout,
-        )
-
-        # Initialize analyzer
-        analyzer = CompositePatternClassifier(config=config)
-
-        # Run analysis using BaseAnalyzer infrastructure
-        results = analyzer.analyze()
-
-        # Output results using BaseAnalyzer's standard format
-        if args.output_format == "json":
-            import json
-
-            # Convert AnalysisResult to dict for JSON serialization
-            findings_list = []
-            if hasattr(results, "findings"):
-                for finding in results.findings:
-                    if hasattr(finding, "message"):
-                        finding_dict = {
-                            "message": str(finding.message),
-                            "file_path": str(getattr(finding, "file_path", "Unknown")),
-                            "line_number": str(
-                                getattr(finding, "line_number", "Unknown")
-                            ),
-                            "severity": str(getattr(finding, "severity", "Unknown")),
-                            "type": str(getattr(finding, "type", "Unknown")),
-                        }
-                        findings_list.append(finding_dict)
-                    else:
-                        findings_list.append(str(finding))
-
-            result_dict = {
-                "success": results.success if hasattr(results, "success") else True,
-                "findings": findings_list,
-                "metadata": results.metadata if hasattr(results, "metadata") else {},
-                "execution_time": results.execution_time
-                if hasattr(results, "execution_time")
-                else 0,
-            }
-            print(json.dumps(result_dict, indent=2))
-        elif args.output_format == "console":
-            print("\nPattern Classification Results:")
-            print("=" * 50)
-
-            success = results.success if hasattr(results, "success") else True
-            if success:
-                findings = results.findings if hasattr(results, "findings") else []
-                print(f"Total findings: {len(findings)}")
-
-                for finding in findings:
-                    # Handle Finding objects (from BaseAnalyzer)
-                    if hasattr(finding, "message"):
-                        message = finding.message
-                        file_path = getattr(finding, "file_path", "Unknown")
-                        line_number = getattr(finding, "line_number", "Unknown")
-                        severity = getattr(finding, "severity", "Unknown")
-                    elif hasattr(finding, "get"):
-                        # Handle dict findings (legacy)
-                        message = finding.get("message", "Unknown issue")
-                        file_path = finding.get("file_path", "Unknown")
-                        line_number = finding.get("line_number", "Unknown")
-                        severity = finding.get("severity", "Unknown")
-                    else:
-                        # Default fallback
-                        message = str(finding)
-                        file_path = "Unknown"
-                        line_number = "Unknown"
-                        severity = "Unknown"
-
-                    print(f"\n• {message}")
-                    print(f"  File: {file_path}")
-                    print(f"  Line: {line_number}")
-                    print(f"  Severity: {severity}")
-            else:
-                error_msg = (
-                    results.error if hasattr(results, "error") else "Unknown error"
-                )
-                print(f"Analysis failed: {error_msg}")
-
-        else:  # summary
-            findings_count = (
-                len(results.findings) if hasattr(results, "findings") else 0
-            )
-            print(f"Pattern classification completed: {findings_count} findings")
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    """Main function for command-line usage."""
+    analyzer = CompositePatternClassifier()
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

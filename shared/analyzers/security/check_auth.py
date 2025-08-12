@@ -256,7 +256,31 @@ class AuthSecurityAnalyzer(BaseAnalyzer):
                 relative_path = str(target.relative_to(Path.cwd()))
             except ValueError:
                 relative_path = str(target)
-            return self._analyze_file_auth(str(target), relative_path)
+
+            # Get findings from the auth analysis method
+            raw_findings = self._analyze_file_auth(str(target), relative_path)
+
+            # Convert to BaseAnalyzer expected format
+            formatted_findings = []
+            for finding in raw_findings:
+                formatted_finding = {
+                    "title": finding["vuln_type"].replace("_", " ").title(),
+                    "description": finding["message"],
+                    "severity": finding["severity"],
+                    "file_path": finding["file"],
+                    "line_number": finding["line"],
+                    "recommendation": self._get_auth_recommendation(
+                        finding["vuln_type"]
+                    ),
+                    "metadata": {
+                        "context": finding.get("context", ""),
+                        "category": finding.get("category", "authentication"),
+                        "vuln_type": finding["vuln_type"],
+                    },
+                }
+                formatted_findings.append(formatted_finding)
+
+            return formatted_findings
 
         return []
 

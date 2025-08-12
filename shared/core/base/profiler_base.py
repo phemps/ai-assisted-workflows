@@ -350,25 +350,32 @@ class BaseProfiler(CIAnalysisModule, ABC):
 
         for finding_data in findings:
             try:
-                # Create Finding object with standard format
+                # Create Finding object - require all fields to be present
                 finding = self.ResultFormatter.create_finding(
                     f"{self.profiler_type.upper()}{finding_id:03d}",
-                    finding_data.get("title", f"{self.profiler_type} finding"),
-                    finding_data.get("description", "Profiling issue detected"),
-                    finding_data.get("severity", "medium"),
-                    finding_data.get("file_path", "unknown"),
-                    finding_data.get("line_number", 0),
-                    finding_data.get(
-                        "recommendation", f"Review {self.profiler_type} issue"
-                    ),
+                    finding_data["title"],
+                    finding_data["description"],
+                    finding_data["severity"],
+                    finding_data["file_path"],
+                    finding_data["line_number"],
+                    finding_data["recommendation"],
                     finding_data.get("metadata", {}),
                 )
 
                 result.add_finding(finding)
                 finding_id += 1
 
+            except KeyError as e:
+                self.logger.error(
+                    f"Missing required field in finding {finding_id}: {e}"
+                )
+                self.logger.error(f"Finding data keys: {list(finding_data.keys())}")
+                raise ValueError(
+                    f"Profiler {self.profiler_type} returned finding missing required field: {e}"
+                )
             except Exception as e:
-                self.logger.warning(f"Error creating finding {finding_id}: {e}")
+                self.logger.error(f"Error creating finding {finding_id}: {e}")
+                raise
 
     def _add_metadata_to_result(
         self,

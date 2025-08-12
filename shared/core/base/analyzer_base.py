@@ -368,25 +368,32 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
         for finding_data in findings:
             try:
-                # Create Finding object with standard format
+                # Create Finding object - require all fields to be present
                 finding = self.ResultFormatter.create_finding(
                     f"{self.analyzer_type.upper()}{finding_id:03d}",
-                    finding_data.get("title", f"{self.analyzer_type} finding"),
-                    finding_data.get("description", "Analysis issue detected"),
-                    finding_data.get("severity", "medium"),
-                    finding_data.get("file_path", "unknown"),
-                    finding_data.get("line_number", 0),
-                    finding_data.get(
-                        "recommendation", f"Review {self.analyzer_type} issue"
-                    ),
+                    finding_data["title"],
+                    finding_data["description"],
+                    finding_data["severity"],
+                    finding_data["file_path"],
+                    finding_data["line_number"],
+                    finding_data["recommendation"],
                     finding_data.get("metadata", {}),
                 )
 
                 result.add_finding(finding)
                 finding_id += 1
 
+            except KeyError as e:
+                self.logger.error(
+                    f"Missing required field in finding {finding_id}: {e}"
+                )
+                self.logger.error(f"Finding data keys: {list(finding_data.keys())}")
+                raise ValueError(
+                    f"Analyzer {self.analyzer_type} returned finding missing required field: {e}"
+                )
             except Exception as e:
-                self.logger.warning(f"Error creating finding {finding_id}: {e}")
+                self.logger.error(f"Error creating finding {finding_id}: {e}")
+                raise
 
     def _add_metadata_to_result(
         self,
@@ -553,3 +560,247 @@ def create_analyzer_config(**kwargs) -> AnalyzerConfig:
         Validated AnalyzerConfig instance
     """
     return ConfigFactory.create_config("analyzer", AnalyzerConfig, **kwargs)
+
+
+# Standardized Helper Functions for Finding Creation and Validation
+
+
+def create_standard_finding(
+    title: str,
+    description: str,
+    severity: str,
+    file_path: str,
+    line_number: int,
+    recommendation: str,
+    metadata: dict = None,
+) -> Dict[str, Any]:
+    """
+    Helper to create properly formatted findings for BaseAnalyzer/BaseProfiler.
+
+    This function ensures all findings have the required fields with proper naming
+    and validation, preventing common implementation errors.
+
+    Args:
+        title: Human-readable finding title (specific, not generic like "security finding")
+        description: Detailed description of the issue (specific, not "Analysis issue detected")
+        severity: One of "critical", "high", "medium", "low", "info"
+        file_path: Path to the affected file (actual path, not "unknown")
+        line_number: Line number where issue occurs (actual line, not 0)
+        recommendation: Suggested action to take (specific, not "Review issue")
+        metadata: Additional context (optional)
+
+    Returns:
+        Properly formatted finding dictionary with all required fields
+
+    Raises:
+        ValueError: If severity is invalid or required fields are empty
+
+    Example:
+        finding = create_standard_finding(
+            title="SQL Injection Vulnerability",
+            description="Unsanitized user input used in SQL query construction",
+            severity="high",
+            file_path="models/user.py",
+            line_number=42,
+            recommendation="Use parameterized queries or ORM methods",
+            metadata={"pattern_type": "sql_injection", "confidence": 0.9}
+        )
+    """
+    # Validate severity
+    valid_severities = {"critical", "high", "medium", "low", "info"}
+    if severity not in valid_severities:
+        raise ValueError(
+            f"Invalid severity '{severity}'. Must be one of: {valid_severities}"
+        )
+
+    # Validate required fields are not empty/generic
+    if not title or title.strip() == "":
+        raise ValueError("Title cannot be empty")
+    if not description or description.strip() == "":
+        raise ValueError("Description cannot be empty")
+    if not recommendation or recommendation.strip() == "":
+        raise ValueError("Recommendation cannot be empty")
+
+    # Check for generic placeholder values
+    generic_titles = {
+        "security finding",
+        "quality finding",
+        "performance finding",
+        "analysis finding",
+    }
+    if title.lower() in generic_titles:
+        raise ValueError(
+            f"Generic title '{title}' not allowed. Provide specific finding title."
+        )
+
+    generic_descriptions = {
+        "analysis issue detected",
+        "issue found",
+        "problem detected",
+    }
+    if description.lower() in generic_descriptions:
+        raise ValueError(
+            f"Generic description '{description}' not allowed. Provide specific issue description."
+        )
+
+    generic_recommendations = {
+        "review issue",
+        "fix issue",
+        "review security issue",
+        "review quality issue",
+    }
+    if recommendation.lower() in generic_recommendations:
+        raise ValueError(
+            f"Generic recommendation '{recommendation}' not allowed. Provide specific action to take."
+        )
+
+    return {
+        "title": title,
+        "description": description,
+        "severity": severity,
+        "file_path": file_path,
+        "line_number": line_number,
+        "recommendation": recommendation,
+        "metadata": metadata or {},
+    }
+
+
+def validate_finding(finding: Dict[str, Any]) -> bool:
+    """
+    Validate finding has all required fields with proper values.
+
+    This function implements the strict validation that prevents placeholder
+    findings and ensures all analyzer implementations return meaningful results.
+
+    Args:
+        finding: Finding dictionary to validate
+
+    Returns:
+        True if valid
+
+    Raises:
+        ValueError: If finding is invalid with specific error message
+
+    Example:
+        try:
+            validate_finding(my_finding)
+        except ValueError as e:
+            logger.error(f"Invalid finding: {e}")
+    """
+    if not isinstance(finding, dict):
+        raise ValueError(f"Finding must be a dictionary, got {type(finding)}")
+
+    # Check for required fields (strict validation - no .get() fallbacks)
+    required_fields = [
+        "title",
+        "description",
+        "severity",
+        "file_path",
+        "line_number",
+        "recommendation",
+    ]
+
+    for required_field in required_fields:
+        if required_field not in finding:
+            available_fields = list(finding.keys())
+            raise ValueError(
+                f"Missing required field: '{required_field}'. Available fields: {available_fields}"
+            )
+
+    # Validate field types
+    if not isinstance(finding["title"], str) or not finding["title"].strip():
+        raise ValueError("Field 'title' must be a non-empty string")
+
+    if (
+        not isinstance(finding["description"], str)
+        or not finding["description"].strip()
+    ):
+        raise ValueError("Field 'description' must be a non-empty string")
+
+    if (
+        not isinstance(finding["recommendation"], str)
+        or not finding["recommendation"].strip()
+    ):
+        raise ValueError("Field 'recommendation' must be a non-empty string")
+
+    if not isinstance(finding["file_path"], str) or not finding["file_path"].strip():
+        raise ValueError("Field 'file_path' must be a non-empty string")
+
+    if not isinstance(finding["line_number"], int) or finding["line_number"] < 0:
+        raise ValueError("Field 'line_number' must be a non-negative integer")
+
+    # Validate severity levels
+    valid_severities = {"critical", "high", "medium", "low", "info"}
+    if finding["severity"] not in valid_severities:
+        raise ValueError(
+            f"Invalid severity '{finding['severity']}'. Must be one of: {valid_severities}"
+        )
+
+    # Check for generic placeholder values that were common before strict validation
+    generic_titles = {
+        "security finding",
+        "quality finding",
+        "performance finding",
+        "analysis finding",
+    }
+    if finding["title"].lower() in generic_titles:
+        raise ValueError(
+            f"Generic placeholder title '{finding['title']}' not allowed. Use specific finding title."
+        )
+
+    generic_descriptions = {
+        "analysis issue detected",
+        "issue found",
+        "problem detected",
+    }
+    if finding["description"].lower() in generic_descriptions:
+        raise ValueError(
+            f"Generic placeholder description '{finding['description']}' not allowed. Use specific issue description."
+        )
+
+    # Check for placeholder file paths
+    if finding["file_path"] == "unknown":
+        raise ValueError(
+            "Placeholder file_path 'unknown' not allowed. Use actual file path."
+        )
+
+    # Check for placeholder line numbers
+    if (
+        finding["line_number"] == 0
+        and "error" not in finding.get("metadata", {}).get("error_type", "").lower()
+    ):
+        raise ValueError(
+            "Placeholder line_number 0 not allowed unless it's an error case. Use actual line number."
+        )
+
+    return True
+
+
+def batch_validate_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Validate a list of findings and return only valid ones.
+
+    Args:
+        findings: List of finding dictionaries to validate
+
+    Returns:
+        List of valid findings (invalid ones are filtered out with logging)
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    valid_findings = []
+
+    for i, finding in enumerate(findings):
+        try:
+            validate_finding(finding)
+            valid_findings.append(finding)
+        except ValueError as e:
+            logger.warning(f"Skipping invalid finding {i+1}: {e}")
+
+    if len(valid_findings) != len(findings):
+        logger.info(
+            f"Filtered {len(findings) - len(valid_findings)} invalid findings out of {len(findings)} total"
+        )
+
+    return valid_findings

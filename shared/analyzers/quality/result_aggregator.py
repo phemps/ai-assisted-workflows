@@ -528,11 +528,12 @@ class AnalysisAggregator(BaseAnalyzer):
 
             findings.append(
                 {
-                    "type": "result_aggregation",
+                    "title": "result_aggregation",
                     "severity": "info",
-                    "message": "File ready for result aggregation analysis",
+                    "description": "File ready for result aggregation analysis",
                     "file_path": relative_path,
                     "line_number": 1,
+                    "recommendation": "File is ready to be analyzed by result aggregation system",
                     "metadata": {
                         "total_lines": len(content.splitlines()),
                         "file_size_bytes": len(content),
@@ -558,11 +559,12 @@ class AnalysisAggregator(BaseAnalyzer):
             logger.error(f"Error analyzing file {file_path}: {e}")
             return [
                 {
-                    "type": "analysis_error",
+                    "title": "analysis_error",
                     "severity": "low",
-                    "message": f"Failed to analyze file: {str(e)}",
+                    "description": f"Failed to analyze file: {str(e)}",
                     "file_path": relative_path,
                     "line_number": 1,
+                    "recommendation": "Check file permissions and encoding, then retry analysis",
                     "metadata": {"error_type": type(e).__name__},
                 }
             ]
@@ -984,135 +986,10 @@ def aggregate_analysis_results(
 
 
 def main():
-    """Main entry point with BaseAnalyzer CLI interface."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Result Aggregator - Comprehensive Analysis Result Consolidation Tool"
-    )
-    parser.add_argument("target_path", help="Path to analyze (file or directory)")
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console", "summary"],
-        default="console",
-        help="Output format (default: console)",
-    )
-    parser.add_argument(
-        "--max-files",
-        type=int,
-        default=5000,
-        help="Maximum number of files to analyze (default: 5000)",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=50,
-        help="Batch size for file processing (default: 50)",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=120,
-        help="Analysis timeout in seconds (default: 120)",
-    )
-
-    args = parser.parse_args()
-
-    try:
-        # Create analyzer configuration
-        config = AnalyzerConfig(
-            target_path=args.target_path,
-            output_format=args.output_format,
-            max_files=args.max_files,
-            batch_size=args.batch_size,
-            timeout_seconds=args.timeout,
-        )
-
-        # Initialize analyzer
-        analyzer = AnalysisAggregator(config=config)
-
-        # Run analysis using BaseAnalyzer infrastructure
-        results = analyzer.analyze()
-
-        # Output results using BaseAnalyzer's standard format
-        if args.output_format == "json":
-            import json
-
-            # Convert AnalysisResult to dict for JSON serialization
-            findings_list = []
-            if hasattr(results, "findings"):
-                for finding in results.findings:
-                    if hasattr(finding, "message"):
-                        finding_dict = {
-                            "message": str(finding.message),
-                            "file_path": str(getattr(finding, "file_path", "Unknown")),
-                            "line_number": str(
-                                getattr(finding, "line_number", "Unknown")
-                            ),
-                            "severity": str(getattr(finding, "severity", "Unknown")),
-                            "type": str(getattr(finding, "type", "Unknown")),
-                        }
-                        findings_list.append(finding_dict)
-                    else:
-                        findings_list.append(str(finding))
-
-            result_dict = {
-                "success": results.success if hasattr(results, "success") else True,
-                "findings": findings_list,
-                "metadata": results.metadata if hasattr(results, "metadata") else {},
-                "execution_time": results.execution_time
-                if hasattr(results, "execution_time")
-                else 0,
-            }
-            print(json.dumps(result_dict, indent=2))
-        elif args.output_format == "console":
-            print("\nResult Aggregation Analysis Results:")
-            print("=" * 50)
-
-            success = results.success if hasattr(results, "success") else True
-            if success:
-                findings = results.findings if hasattr(results, "findings") else []
-                print(f"Total findings: {len(findings)}")
-
-                for finding in findings:
-                    # Handle Finding objects (from BaseAnalyzer)
-                    if hasattr(finding, "message"):
-                        message = finding.message
-                        file_path = getattr(finding, "file_path", "Unknown")
-                        line_number = getattr(finding, "line_number", "Unknown")
-                        severity = getattr(finding, "severity", "Unknown")
-                    elif hasattr(finding, "get"):
-                        # Handle dict findings (legacy)
-                        message = finding.get("message", "Unknown issue")
-                        file_path = finding.get("file_path", "Unknown")
-                        line_number = finding.get("line_number", "Unknown")
-                        severity = finding.get("severity", "Unknown")
-                    else:
-                        # Default fallback
-                        message = str(finding)
-                        file_path = "Unknown"
-                        line_number = "Unknown"
-                        severity = "Unknown"
-
-                    print(f"\n• {message}")
-                    print(f"  File: {file_path}")
-                    print(f"  Line: {line_number}")
-                    print(f"  Severity: {severity}")
-            else:
-                error_msg = (
-                    results.error if hasattr(results, "error") else "Unknown error"
-                )
-                print(f"Analysis failed: {error_msg}")
-
-        else:  # summary
-            findings_count = (
-                len(results.findings) if hasattr(results, "findings") else 0
-            )
-            print(f"Result aggregation completed: {findings_count} findings")
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    """Main function for command-line usage."""
+    analyzer = AnalysisAggregator()
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

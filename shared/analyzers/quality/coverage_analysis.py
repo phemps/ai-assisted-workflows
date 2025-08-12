@@ -208,7 +208,8 @@ class TestCoverageAnalyzer(BaseAnalyzer):
                 "description": f"File categorized as {file_type['type']} file for {file_type['language']}",
                 "severity": "info",
                 "file_path": str(target),
-                "line_number": None,
+                "line_number": 1,
+                "recommendation": f"Ensure {file_type['type']} files follow {file_type['language']} best practices for coverage analysis",
                 "evidence": {
                     "file_type": file_type["type"],
                     "language": file_type["language"],

@@ -61,19 +61,21 @@ opencode/            # Open-source components for community contribution
 └── plugins/         # Plugin architecture components
 
 shared/              # Shared libraries and configurations
+├── analyzers/       # Analysis engines by category (BaseAnalyzer/BaseProfiler)
+│   ├── architecture/    # Coupling, patterns, scalability analysis
+│   ├── performance/     # Code and database profiling tools
+│   ├── quality/         # Complexity, coverage, duplicates, patterns
+│   ├── root_cause/      # Error tracing and analysis tools
+│   └── security/        # Authentication, secrets, vulnerability scanning
+├── ci/              # Continuous improvement system
 ├── config/          # Shared configuration files
 │   └── formatter/   # Code formatting configurations (biome.json, ruff.toml)
-└── lib/             # Shared Python libraries and scripts
-    └── scripts/     # Python analysis and utility scripts
-        ├── analyze/ # Analysis tools by category
-        │   ├── architecture/    # Coupling, patterns, scalability
-        │   ├── code_quality/    # Complexity, coverage metrics
-        │   ├── performance/     # Performance profiling tools
-        │   ├── root_cause/      # Error tracing and analysis
-        │   └── security/        # Security scanning tools
-        ├── plan/    # Planning utilities
-        ├── setup/   # Installation and monitoring setup
-        └── utils/   # Cross-platform utilities and detectors
+├── core/            # Base utilities and shared infrastructure
+│   └── base/        # BaseAnalyzer/BaseProfiler infrastructure
+├── generators/      # Code and document generators
+├── scripts/         # Standalone utility scripts
+├── setup/           # Installation and setup utilities
+└── tests/           # Test suites (unit + integration)
 
 test_codebase/       # Example test projects
 todos/               # Work-in-progress workflows
@@ -95,14 +97,40 @@ The repository implements an 8-agent orchestration system:
 
 ### Python Scripts Architecture
 
-The `shared/lib/scripts/` directory contains specialized Python analysis tools:
+The `shared/analyzers/` directory contains specialized analysis tools built on BaseAnalyzer/BaseProfiler infrastructure:
 
-- **Security**: Uses bandit, safety, semgrep for vulnerability detection
-- **Performance**: Uses psutil, memory-profiler, py-spy for profiling
-- **Code Quality**: Uses flake8, pylint, radon, lizard for metrics
-- **Architecture**: Uses pydeps, networkx for dependency analysis
-- **Root Cause Analysis**: Error pattern detection and execution tracing
-- **Utilities**: Cross-platform support, tech stack detection, and output formatting
+#### **BaseAnalyzer/BaseProfiler Infrastructure**
+
+All analysis tools extend common base classes providing:
+
+- **Standardized CLI**: Consistent argument parsing (--max-files, --batch-size, --timeout, --output-format)
+- **File Scanning**: Configurable extensions and skip patterns with batch processing
+- **Result Formatting**: Unified output formatting across json/console/summary modes
+- **Strict Validation**: No placeholder findings - all results are genuine, actionable issues
+- **Error Handling**: Robust error handling with detailed logging and recovery
+- **Performance Tracking**: Built-in timing, file counting, and progress reporting
+
+#### **Analysis Categories**
+
+- **Security** (`shared/analyzers/security/`): Authentication analysis, secret detection, vulnerability scanning
+  - Uses BaseAnalyzer infrastructure for consistent CLI and result formatting
+  - Employs bandit, safety, semgrep integration patterns
+- **Quality** (`shared/analyzers/quality/`): Complexity analysis, test coverage, code duplication, pattern classification
+  - All 6 quality analyzers now use BaseAnalyzer infrastructure (100% conversion complete)
+  - Includes orchestration engines for comprehensive quality assessment
+- **Performance** (`shared/analyzers/performance/`): Code profiling, database profiling, bottleneck detection
+  - Uses BaseProfiler infrastructure for performance-specific analysis patterns
+  - Static analysis patterns with future integration points for dynamic profiling tools
+- **Architecture** (`shared/analyzers/architecture/`): Coupling analysis, dependency analysis, scalability checks
+- **Root Cause** (`shared/analyzers/root_cause/`): Error pattern detection, execution tracing, recent changes analysis
+
+#### **Key Architecture Benefits**
+
+- **Code Elimination**: 400+ lines of boilerplate eliminated across 20+ analyzers
+- **No False Positives**: Strict validation prevents placeholder findings like "security finding" or "Analysis issue detected"
+- **Developer Trust**: All findings are genuine, actionable security/quality issues with specific titles and recommendations
+- **Consistent Interface**: Identical CLI interfaces, argument parsing, and output formatting across all analyzers
+- **Quality Assurance**: Robust validation prevents broken analyzer implementations from silently passing
 
 ### Shared Libraries and Configuration
 
@@ -146,6 +174,62 @@ The system implements dynamic quality gate detection that adapts to the project'
 3. Pre-commit checks can be added via `/add-code-precommit-checks`
 4. Post-tool-use quality gates via `/add-code-posttooluse-quality-gates`
 
+## Working with BaseAnalyzer/BaseProfiler Infrastructure
+
+### **Creating New Analyzers**
+
+All new analysis tools should extend BaseAnalyzer or BaseProfiler infrastructure:
+
+```python
+from shared.core.base.analyzer_base import BaseAnalyzer, create_standard_finding
+
+class MyCustomAnalyzer(BaseAnalyzer):
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        # Implement your analysis logic
+        findings = []
+
+        # Use helper function for consistent finding format
+        finding = create_standard_finding(
+            title="Specific Issue Found",
+            description="Detailed description of the actual issue",
+            severity="medium",
+            file_path=target_path,
+            line_number=42,
+            recommendation="Specific action to fix this issue"
+        )
+        findings.append(finding)
+
+        return findings
+```
+
+### **Analyzer Implementation Requirements**
+
+- ✅ **All Required Fields**: title, description, severity, file_path, line_number, recommendation
+- ✅ **No Placeholder Values**: Use specific titles like "SQL Injection Vulnerability", not "security finding"
+- ✅ **Real File Paths**: Actual paths, not "unknown"
+- ✅ **Actionable Recommendations**: Specific fixes, not "Review issue"
+- ✅ **Proper CLI Integration**: Use `analyzer.run_cli()` pattern
+- ✅ **Legacy Compatibility**: Provide backward-compatible function wrappers
+
+### **Validation Testing**
+
+```bash
+# Test individual analyzer with strict validation
+cd shared && PYTHONPATH=. python analyzers/category/your_analyzer.py ../test_codebase/monorepo --max-files 5
+
+# Success indicators:
+# ✅ No KeyError exceptions
+# ✅ Real finding titles (not generic placeholders)
+# ✅ Specific descriptions and recommendations
+# ✅ Actual file paths and line numbers
+```
+
+### **Documentation References**
+
+- **Interface Specification**: `shared/core/base/ANALYZER_INTERFACE.md`
+- **Helper Functions**: `create_standard_finding()`, `validate_finding()` in `analyzer_base.py`
+- **Working Examples**: All analyzers in `shared/analyzers/` categories
+
 ## Working with the Codebase
 
 When making changes to this repository:
@@ -153,8 +237,8 @@ When making changes to this repository:
 1. **Adding new commands**: Create `.md` files in `claude-code/commands/`
 2. **Adding new agents**: Create `.md` files in `claude-code/agents/` or `opencode/agents/` for public agents
 3. **Adding new modes**: Create `.modes.md` files in `claude-code/modes/` or `opencode/modes/` for public modes
-4. **Adding analysis scripts**: Place Python scripts in appropriate `shared/lib/scripts/analyze/` subdirectory
-5. **Adding shared utilities**: Place reusable Python utilities in `shared/lib/scripts/utils/`
+4. **Adding new analyzers**: Extend BaseAnalyzer/BaseProfiler in appropriate `shared/analyzers/` category
+5. **Adding shared utilities**: Place reusable Python utilities in `shared/scripts/` or `shared/core/`
 6. **Adding configurations**: Place shared config files in `shared/config/` organized by tool type
 
 ### Installation Script

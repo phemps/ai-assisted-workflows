@@ -1,136 +1,267 @@
 #!/usr/bin/env python3
 """
-Security analysis script: Detect hardcoded secrets and credentials.
-Part of Claude Code Workflows.
+Secrets Detection Analyzer - Hardcoded Credentials and Sensitive Data Scanner
+=============================================================================
+
+PURPOSE: Detects hardcoded secrets, credentials, and sensitive data in source code.
+Part of the shared/analyzers/security suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Pattern-based detection for various secret types
+- API keys, passwords, database URLs
+- JWT secrets, AWS keys, private keys
+- Environment-specific secret detection
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements security-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
 import re
 import sys
-import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.output_formatter import ResultFormatter, AnalysisResult
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class SecretDetector:
-    """Detect hardcoded secrets and credentials in source code."""
+class SecretsDetectionAnalyzer(BaseAnalyzer):
+    """Detects hardcoded secrets and credentials in source code."""
 
-    def __init__(self):
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
-        # Common secret patterns (simplified for prototype)
-        self.patterns = {
-            "password": {
-                "pattern": r'(?i)(password|pwd|pass)\s*[=:]\s*["\']([^"\']{3,})["\']',
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create security-specific configuration
+        security_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".vue",
+                ".xml",
+                ".json",
+                ".yml",
+                ".yaml",
+                ".env",
+                ".properties",
+                ".ini",
+                ".cfg",
+                ".conf",
+                ".toml",
+                ".config",
+                ".sh",
+                ".bash",
+                ".zsh",
+                ".fish",
+                ".ps1",
+                ".bat",
+                ".cmd",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "test_fixtures",
+                "*.min.js",
+                "*.min.css",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("security", security_config)
+
+        # Secret detection patterns
+        self.secret_patterns = {
+            "hardcoded_password": {
+                "patterns": [
+                    r'(?i)(password|passwd|pwd|pass)\s*[=:]\s*["\']([^"\']{3,})["\']',
+                    r'(?i)(password|passwd|pwd|pass)\s*=\s*(?!None|null|undefined|false|true|0|""|\'\'|<|{|\[)([^"\'\s]{3,})',
+                ],
                 "severity": "critical",
-                "description": "Hardcoded password found",
+                "description": "Hardcoded password detected",
+                "recommendation": "Store passwords in environment variables or secure vaults. Never commit passwords to version control.",
             },
             "api_key": {
-                "pattern": r'(?i)(api[_-]?key|apikey|secret[_-]?key)\s*[=:]\s*["\']([^"\']{10,})["\']',
+                "patterns": [
+                    r'(?i)(api[_-]?key|apikey|api[_-]?secret)\s*[=:]\s*["\']([a-zA-Z0-9_\-]{20,})["\']',
+                    r'(?i)(x[_-]?api[_-]?key|api[_-]?token)\s*[=:]\s*["\']([^"\']{10,})["\']',
+                ],
                 "severity": "critical",
                 "description": "Hardcoded API key found",
+                "recommendation": "Move API keys to environment variables or use a secrets management service.",
             },
             "database_url": {
-                "pattern": r'(?i)(database[_-]?url|db[_-]?url|connection[_-]?string)\s*[=:]\s*["\']([^"\']*://[^"\']+)["\']',
+                "patterns": [
+                    r'(?i)(database[_-]?url|db[_-]?url|connection[_-]?string)\s*[=:]\s*["\']([^"\']*://[^"\']+)["\']',
+                    r'(?i)mongodb(?:\+srv)?://[^"\'\s]+',
+                    r'(?i)postgres(?:ql)?://[^"\'\s]+',
+                    r'(?i)mysql://[^"\'\s]+',
+                    r'(?i)redis://[^"\'\s]+',
+                ],
                 "severity": "high",
-                "description": "Database connection string found",
+                "description": "Database connection string with credentials",
+                "recommendation": "Use environment variables for database URLs. Consider using connection pooling with secure credential storage.",
             },
             "jwt_secret": {
-                "pattern": r'(?i)(jwt[_-]?secret|token[_-]?secret)\s*[=:]\s*["\']([^"\']{10,})["\']',
+                "patterns": [
+                    r'(?i)(jwt[_-]?secret|jwt[_-]?key|token[_-]?secret)\s*[=:]\s*["\']([^"\']{10,})["\']',
+                    r'(?i)secret[_-]?key\s*[=:]\s*["\']([^"\']{10,})["\']',
+                ],
                 "severity": "critical",
-                "description": "JWT secret found",
+                "description": "JWT/Token secret exposed",
+                "recommendation": "Generate strong random secrets and store them in environment variables. Rotate secrets regularly.",
             },
-            "aws_key": {
-                "pattern": r'(?i)(aws[_-]?access[_-]?key[_-]?id|access[_-]?key)\s*[=:]\s*["\']([A-Z0-9]{20})["\']',
+            "aws_credentials": {
+                "patterns": [
+                    r'(?i)aws[_-]?access[_-]?key[_-]?id\s*[=:]\s*["\']([A-Z0-9]{20})["\']',
+                    r'(?i)aws[_-]?secret[_-]?access[_-]?key\s*[=:]\s*["\']([A-Za-z0-9/+=]{40})["\']',
+                    r"AKIA[0-9A-Z]{16}",
+                ],
                 "severity": "critical",
-                "description": "AWS access key found",
+                "description": "AWS credentials detected",
+                "recommendation": "Use AWS IAM roles or AWS Secrets Manager. Never commit AWS credentials to source code.",
             },
             "private_key": {
-                "pattern": r"-----BEGIN[A-Z\s]+PRIVATE KEY-----",
+                "patterns": [
+                    r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----",
+                    r"-----BEGIN\s+OPENSSH\s+PRIVATE\s+KEY-----",
+                    r"-----BEGIN\s+DSA\s+PRIVATE\s+KEY-----",
+                    r"-----BEGIN\s+EC\s+PRIVATE\s+KEY-----",
+                    r"-----BEGIN\s+PGP\s+PRIVATE\s+KEY-----",
+                ],
                 "severity": "critical",
-                "description": "Private key found",
+                "description": "Private cryptographic key exposed",
+                "recommendation": "Never commit private keys to version control. Use secure key management systems.",
+            },
+            "github_token": {
+                "patterns": [
+                    r"ghp_[a-zA-Z0-9]{36}",
+                    r"gho_[a-zA-Z0-9]{36}",
+                    r"ghu_[a-zA-Z0-9]{36}",
+                    r"ghs_[a-zA-Z0-9]{36}",
+                    r"ghr_[a-zA-Z0-9]{36}",
+                ],
+                "severity": "critical",
+                "description": "GitHub access token detected",
+                "recommendation": "Revoke this token immediately and use GitHub's encrypted secrets for CI/CD.",
+            },
+            "google_api": {
+                "patterns": [
+                    r"AIza[0-9A-Za-z\-_]{35}",
+                    r'(?i)google[_-]?api[_-]?key\s*[=:]\s*["\']([^"\']{30,})["\']',
+                ],
+                "severity": "high",
+                "description": "Google API key exposed",
+                "recommendation": "Restrict API key usage and store in environment variables.",
+            },
+            "slack_token": {
+                "patterns": [
+                    r"xox[baprs]-[0-9]{10,48}",
+                    r'(?i)slack[_-]?token\s*[=:]\s*["\']([^"\']{30,})["\']',
+                ],
+                "severity": "high",
+                "description": "Slack token detected",
+                "recommendation": "Use OAuth and store tokens securely. Rotate tokens regularly.",
+            },
+            "stripe_key": {
+                "patterns": [
+                    r"sk_live_[0-9a-zA-Z]{24,}",
+                    r"rk_live_[0-9a-zA-Z]{24,}",
+                ],
+                "severity": "critical",
+                "description": "Stripe live API key exposed",
+                "recommendation": "Revoke immediately! Use Stripe's restricted keys and environment variables.",
+            },
+            "oauth_secret": {
+                "patterns": [
+                    r'(?i)(client[_-]?secret|oauth[_-]?secret)\s*[=:]\s*["\']([^"\']{10,})["\']',
+                    r'(?i)(app[_-]?secret|application[_-]?secret)\s*[=:]\s*["\']([^"\']{10,})["\']',
+                ],
+                "severity": "high",
+                "description": "OAuth client secret exposed",
+                "recommendation": "Regenerate client secrets and use secure storage. Implement PKCE for public clients.",
+            },
+            "encryption_key": {
+                "patterns": [
+                    r'(?i)(encryption[_-]?key|encrypt[_-]?key|crypto[_-]?key)\s*[=:]\s*["\']([^"\']{16,})["\']',
+                    r'(?i)(aes[_-]?key|des[_-]?key)\s*[=:]\s*["\']([^"\']{8,})["\']',
+                ],
+                "severity": "critical",
+                "description": "Encryption key exposed",
+                "recommendation": "Use key management services (KMS) and never store encryption keys in code.",
             },
         }
 
-        # File extensions to scan
-        self.code_extensions = {
-            ".py",
-            ".js",
-            ".ts",
-            ".java",
-            ".cs",
-            ".php",
-            ".rb",
-            ".go",
-            ".cpp",
-            ".c",
-            ".h",
-            ".hpp",
-            ".rs",
-            ".swift",
-            ".kt",
+        # Compiled patterns cache
+        self._compiled_patterns = {}
+        self._compile_patterns()
+
+    def _compile_patterns(self):
+        """Pre-compile regex patterns for performance."""
+        for secret_type, config in self.secret_patterns.items():
+            self._compiled_patterns[secret_type] = [
+                re.compile(pattern, re.MULTILINE | re.DOTALL)
+                for pattern in config["patterns"]
+            ]
+
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Secrets Detection Analyzer",
+            "version": "2.0.0",
+            "description": "Detects hardcoded secrets and credentials in source code",
+            "category": "security",
+            "priority": "critical",
+            "capabilities": [
+                "Password detection",
+                "API key scanning",
+                "Private key detection",
+                "Cloud credential scanning",
+                "OAuth secret detection",
+                "Database URL scanning",
+                "JWT secret detection",
+                "Encryption key detection",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "patterns_checked": len(self.secret_patterns),
         }
 
-        # Config file extensions
-        self.config_extensions = {
-            ".json",
-            ".yaml",
-            ".yml",
-            ".toml",
-            ".ini",
-            ".cfg",
-            ".conf",
-            ".xml",
-            ".env",
-            ".properties",
-        }
-
-        # Files to skip
-        self.skip_patterns = {
-            "node_modules",
-            ".git",
-            "__pycache__",
-            ".pytest_cache",
-            "venv",
-            "env",
-            ".venv",
-            "dist",
-            "build",
-            ".next",
-            "coverage",
-            ".nyc_output",
-            "target",
-            "vendor",
-        }
-
-    def should_scan_file(self, file_path: Path) -> bool:
-        """Determine if file should be scanned."""
-        # Skip directories in skip_patterns
-        for part in file_path.parts:
-            if part in self.skip_patterns:
-                return False
-
-        # Check file extension
-        suffix = file_path.suffix.lower()
-        return suffix in self.code_extensions or suffix in self.config_extensions
-
-    def scan_file(self, file_path: Path) -> List[Dict[str, Any]]:
-        """
-        Scan a single file for secrets.
-
-        Returns:
-            List of findings dictionaries
-        """
+    def _scan_file_for_secrets(self, file_path: Path) -> List[Dict[str, Any]]:
+        """Scan a single file for secrets."""
         findings = []
 
         try:
@@ -138,169 +269,183 @@ class SecretDetector:
                 content = f.read()
                 lines = content.split("\n")
 
-                for pattern_name, pattern_info in self.patterns.items():
-                    matches = re.finditer(
-                        pattern_info["pattern"], content, re.MULTILINE
-                    )
+                # Check each secret pattern
+                for secret_type, patterns in self._compiled_patterns.items():
+                    config = self.secret_patterns[secret_type]
 
-                    for match in matches:
-                        # Find line number
-                        line_start = content[: match.start()].count("\n") + 1
+                    for pattern in patterns:
+                        for match in pattern.finditer(content):
+                            # Calculate line number
+                            line_start = content[: match.start()].count("\n") + 1
 
-                        # Get matched secret (group 2 for most patterns)
-                        if match.groups() and len(match.groups()) >= 2:
-                            secret_value = match.group(2)
-                        else:
-                            secret_value = match.group(0)
+                            # Extract the matched value (safely)
+                            matched_groups = match.groups()
+                            if matched_groups:
+                                # Get the last group which is usually the secret value
+                                secret_value = (
+                                    matched_groups[-1]
+                                    if len(matched_groups) > 0
+                                    else match.group(0)
+                                )
+                            else:
+                                secret_value = match.group(0)
 
-                        # Create finding
-                        finding = {
-                            "pattern_type": pattern_name,
-                            "file_path": str(file_path),
-                            "line_number": line_start,
-                            "line_content": (
+                            # Mask the secret value for display
+                            if len(secret_value) > 8:
+                                masked_value = (
+                                    secret_value[:4] + "***" + secret_value[-4:]
+                                )
+                            else:
+                                masked_value = "***"
+
+                            # Get the line content
+                            line_content = (
                                 lines[line_start - 1].strip()
                                 if line_start <= len(lines)
                                 else ""
-                            ),
-                            "matched_value": (
-                                secret_value[:20] + "..."
-                                if len(secret_value) > 20
-                                else secret_value
-                            ),
-                            "severity": pattern_info["severity"],
-                            "description": pattern_info["description"],
-                        }
-                        findings.append(finding)
+                            )
 
-        except Exception:
-            # Log error but continue scanning
-            pass
+                            # Skip false positives
+                            if self._is_false_positive(
+                                line_content, secret_value, secret_type
+                            ):
+                                continue
+
+                            findings.append(
+                                {
+                                    "secret_type": secret_type,
+                                    "file_path": str(file_path),
+                                    "line_number": line_start,
+                                    "line_content": line_content[
+                                        :100
+                                    ],  # Truncate long lines
+                                    "masked_value": masked_value,
+                                    "severity": config["severity"],
+                                    "description": config["description"],
+                                    "recommendation": config["recommendation"],
+                                }
+                            )
+
+        except Exception as e:
+            # Log but continue - file might be binary or inaccessible
+            if self.verbose:
+                print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
 
         return findings
 
-    def scan_directory(self, target_path: str) -> List[Dict[str, Any]]:
+    def _is_false_positive(
+        self, line_content: str, secret_value: str, secret_type: str
+    ) -> bool:
+        """Check if a detected secret is likely a false positive."""
+        # Common false positive patterns
+        false_positive_indicators = [
+            "example",
+            "sample",
+            "test",
+            "demo",
+            "dummy",
+            "placeholder",
+            "your-",
+            "my-",
+            "xxx",
+            "todo",
+            "change-me",
+            "replace",
+            "<",
+            ">",
+            "${",
+            "{{",
+            "process.env",
+            "os.environ",
+            "getenv",
+            "ENV[",
+            "config.",
+            "settings.",
+            "options.",
+        ]
+
+        line_lower = line_content.lower()
+        value_lower = secret_value.lower()
+
+        # Check for placeholder values
+        for indicator in false_positive_indicators:
+            if indicator in value_lower or indicator in line_lower:
+                return True
+
+        # Check for environment variable references
+        if "$" in secret_value or "%" in secret_value:
+            return True
+
+        # Check for obvious non-secrets
+        if secret_value in [
+            "password",
+            "secret",
+            "key",
+            "token",
+            "undefined",
+            "null",
+            "none",
+            "true",
+            "false",
+        ]:
+            return True
+
+        # Check for import/require statements
+        if any(
+            keyword in line_lower
+            for keyword in ["import ", "require(", "from ", "include"]
+        ):
+            return True
+
+        return False
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
-        Scan directory recursively for secrets.
+        Analyze a single file for hardcoded secrets.
 
         Args:
-            target_path: Path to scan
+            target_path: Path to file to analyze
 
         Returns:
-            List of all findings
+            List of findings with standardized structure
         """
         all_findings = []
-        target = Path(target_path)
+        file_path = Path(target_path)
 
-        if target.is_file():
-            if self.should_scan_file(target):
-                all_findings.extend(self.scan_file(target))
-        elif target.is_dir():
-            for file_path in target.rglob("*"):
-                if file_path.is_file() and self.should_scan_file(file_path):
-                    all_findings.extend(self.scan_file(file_path))
+        # Skip files that are too large
+        if file_path.stat().st_size > 1024 * 1024:  # Skip files > 1MB
+            return all_findings
+
+        findings = self._scan_file_for_secrets(file_path)
+
+        # Convert to standardized finding format
+        for finding in findings:
+            standardized = self.create_finding(
+                title=f"{finding['description']}: {finding['secret_type']}",
+                description=f"{finding['description']} in {file_path.name}. "
+                f"Secret type: {finding['secret_type'].replace('_', ' ').title()}. "
+                f"This could lead to unauthorized access if exposed.",
+                severity=finding["severity"],
+                file_path=finding["file_path"],
+                line_number=finding["line_number"],
+                recommendation=finding["recommendation"],
+                metadata={
+                    "secret_type": finding["secret_type"],
+                    "line_content": finding["line_content"],
+                    "masked_value": finding["masked_value"],
+                    "confidence": "high",
+                },
+            )
+            all_findings.append(standardized)
 
         return all_findings
 
-    def analyze(self, target_path: str) -> AnalysisResult:
-        """
-        Main analysis function.
-
-        Args:
-            target_path: Path to analyze
-
-        Returns:
-            AnalysisResult object
-        """
-        start_time = time.time()
-        result = ResultFormatter.create_security_result(
-            "detect_secrets.py", target_path
-        )
-
-        try:
-            # Scan for secrets
-            findings = self.scan_directory(target_path)
-
-            # Convert to Finding objects
-            finding_id = 1
-            for finding_data in findings:
-                finding = ResultFormatter.create_finding(
-                    f"SEC{finding_id:03d}",
-                    f"Hardcoded Secret: {finding_data['pattern_type']}",
-                    finding_data["description"],
-                    finding_data["severity"],
-                    finding_data["file_path"],
-                    finding_data["line_number"],
-                    "Remove hardcoded secrets and use environment variables or secure vaults",
-                    {
-                        "pattern_type": finding_data["pattern_type"],
-                        "line_content": finding_data["line_content"],
-                        "matched_value": finding_data["matched_value"],
-                    },
-                )
-                result.add_finding(finding)
-                finding_id += 1
-
-            # Add metadata
-            result.metadata = {
-                "files_scanned": len(set(f["file_path"] for f in findings)),
-                "patterns_checked": len(self.patterns),
-            }
-
-        except Exception as e:
-            result.set_error(f"Analysis failed: {str(e)}")
-
-        result.set_execution_time(start_time)
-        return result
-
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Detect hardcoded secrets and credentials in source code"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console", "summary"],
-        default="json",
-        help="Output format (default: json)",
-    )
-    parser.add_argument(
-        "--summary",
-        action="store_true",
-        help="Limit output to top 10 critical/high findings for large codebases",
-    )
-    parser.add_argument(
-        "--min-severity",
-        choices=["critical", "high", "medium", "low"],
-        default="low",
-        help="Minimum severity level (default: low)",
-    )
-
-    args = parser.parse_args()
-
-    detector = SecretDetector()
-    result = detector.analyze(args.target_path)
-
-    # Auto-enable summary mode for large result sets
-    if len(result.findings) > 50 and not args.summary:
-        print(
-            f"⚠️ Large result set detected ({len(result.findings)} findings). Consider using --summary flag.",
-            file=sys.stderr,
-        )
-
-    # Output based on format choice
-    if args.output_format == "console":
-        print(ResultFormatter.format_console_output(result))
-    elif args.output_format == "summary":
-        print(result.to_json(summary_mode=True, min_severity=args.min_severity))
-    else:  # json (default)
-        print(result.to_json(summary_mode=args.summary, min_severity=args.min_severity))
-        # Also print console summary to stderr for human readability
-        print(ResultFormatter.format_console_output(result), file=sys.stderr)
+    """Main entry point for command-line usage."""
+    analyzer = SecretsDetectionAnalyzer()
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

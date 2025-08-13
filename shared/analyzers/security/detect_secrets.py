@@ -420,22 +420,22 @@ class SecretsDetectionAnalyzer(BaseAnalyzer):
 
         # Convert to standardized finding format
         for finding in findings:
-            standardized = self.create_finding(
-                title=f"{finding['description']}: {finding['secret_type']}",
-                description=f"{finding['description']} in {file_path.name}. "
+            standardized = {
+                "title": f"{finding['description']}: {finding['secret_type']}",
+                "description": f"{finding['description']} in {file_path.name}. "
                 f"Secret type: {finding['secret_type'].replace('_', ' ').title()}. "
                 f"This could lead to unauthorized access if exposed.",
-                severity=finding["severity"],
-                file_path=finding["file_path"],
-                line_number=finding["line_number"],
-                recommendation=finding["recommendation"],
-                metadata={
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
                     "secret_type": finding["secret_type"],
                     "line_content": finding["line_content"],
                     "masked_value": finding["masked_value"],
                     "confidence": "high",
                 },
-            )
+            }
             all_findings.append(standardized)
 
         return all_findings

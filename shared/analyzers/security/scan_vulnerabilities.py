@@ -1,39 +1,131 @@
 #!/usr/bin/env python3
 """
-Vulnerability Scanning Script
-Analyzes code for OWASP Top 10 vulnerabilities and common security issues.
+Vulnerability Scanner - OWASP Top 10 and Security Pattern Analysis
+==================================================================
+
+PURPOSE: Comprehensive vulnerability scanning for OWASP Top 10 and common security issues.
+Part of the shared/analyzers/security suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- SQL, Command, LDAP, XPath injection detection
+- XSS (Reflected, Stored, DOM) vulnerability scanning
+- Insecure deserialization and XXE detection
+- Cryptographic weakness identification
+- Security misconfiguration detection
+- Data exposure and error disclosure analysis
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements security-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
-import sys
 import re
-import json
-import time
-from typing import Dict, List, Any
+import sys
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 
-# Add utils to path for cross-platform and output_formatter imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.cross_platform import PlatformDetector
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class VulnerabilityScanner:
+class VulnerabilityScanner(BaseAnalyzer):
     """Scans for OWASP Top 10 and common security vulnerabilities."""
 
-    def __init__(self):
-        self.platform = PlatformDetector()
-        self.formatter = ResultFormatter()
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create security-specific configuration
+        security_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".xml",
+                ".html",
+                ".vue",
+                ".svelte",
+                ".sql",
+                ".sh",
+                ".bash",
+                ".ps1",
+                ".bat",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "test_fixtures",
+                "*.min.js",
+                "*.min.css",
+            },
+        )
 
-        # OWASP Top 10 vulnerability patterns
+        # Initialize base analyzer
+        super().__init__("security", security_config)
+
+        # Initialize vulnerability patterns
+        self._init_injection_patterns()
+        self._init_xss_patterns()
+        self._init_deserialization_patterns()
+        self._init_xxe_patterns()
+        self._init_data_exposure_patterns()
+        self._init_misconfiguration_patterns()
+
+        # Compile patterns for performance
+        self._compiled_patterns = {}
+        self._compile_all_patterns()
+
+        # OWASP category mapping
+        self.owasp_categories = {
+            "injection": "A03:2021 – Injection",
+            "xss": "A03:2021 – Injection",
+            "broken_auth": "A07:2021 – Identity and Authentication Failures",
+            "data_exposure": "A02:2021 – Cryptographic Failures",
+            "xxe": "A05:2021 – Security Misconfiguration",
+            "broken_access": "A01:2021 – Broken Access Control",
+            "misconfiguration": "A05:2021 – Security Misconfiguration",
+            "deserialization": "A08:2021 – Software and Data Integrity Failures",
+            "components": "A06:2021 – Vulnerable Components",
+            "logging": "A09:2021 – Security Logging and Monitoring Failures",
+            "ssrf": "A10:2021 – Server-Side Request Forgery",
+        }
+
+    def _init_injection_patterns(self):
+        """Initialize injection vulnerability patterns."""
         self.injection_patterns = {
             "sql_injection": {
                 "indicators": [
@@ -43,9 +135,15 @@ class VulnerabilityScanner:
                     r"SELECT.*\+.*user",
                     r"INSERT.*\+.*request",
                     r"UPDATE.*\+.*input",
+                    r"DELETE.*\+.*param",
+                    r"query.*\+.*\$_(?:GET|POST|REQUEST)",
+                    r"sql.*\.\s*format\s*\(.*user",
+                    r"f['\"].*SELECT.*{.*}",
+                    r"executeQuery.*\+.*request\.get",
                 ],
                 "severity": "critical",
-                "description": "Potential SQL injection vulnerability",
+                "description": "SQL injection vulnerability detected",
+                "recommendation": "Use parameterized queries or prepared statements. Never concatenate user input directly into SQL queries.",
             },
             "command_injection": {
                 "indicators": [
@@ -55,9 +153,14 @@ class VulnerabilityScanner:
                     r"eval\s*\(.*request",
                     r"shell=True.*\+",
                     r"system\(.*\$",
+                    r"Runtime\.getRuntime\(\)\.exec",
+                    r"Process\s*\(.*\+",
+                    r"spawn.*user.*input",
+                    r"shelljs\.exec.*\+",
                 ],
                 "severity": "critical",
-                "description": "Potential command injection vulnerability",
+                "description": "Command injection vulnerability detected",
+                "recommendation": "Avoid system calls with user input. Use safe alternatives or strict input validation and escaping.",
             },
             "ldap_injection": {
                 "indicators": [
@@ -65,9 +168,12 @@ class VulnerabilityScanner:
                     r"ldap.*filter.*user",
                     r"distinguished.*name.*\+",
                     r"ldap.*query.*request",
+                    r"DirectorySearcher.*\+",
+                    r"SearchFilter.*user.*input",
                 ],
                 "severity": "high",
-                "description": "Potential LDAP injection vulnerability",
+                "description": "LDAP injection vulnerability detected",
+                "recommendation": "Use LDAP query parameterization and escape special characters in user input.",
             },
             "xpath_injection": {
                 "indicators": [
@@ -75,12 +181,29 @@ class VulnerabilityScanner:
                     r"xml.*query.*\+",
                     r"xpath.*request",
                     r"xml.*search.*input",
+                    r"selectNodes.*\+",
+                    r"evaluate\(.*\+.*request",
                 ],
                 "severity": "high",
-                "description": "Potential XPath injection vulnerability",
+                "description": "XPath injection vulnerability detected",
+                "recommendation": "Use XPath query parameterization and validate user input.",
+            },
+            "nosql_injection": {
+                "indicators": [
+                    r"find\({.*\$where.*user",
+                    r"collection\.find.*eval",
+                    r"mongo.*\$ne.*user",
+                    r"db\..*\({.*\+.*}",
+                    r"aggregate.*\$.*user.*input",
+                ],
+                "severity": "critical",
+                "description": "NoSQL injection vulnerability detected",
+                "recommendation": "Validate and sanitize user input. Avoid using $where and JavaScript expressions with user data.",
             },
         }
 
+    def _init_xss_patterns(self):
+        """Initialize XSS vulnerability patterns."""
         self.xss_patterns = {
             "reflected_xss": {
                 "indicators": [
@@ -89,240 +212,219 @@ class VulnerabilityScanner:
                     r"response.*write.*request",
                     r"render.*\+.*input",
                     r"html.*\+.*user.*input",
+                    r"echo.*\$_(?:GET|POST|REQUEST)",
+                    r"print.*request\.get",
+                    r"out\.println.*request\.getParameter",
                 ],
                 "severity": "high",
-                "description": "Potential reflected XSS vulnerability",
+                "description": "Reflected XSS vulnerability detected",
+                "recommendation": "Encode user input before rendering. Use Content Security Policy (CSP) headers.",
             },
             "stored_xss": {
                 "indicators": [
                     r"save.*user.*input.*(?!.*escape)",
                     r"store.*user.*data.*(?!.*sanitize)",
                     r"database.*insert.*user.*(?!.*clean)",
-                    r"persist.*user.*content",
+                    r"persist.*request.*(?!.*filter)",
+                    r"write.*file.*user.*input",
                 ],
                 "severity": "high",
-                "description": "Potential stored XSS vulnerability",
+                "description": "Stored XSS vulnerability detected",
+                "recommendation": "Sanitize user input before storing and encode when displaying.",
             },
             "dom_xss": {
                 "indicators": [
-                    r"innerHTML.*location",
-                    r"document\.write.*window",
-                    r"innerHTML.*hash",
-                    r"outerHTML.*search",
+                    r"location\.href\s*=.*user",
+                    r"window\.location\s*=.*input",
+                    r"document\.location\s*=.*request",
+                    r"eval\(.*window\.location",
+                    r"setTimeout\(.*user.*input",
+                    r"setInterval\(.*request",
+                    r"Function\(.*user.*\)",
                 ],
-                "severity": "medium",
-                "description": "Potential DOM-based XSS vulnerability",
+                "severity": "high",
+                "description": "DOM-based XSS vulnerability detected",
+                "recommendation": "Validate and sanitize client-side input. Avoid using eval() and similar functions.",
             },
         }
 
-        self.security_misconfiguration = {
-            "debug_enabled": {
+    def _init_deserialization_patterns(self):
+        """Initialize deserialization vulnerability patterns."""
+        self.deserialization_patterns = {
+            "unsafe_deserialization": {
                 "indicators": [
-                    r"DEBUG\s*=\s*True",
-                    r"debug\s*=\s*true",
-                    r"development.*mode",
-                    r"console\.log.*password",
-                    r"print.*secret",
+                    r"pickle\.loads",
+                    r"yaml\.load(?!.*Loader=yaml\.SafeLoader)",
+                    r"ObjectInputStream",
+                    r"unserialize\(",
+                    r"json\.loads.*eval",
+                    r"readObject\(\)",
+                    r"deserialize.*user.*input",
+                    r"Marshal\.load",
+                    r"JsonConvert\.DeserializeObject.*Type",
                 ],
-                "severity": "medium",
-                "description": "Debug mode enabled or sensitive info logging",
-            },
-            "weak_crypto": {
-                "indicators": [
-                    r"md5\(",
-                    r"sha1\(",
-                    r"DES\(",
-                    r"RC4\(",
-                    r"algorithm.*md5",
-                    r"cipher.*des",
-                ],
-                "severity": "high",
-                "description": "Use of weak cryptographic algorithms",
-            },
-            "insecure_randomness": {
-                "indicators": [
-                    r"random\.random\(\)",
-                    r"Math\.random\(\)",
-                    r"rand\(\)",
-                    r"srand\(",
-                    r"predictable.*random",
-                ],
-                "severity": "medium",
-                "description": "Use of insecure random number generation",
-            },
-            "missing_security_headers": {
-                "indicators": [
-                    r"response\.headers.*(?!.*security)",
-                    r"Content-Security-Policy.*none",
-                    r"X-Frame-Options.*(?!DENY|SAMEORIGIN)",
-                    r"Strict-Transport-Security.*(?!max-age)",
-                ],
-                "severity": "medium",
-                "description": "Missing or weak security headers",
-            },
+                "severity": "critical",
+                "description": "Unsafe deserialization vulnerability detected",
+                "recommendation": "Use safe deserialization methods. Validate and sign serialized objects.",
+            }
         }
 
-        self.sensitive_data_exposure = {
-            "unencrypted_storage": {
+    def _init_xxe_patterns(self):
+        """Initialize XXE vulnerability patterns."""
+        self.xxe_patterns = {
+            "xml_external_entity": {
                 "indicators": [
-                    r"password.*=.*plain",
-                    r"store.*sensitive.*(?!encrypt)",
-                    r"save.*credit.*card.*(?!encrypt)",
-                    r"database.*personal.*(?!encrypt)",
+                    r"XMLReader.*DTD.*VALIDATION",
+                    r"DocumentBuilder.*setExpandEntityReferences.*true",
+                    r"SAXParser.*Feature.*external",
+                    r"etree\.parse.*resolve_entities.*True",
+                    r"LIBXML_NOENT",
+                    r"DOMDocument.*loadXML.*LIBXML",
+                    r"XmlReader.*DtdProcessing\.Parse",
                 ],
                 "severity": "high",
-                "description": "Sensitive data stored without encryption",
+                "description": "XML External Entity (XXE) vulnerability detected",
+                "recommendation": "Disable external entity processing and DTD processing in XML parsers.",
+            }
+        }
+
+    def _init_data_exposure_patterns(self):
+        """Initialize data exposure patterns."""
+        self.data_exposure_patterns = {
+            "error_disclosure": {
+                "indicators": [
+                    r"printStackTrace\(\)",
+                    r"print.*exception.*details",
+                    r"response.*write.*error.*stack",
+                    r"debug\s*=\s*True",
+                    r"display_errors\s*=\s*On",
+                    r"error_reporting\(E_ALL\)",
+                ],
+                "severity": "medium",
+                "description": "Sensitive error information disclosure detected",
+                "recommendation": "Log errors securely and display generic error messages to users.",
             },
             "logs_exposure": {
                 "indicators": [
                     r"log.*password",
-                    r"console.*secret",
-                    r"print.*token",
-                    r"debug.*sensitive",
-                    r"trace.*personal",
-                ],
-                "severity": "medium",
-                "description": "Sensitive data exposed in logs",
-            },
-            "error_disclosure": {
-                "indicators": [
-                    r"Exception.*stack.*trace",
-                    r"error.*full.*path",
-                    r"debug.*info.*production",
-                    r"traceback.*user",
-                ],
-                "severity": "medium",
-                "description": "Information disclosure through error messages",
-            },
-        }
-
-        self.xxe_patterns = {
-            "xml_external_entity": {
-                "indicators": [
-                    r"XMLParser.*resolve.*external",
-                    r"SAXParser.*external.*true",
-                    r"DocumentBuilder.*entity.*true",
-                    r"xml.*external.*entity",
-                    r"<!ENTITY.*SYSTEM",
+                    r"logger.*credit.*card",
+                    r"console\.log.*secret",
+                    r"print.*api.*key",
+                    r"debug.*token",
                 ],
                 "severity": "high",
-                "description": "Potential XML External Entity (XXE) vulnerability",
-            }
-        }
-
-        self.deserialization_patterns = {
-            "unsafe_deserialization": {
+                "description": "Sensitive data in logs detected",
+                "recommendation": "Never log sensitive information like passwords, tokens, or credit card numbers.",
+            },
+            "unencrypted_storage": {
                 "indicators": [
-                    r"pickle\.loads\(",
-                    r"cPickle\.loads\(",
-                    r"marshal\.loads\(",
-                    r"eval\(.*request",
-                    r"exec\(.*user",
-                    r"yaml\.load\(.*(?!Loader=yaml\.SafeLoader)",
+                    r"password.*plain.*text",
+                    r"store.*credit.*card.*(?!.*encrypt)",
+                    r"save.*ssn.*(?!.*hash)",
+                    r"database.*password.*varchar",
                 ],
                 "severity": "critical",
-                "description": "Unsafe deserialization vulnerability",
-            }
+                "description": "Unencrypted sensitive data storage detected",
+                "recommendation": "Encrypt sensitive data at rest using strong encryption algorithms.",
+            },
         }
 
-    def scan_vulnerabilities(
-        self, target_path: str, min_severity: str = "low"
-    ) -> Dict[str, Any]:
-        """Scan for vulnerabilities in the target path."""
+    def _init_misconfiguration_patterns(self):
+        """Initialize misconfiguration patterns."""
+        self.misconfiguration_patterns = {
+            "weak_crypto": {
+                "indicators": [
+                    r"MD5\(",
+                    r"SHA1\(",
+                    r"DES\.",
+                    r"RC4",
+                    r"crypto.*ECB",
+                    r"Random\(\)(?!.*crypto)",
+                    r"math\.random.*password",
+                    r"rand\(\).*token",
+                ],
+                "severity": "high",
+                "description": "Weak cryptographic algorithm detected",
+                "recommendation": "Use strong cryptographic algorithms (AES-256, SHA-256+, etc.)",
+            },
+            "insecure_randomness": {
+                "indicators": [
+                    r"Random\(\).*(?:password|token|secret)",
+                    r"math\.random.*(?:password|token|key)",
+                    r"rand\(\).*(?:session|auth)",
+                    r"mt_rand.*security",
+                ],
+                "severity": "high",
+                "description": "Insecure random number generation detected",
+                "recommendation": "Use cryptographically secure random number generators.",
+            },
+            "missing_security_headers": {
+                "indicators": [
+                    r"response\.setHeader.*(?!.*X-Frame-Options)",
+                    r"header\(.*(?!.*Content-Security-Policy)",
+                    r"HttpResponse.*(?!.*X-Content-Type-Options)",
+                ],
+                "severity": "medium",
+                "description": "Missing security headers detected",
+                "recommendation": "Implement security headers: CSP, X-Frame-Options, X-Content-Type-Options, etc.",
+            },
+            "debug_enabled": {
+                "indicators": [
+                    r"DEBUG\s*=\s*(?:True|true|1)",
+                    r"app\.debug\s*=\s*True",
+                    r"WP_DEBUG.*true",
+                    r"FLASK_DEBUG\s*=\s*1",
+                    r"NODE_ENV.*development",
+                ],
+                "severity": "medium",
+                "description": "Debug mode enabled in production code",
+                "recommendation": "Disable debug mode in production environments.",
+            },
+        }
 
-        start_time = time.time()
-        result = ResultFormatter.create_security_result(
-            "scan_vulnerabilities.py", target_path
-        )
+    def _compile_all_patterns(self):
+        """Compile all regex patterns for performance."""
+        pattern_groups = [
+            self.injection_patterns,
+            self.xss_patterns,
+            self.deserialization_patterns,
+            self.xxe_patterns,
+            self.data_exposure_patterns,
+            self.misconfiguration_patterns,
+        ]
 
-        if not os.path.exists(target_path):
-            result.set_error(f"Path does not exist: {target_path}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
+        for patterns in pattern_groups:
+            for vuln_type, config in patterns.items():
+                self._compiled_patterns[vuln_type] = [
+                    re.compile(pattern, re.MULTILINE | re.IGNORECASE)
+                    for pattern in config["indicators"]
+                ]
 
-        vulnerability_summary = defaultdict(int)
-        file_count = 0
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Vulnerability Scanner",
+            "version": "2.0.0",
+            "description": "Comprehensive OWASP Top 10 vulnerability scanner",
+            "category": "security",
+            "priority": "critical",
+            "capabilities": [
+                "SQL/NoSQL injection detection",
+                "Command injection detection",
+                "XSS vulnerability scanning",
+                "XXE vulnerability detection",
+                "Unsafe deserialization detection",
+                "Cryptographic weakness identification",
+                "Security misconfiguration detection",
+                "Sensitive data exposure analysis",
+                "OWASP Top 10 mapping",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "patterns_checked": len(self._compiled_patterns),
+        }
 
-        try:
-            # Walk through all files using universal exclusion system
-            exclude_dirs = self.tech_detector.get_simple_exclusions(target_path)[
-                "directories"
-            ]
-
-            for root, dirs, files in os.walk(target_path):
-                # Filter directories using universal exclusion system
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    # Use universal exclusion system
-                    if self.tech_detector.should_analyze_file(
-                        file_path, target_path
-                    ) and self._should_analyze_file(file):
-                        relative_path = os.path.relpath(file_path, target_path)
-
-                        try:
-                            file_findings = self._analyze_file_vulnerabilities(
-                                file_path, relative_path
-                            )
-                            file_count += 1
-
-                            # Convert findings to Finding objects
-                            for finding_data in file_findings:
-                                finding = ResultFormatter.create_finding(
-                                    finding_id=f"VULN_{vulnerability_summary[finding_data['vuln_type']] + 1:03d}",
-                                    title=finding_data["vuln_type"]
-                                    .replace("_", " ")
-                                    .title(),
-                                    description=finding_data["message"],
-                                    severity=finding_data["severity"],
-                                    file_path=finding_data["file"],
-                                    line_number=finding_data["line"],
-                                    recommendation=self._get_vulnerability_recommendation(
-                                        finding_data["vuln_type"]
-                                    ),
-                                    evidence={
-                                        "context": finding_data.get("context", ""),
-                                        "category": finding_data.get(
-                                            "category", "vulnerability"
-                                        ),
-                                        "owasp_category": finding_data.get(
-                                            "owasp_category", "unknown"
-                                        ),
-                                    },
-                                )
-                                result.add_finding(finding)
-                                vulnerability_summary[finding_data["vuln_type"]] += 1
-
-                        except Exception as e:
-                            error_finding = ResultFormatter.create_finding(
-                                finding_id=f"ERROR_{file_count:03d}",
-                                title="Analysis Error",
-                                description=f"Error analyzing file: {str(e)}",
-                                severity="low",
-                                file_path=relative_path,
-                                line_number=0,
-                            )
-                            result.add_finding(error_finding)
-
-            # Generate analysis summary
-            analysis_summary = self._generate_vulnerability_summary(
-                vulnerability_summary, file_count
-            )
-            result.metadata = analysis_summary
-
-            result.set_execution_time(start_time)
-            return result.to_dict(min_severity=min_severity)
-
-        except Exception as e:
-            result.set_error(f"Vulnerability scanning failed: {str(e)}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
-
-    def _analyze_file_vulnerabilities(
-        self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
-        """Analyze vulnerabilities in a single file."""
+    def _scan_file_for_vulnerabilities(self, file_path: Path) -> List[Dict[str, Any]]:
+        """Scan a single file for vulnerabilities."""
         findings = []
 
         try:
@@ -330,419 +432,196 @@ class VulnerabilityScanner:
                 content = f.read()
                 lines = content.split("\n")
 
-            # Check injection vulnerabilities
-            findings.extend(
-                self._check_vulnerability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.injection_patterns,
-                    "injection",
-                    "A03:2021 – Injection",
-                )
-            )
+                # Check all vulnerability patterns
+                pattern_groups = [
+                    ("injection", self.injection_patterns),
+                    ("xss", self.xss_patterns),
+                    ("deserialization", self.deserialization_patterns),
+                    ("xxe", self.xxe_patterns),
+                    ("data_exposure", self.data_exposure_patterns),
+                    ("misconfiguration", self.misconfiguration_patterns),
+                ]
 
-            # Check XSS vulnerabilities
-            findings.extend(
-                self._check_vulnerability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.xss_patterns,
-                    "xss",
-                    "A03:2021 – Injection",
-                )
-            )
+                for category, patterns in pattern_groups:
+                    for vuln_type, config in patterns.items():
+                        compiled_patterns = self._compiled_patterns.get(vuln_type, [])
 
-            # Check security misconfiguration
-            findings.extend(
-                self._check_vulnerability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.security_misconfiguration,
-                    "misconfiguration",
-                    "A05:2021 – Security Misconfiguration",
-                )
-            )
+                        for pattern in compiled_patterns:
+                            for match in pattern.finditer(content):
+                                # Calculate line number
+                                line_number = content[: match.start()].count("\n") + 1
 
-            # Check sensitive data exposure
-            findings.extend(
-                self._check_vulnerability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.sensitive_data_exposure,
-                    "data_exposure",
-                    "A02:2021 – Cryptographic Failures",
-                )
-            )
+                                # Get the matched line
+                                line_content = (
+                                    lines[line_number - 1].strip()
+                                    if line_number <= len(lines)
+                                    else ""
+                                )
 
-            # Check XXE vulnerabilities
-            findings.extend(
-                self._check_vulnerability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.xxe_patterns,
-                    "xxe",
-                    "A05:2021 – Security Misconfiguration",
-                )
-            )
+                                # Skip false positives
+                                if self._is_false_positive(line_content, vuln_type):
+                                    continue
 
-            # Check deserialization vulnerabilities
-            findings.extend(
-                self._check_vulnerability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.deserialization_patterns,
-                    "deserialization",
-                    "A08:2021 – Software and Data Integrity Failures",
-                )
-            )
+                                # Get OWASP category
+                                owasp_category = self.owasp_categories.get(
+                                    category, "Security Issue"
+                                )
+
+                                findings.append(
+                                    {
+                                        "vuln_type": vuln_type,
+                                        "category": category,
+                                        "file_path": str(file_path),
+                                        "line_number": line_number,
+                                        "line_content": line_content[
+                                            :200
+                                        ],  # Truncate long lines
+                                        "severity": config["severity"],
+                                        "description": config["description"],
+                                        "recommendation": config["recommendation"],
+                                        "owasp_category": owasp_category,
+                                        "pattern_matched": pattern.pattern[
+                                            :100
+                                        ],  # Store pattern for debugging
+                                    }
+                                )
 
         except Exception as e:
-            findings.append(
-                {
-                    "file": relative_path,
-                    "line": 0,
-                    "vuln_type": "file_error",
-                    "severity": "low",
-                    "message": f"Could not analyze file: {str(e)}",
-                    "category": "analysis",
-                    "owasp_category": "N/A",
-                }
+            # Log but continue - file might be binary or inaccessible
+            if self.verbose:
+                print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
+
+        return findings
+
+    def _is_false_positive(self, line_content: str, vuln_type: str) -> bool:
+        """Check if a detected vulnerability is likely a false positive."""
+        line_lower = line_content.lower()
+
+        # Skip comments
+        comment_indicators = ["//", "#", "/*", "*", "<!--", "'''", '"""']
+        for indicator in comment_indicators:
+            if line_content.strip().startswith(indicator):
+                return True
+
+        # Skip test/example code
+        if any(
+            word in line_lower for word in ["test", "example", "sample", "demo", "mock"]
+        ):
+            return True
+
+        # Skip import statements
+        if any(
+            keyword in line_lower
+            for keyword in ["import ", "require(", "from ", "include"]
+        ):
+            if "sql" not in vuln_type:  # SQL imports might still be vulnerable
+                return True
+
+        # Skip documentation
+        if any(
+            word in line_lower
+            for word in ["@param", "@return", "docstring", "@example"]
+        ):
+            return True
+
+        return False
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for vulnerabilities.
+
+        Args:
+            target_path: Path to file to analyze
+
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
+
+        # Skip files that are too large
+        if file_path.stat().st_size > 2 * 1024 * 1024:  # Skip files > 2MB
+            return all_findings
+
+        findings = self._scan_file_for_vulnerabilities(file_path)
+
+        # Convert to standardized finding format
+        for finding in findings:
+            # Create detailed title
+            title = f"{finding['description']} ({finding['vuln_type'].replace('_', ' ').title()})"
+
+            # Create comprehensive description
+            description = (
+                f"{finding['description']} in {file_path.name} at line {finding['line_number']}. "
+                f"Category: {finding['owasp_category']}. "
+                f"This vulnerability could allow attackers to compromise the application's security."
             )
 
-        return findings
+            standardized = {
+                "title": title,
+                "description": description,
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
+                    "vuln_type": finding["vuln_type"],
+                    "category": finding["category"],
+                    "owasp_category": finding["owasp_category"],
+                    "line_content": finding["line_content"],
+                    "pattern_matched": finding["pattern_matched"],
+                    "confidence": "high",
+                },
+            }
+            all_findings.append(standardized)
 
-    def _check_vulnerability_patterns(
-        self,
-        content: str,
-        lines: List[str],
-        file_path: str,
-        pattern_dict: Dict,
-        category: str,
-        owasp_category: str,
-    ) -> List[Dict[str, Any]]:
-        """Check for specific vulnerability patterns in file content."""
-        findings = []
+        return all_findings
 
-        for pattern_name, pattern_info in pattern_dict.items():
-            for indicator in pattern_info["indicators"]:
-                matches = re.finditer(indicator, content, re.MULTILINE | re.IGNORECASE)
-                for match in matches:
-                    line_num = content[: match.start()].count("\n") + 1
+    def generate_summary_stats(self, findings: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate summary statistics for vulnerabilities found."""
+        if not findings:
+            return {
+                "total_vulnerabilities": 0,
+                "severity_breakdown": {},
+                "vulnerability_types": {},
+                "owasp_categories": {},
+                "security_score": 100.0,
+            }
 
-                    findings.append(
-                        {
-                            "file": file_path,
-                            "line": line_num,
-                            "vuln_type": f"{category}_{pattern_name}",
-                            "severity": pattern_info["severity"],
-                            "message": f"{pattern_info['description']} ({pattern_name})",
-                            "context": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
-                            ),
-                            "category": category,
-                            "owasp_category": owasp_category,
-                        }
-                    )
+        # Count by severity
+        severity_counts = defaultdict(int)
+        vuln_type_counts = defaultdict(int)
+        owasp_counts = defaultdict(int)
 
-        return findings
+        for finding in findings:
+            metadata = finding.get("metadata", {})
+            severity_counts[finding["severity"]] += 1
+            vuln_type_counts[metadata.get("vuln_type", "unknown")] += 1
+            owasp_counts[metadata.get("owasp_category", "Unknown")] += 1
 
-    def _get_vulnerability_recommendation(self, vuln_type: str) -> str:
-        """Get specific recommendations for vulnerabilities."""
-        recommendations = {
-            "injection_sql_injection": "Use parameterized queries or prepared statements",
-            "injection_command_injection": "Validate input and avoid system calls with user data",
-            "injection_ldap_injection": "Use parameterized LDAP queries and input validation",
-            "injection_xpath_injection": "Use parameterized XPath queries and input sanitization",
-            "xss_reflected_xss": "Sanitize and encode user input before rendering",
-            "xss_stored_xss": "Validate, sanitize, and encode data before storage and display",
-            "xss_dom_xss": "Use safe DOM manipulation methods and validate client-side input",
-            "misconfiguration_debug_enabled": "Disable debug mode in production environments",
-            "misconfiguration_weak_crypto": "Use strong cryptographic algorithms (AES, SHA-256+)",
-            "misconfiguration_insecure_randomness": "Use cryptographically secure random generators",
-            "misconfiguration_missing_security_headers": "Implement security headers (CSP, HSTS, X-Frame-Options)",
-            "data_exposure_unencrypted_storage": "Encrypt sensitive data at rest",
-            "data_exposure_logs_exposure": "Remove sensitive data from logs and debug output",
-            "data_exposure_error_disclosure": "Use generic error messages in production",
-            "xxe_xml_external_entity": "Disable XML external entity processing",
-            "deserialization_unsafe_deserialization": "Validate serialized data and use safe deserialization methods",
-        }
-        return recommendations.get(vuln_type, "Review code for security best practices")
-
-    def _generate_vulnerability_summary(
-        self, vulnerability_summary: Dict, file_count: int
-    ) -> Dict[str, Any]:
-        """Generate summary of vulnerability scanning."""
-
-        # Categorize vulnerabilities by OWASP Top 10
-        owasp_categories = {
-            "A01:2021 – Broken Access Control": [
-                "missing_authorization",
-                "privilege_escalation",
-            ],
-            "A02:2021 – Cryptographic Failures": ["weak_crypto", "unencrypted_storage"],
-            "A03:2021 – Injection": [
-                "sql_injection",
-                "command_injection",
-                "ldap_injection",
-                "xpath_injection",
-                "reflected_xss",
-                "stored_xss",
-                "dom_xss",
-            ],
-            "A04:2021 – Insecure Design": ["insecure_randomness"],
-            "A05:2021 – Security Misconfiguration": [
-                "debug_enabled",
-                "missing_security_headers",
-                "xml_external_entity",
-            ],
-            "A06:2021 – Vulnerable Components": [],
-            "A07:2021 – Identity and Authentication Failures": [],
-            "A08:2021 – Software and Data Integrity Failures": [
-                "unsafe_deserialization"
-            ],
-            "A09:2021 – Security Logging and Monitoring Failures": [
-                "logs_exposure",
-                "error_disclosure",
-            ],
-            "A10:2021 – Server-Side Request Forgery": [],
-        }
-
-        total_issues = sum(vulnerability_summary.values())
-        severity_counts = self._count_by_severity(vulnerability_summary)
+        # Calculate security score (0-100, higher is better)
+        score_weights = {"critical": 20, "high": 10, "medium": 5, "low": 2}
+        total_weight = sum(
+            score_weights.get(sev, 1) * count for sev, count in severity_counts.items()
+        )
+        security_score = max(0, 100 - total_weight)
 
         return {
-            "total_files_analyzed": file_count,
-            "total_vulnerabilities": total_issues,
-            "vulnerabilities_by_owasp_category": {
-                category: {
-                    "count": sum(
-                        vulnerability_summary.get(f"{cat}_{vuln}", 0)
-                        for cat in [
-                            "injection",
-                            "xss",
-                            "misconfiguration",
-                            "data_exposure",
-                            "xxe",
-                            "deserialization",
-                        ]
-                        for vuln in vulns
-                    ),
-                    "vulnerabilities": {
-                        vuln: vulnerability_summary.get(f"{cat}_{vuln}", 0)
-                        for cat in [
-                            "injection",
-                            "xss",
-                            "misconfiguration",
-                            "data_exposure",
-                            "xxe",
-                            "deserialization",
-                        ]
-                        for vuln in vulns
-                        if vulnerability_summary.get(f"{cat}_{vuln}", 0) > 0
-                    },
-                }
-                for category, vulns in owasp_categories.items()
-            },
-            "severity_breakdown": severity_counts,
-            "security_score": self._calculate_security_score(total_issues, file_count),
-            "critical_vulnerabilities": self._get_critical_vulnerabilities(
-                vulnerability_summary
-            ),
-            "recommendations": self._generate_priority_recommendations(
-                vulnerability_summary
-            ),
+            "total_vulnerabilities": len(findings),
+            "severity_breakdown": dict(severity_counts),
+            "vulnerability_types": dict(vuln_type_counts),
+            "owasp_categories": dict(owasp_counts),
+            "security_score": round(security_score, 1),
+            "critical_count": severity_counts.get("critical", 0),
+            "high_count": severity_counts.get("high", 0),
         }
-
-    def _count_by_severity(self, vulnerability_summary: Dict) -> Dict[str, int]:
-        """Count vulnerabilities by severity level."""
-        severity_mapping = {
-            "critical": [
-                "sql_injection",
-                "command_injection",
-                "unsafe_deserialization",
-            ],
-            "high": [
-                "ldap_injection",
-                "xpath_injection",
-                "reflected_xss",
-                "stored_xss",
-                "weak_crypto",
-                "unencrypted_storage",
-                "xml_external_entity",
-            ],
-            "medium": [
-                "dom_xss",
-                "debug_enabled",
-                "insecure_randomness",
-                "missing_security_headers",
-                "logs_exposure",
-                "error_disclosure",
-            ],
-            "low": ["file_error"],
-        }
-
-        counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-        for vuln, count in vulnerability_summary.items():
-            vuln_name = vuln.split("_", 1)[-1]  # Remove category prefix
-            for severity, patterns in severity_mapping.items():
-                if vuln_name in patterns:
-                    counts[severity] += count
-                    break
-
-        return counts
-
-    def _calculate_security_score(self, total_issues: int, file_count: int) -> float:
-        """Calculate a security score (0-100, higher is better)."""
-        if file_count == 0:
-            return 100.0
-
-        issue_density = total_issues / file_count
-        # Score decreases with issue density, with critical issues having heavy impact
-        score = max(0, 100 - (issue_density * 20))
-        return round(score, 1)
-
-    def _get_critical_vulnerabilities(
-        self, vulnerability_summary: Dict
-    ) -> List[Dict[str, Any]]:
-        """Get critical vulnerabilities requiring immediate attention."""
-        critical_patterns = [
-            "sql_injection",
-            "command_injection",
-            "unsafe_deserialization",
-        ]
-        critical_vulns = []
-
-        for vuln, count in vulnerability_summary.items():
-            vuln_name = vuln.split("_", 1)[-1]
-            if vuln_name in critical_patterns and count > 0:
-                critical_vulns.append(
-                    {
-                        "vulnerability": vuln.replace("_", " ").title(),
-                        "count": count,
-                        "severity": "critical",
-                    }
-                )
-
-        return critical_vulns
-
-    def _generate_priority_recommendations(
-        self, vulnerability_summary: Dict
-    ) -> List[str]:
-        """Generate priority recommendations based on findings."""
-        recommendations = []
-
-        # Critical vulnerabilities first
-        if any("sql_injection" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "CRITICAL: Fix SQL injection vulnerabilities with parameterized queries"
-            )
-        if any("command_injection" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "CRITICAL: Fix command injection by validating input and avoiding system calls"
-            )
-        if any("unsafe_deserialization" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "CRITICAL: Replace unsafe deserialization with safe alternatives"
-            )
-
-        # High priority vulnerabilities
-        if any("xss" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "HIGH: Implement proper input sanitization to prevent XSS"
-            )
-        if any("weak_crypto" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "HIGH: Replace weak cryptographic algorithms with strong alternatives"
-            )
-
-        # General recommendations
-        total_issues = sum(vulnerability_summary.values())
-        if total_issues > 20:
-            recommendations.append(
-                "Consider comprehensive security audit and code review"
-            )
-
-        return recommendations[:5]
-
-    def _should_analyze_file(self, filename: str) -> bool:
-        """Check if file should be analyzed."""
-        analyze_extensions = {
-            ".py",
-            ".js",
-            ".ts",
-            ".jsx",
-            ".tsx",
-            ".java",
-            ".cs",
-            ".cpp",
-            ".c",
-            ".h",
-            ".hpp",
-            ".go",
-            ".rs",
-            ".php",
-            ".rb",
-            ".swift",
-            ".kt",
-            ".scala",
-            ".xml",
-            ".html",
-        }
-        return any(filename.endswith(ext) for ext in analyze_extensions)
 
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Scan for OWASP Top 10 vulnerabilities in codebase"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--min-severity",
-        choices=["low", "medium", "high", "critical"],
-        default="low",
-        help="Minimum severity level to report",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format",
-    )
-
-    args = parser.parse_args()
-
-    scanner = VulnerabilityScanner()
-    result = scanner.scan_vulnerabilities(args.target_path, args.min_severity)
-
-    if args.output_format == "console":
-        # Simple console output
-        if result.get("success", False):
-            print(f"Vulnerability Scan Results for: {args.target_path}")
-            print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
-            print(f"Execution Time: {result.get('execution_time', 0)}s")
-            print(f"\nFindings: {len(result.get('findings', []))}")
-            for finding in result.get("findings", []):
-                file_path = finding.get("file_path", "unknown")
-                line = finding.get("line_number", 0)
-                desc = finding.get("description", "No description")
-                severity = finding.get("severity", "unknown")
-                print(f"  {file_path}:{line} - {desc} [{severity}]")
-        else:
-            error_msg = result.get("error_message", "Unknown error")
-            print(f"Error: {error_msg}")
-    else:  # json (default)
-        print(json.dumps(result, indent=2))
+    """Main entry point for command-line usage."""
+    analyzer = VulnerabilityScanner()
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

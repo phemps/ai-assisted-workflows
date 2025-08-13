@@ -1,40 +1,113 @@
 #!/usr/bin/env python3
 """
-Performance Bottleneck Analysis Script
-Analyzes code for CPU/memory performance bottlenecks and resource usage patterns.
+Bottleneck Performance Analyzer - Performance Bottleneck Detection and Analysis
+================================================================================
+
+PURPOSE: Analyzes code for CPU/memory performance bottlenecks and resource usage patterns.
+Part of the shared/analyzers/performance suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- CPU bottleneck detection (inefficient loops, blocking operations)
+- Memory bottleneck analysis (leaks, large object creation)
+- Algorithm complexity analysis (O(n²) patterns)
+- Database bottleneck detection (N+1 queries)
+- Concurrency bottleneck identification (race conditions, deadlocks)
+- Python-specific performance patterns
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements performance-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
-import sys
 import re
-import json
-import time
+import sys
 import ast
-from typing import Dict, List, Any
-from collections import defaultdict
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 
-# Add utils to path for cross-platform and output_formatter imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.cross_platform import PlatformDetector
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class BottleneckAnalyzer:
+class BottleneckAnalyzer(BaseAnalyzer):
     """Analyzes performance bottlenecks and resource usage patterns."""
 
-    def __init__(self):
-        self.platform = PlatformDetector()
-        self.formatter = ResultFormatter()
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create performance-specific configuration
+        performance_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".go",
+                ".rs",
+                ".php",
+                ".rb",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".sql",
+                ".vue",
+                ".svelte",
+                ".dart",
+                ".clj",
+                ".fs",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "*.min.js",
+                "*.min.css",
+                "*.bundle.js",
+                "*.chunk.js",
+                ".d.ts",
+            },
+        )
 
-        # CPU bottleneck patterns
+        # Initialize base analyzer
+        super().__init__("performance", performance_config)
+
+        # Initialize bottleneck patterns
+        self._init_cpu_patterns()
+        self._init_memory_patterns()
+        self._init_algorithm_patterns()
+        self._init_database_patterns()
+        self._init_concurrency_patterns()
+
+        # Compile patterns for performance
+        self._compiled_patterns = {}
+        self._compile_all_patterns()
+
+    def _init_cpu_patterns(self):
+        """Initialize CPU bottleneck patterns."""
         self.cpu_patterns = {
             "inefficient_loops": {
                 "indicators": [
@@ -82,7 +155,8 @@ class BottleneckAnalyzer:
             },
         }
 
-        # Memory bottleneck patterns
+    def _init_memory_patterns(self):
+        """Initialize memory bottleneck patterns."""
         self.memory_patterns = {
             "memory_leaks": {
                 "indicators": [
@@ -129,7 +203,8 @@ class BottleneckAnalyzer:
             },
         }
 
-        # Algorithm complexity patterns
+    def _init_algorithm_patterns(self):
+        """Initialize algorithm complexity patterns."""
         self.algorithm_patterns = {
             "quadratic_complexity": {
                 "indicators": [
@@ -163,7 +238,8 @@ class BottleneckAnalyzer:
             },
         }
 
-        # Database bottleneck patterns
+    def _init_database_patterns(self):
+        """Initialize database bottleneck patterns."""
         self.database_patterns = {
             "n_plus_one_queries": {
                 "indicators": [
@@ -198,7 +274,8 @@ class BottleneckAnalyzer:
             },
         }
 
-        # Concurrency bottleneck patterns
+    def _init_concurrency_patterns(self):
+        """Initialize concurrency bottleneck patterns."""
         self.concurrency_patterns = {
             "race_conditions": {
                 "indicators": [
@@ -232,103 +309,96 @@ class BottleneckAnalyzer:
             },
         }
 
-    def analyze_bottlenecks(
-        self, target_path: str, min_severity: str = "low"
-    ) -> Dict[str, Any]:
-        """Analyze performance bottlenecks in the target path."""
+    def _compile_all_patterns(self):
+        """Compile all regex patterns for performance."""
+        pattern_groups = [
+            self.cpu_patterns,
+            self.memory_patterns,
+            self.algorithm_patterns,
+            self.database_patterns,
+            self.concurrency_patterns,
+        ]
 
-        start_time = time.time()
-        result = ResultFormatter.create_performance_result(
-            "check_bottlenecks.py", target_path
-        )
+        for patterns in pattern_groups:
+            for bottleneck_type, config in patterns.items():
+                self._compiled_patterns[bottleneck_type] = [
+                    re.compile(pattern, re.MULTILINE | re.IGNORECASE)
+                    for pattern in config["indicators"]
+                ]
 
-        if not os.path.exists(target_path):
-            result.set_error(f"Path does not exist: {target_path}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Bottleneck Performance Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes performance bottlenecks and resource usage patterns",
+            "category": "performance",
+            "priority": "high",
+            "capabilities": [
+                "CPU bottleneck detection",
+                "Memory leak analysis",
+                "Algorithm complexity analysis",
+                "Database N+1 query detection",
+                "Concurrency issue detection",
+                "Python AST analysis",
+                "Resource usage pattern analysis",
+                "Performance score calculation",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "patterns_checked": len(self._compiled_patterns),
+        }
 
-        bottleneck_summary = defaultdict(int)
-        file_count = 0
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for performance bottlenecks.
 
-        try:
-            # Walk through all files using universal exclusion system
-            exclude_dirs = self.tech_detector.get_simple_exclusions(target_path)[
-                "directories"
-            ]
+        Args:
+            target_path: Path to file to analyze
 
-            for root, dirs, files in os.walk(target_path):
-                # Filter directories using universal exclusion system
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
 
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    # Use universal exclusion system
-                    if self.tech_detector.should_analyze_file(
-                        file_path, target_path
-                    ) and self._should_analyze_file(file):
-                        relative_path = os.path.relpath(file_path, target_path)
+        # Skip files that are too large
+        if file_path.stat().st_size > 2 * 1024 * 1024:  # Skip files > 2MB
+            return all_findings
 
-                        try:
-                            file_findings = self._analyze_file_bottlenecks(
-                                file_path, relative_path
-                            )
-                            file_count += 1
+        findings = self._scan_file_for_bottlenecks(file_path)
 
-                            # Convert findings to Finding objects
-                            for finding_data in file_findings:
-                                finding = ResultFormatter.create_finding(
-                                    finding_id=f"BOTTLENECK_{bottleneck_summary[finding_data['bottleneck_type']] + 1:03d}",
-                                    title=finding_data["bottleneck_type"]
-                                    .replace("_", " ")
-                                    .title(),
-                                    description=finding_data["message"],
-                                    severity=finding_data["severity"],
-                                    file_path=finding_data["file"],
-                                    line_number=finding_data["line"],
-                                    recommendation=self._get_bottleneck_recommendation(
-                                        finding_data["bottleneck_type"]
-                                    ),
-                                    evidence={
-                                        "context": finding_data.get("context", ""),
-                                        "category": finding_data.get(
-                                            "category", "performance_bottleneck"
-                                        ),
-                                        "performance_impact": finding_data.get(
-                                            "performance_impact", "unknown"
-                                        ),
-                                    },
-                                )
-                                result.add_finding(finding)
-                                bottleneck_summary[finding_data["bottleneck_type"]] += 1
+        # Convert to standardized finding format
+        for finding in findings:
+            # Create detailed title
+            title = f"{finding['description']} ({finding['bottleneck_type'].replace('_', ' ').title()})"
 
-                        except Exception as e:
-                            error_finding = ResultFormatter.create_finding(
-                                finding_id=f"ERROR_{file_count:03d}",
-                                title="Analysis Error",
-                                description=f"Error analyzing file: {str(e)}",
-                                severity="low",
-                                file_path=relative_path,
-                                line_number=0,
-                            )
-                            result.add_finding(error_finding)
-
-            # Generate analysis summary
-            analysis_summary = self._generate_bottleneck_summary(
-                bottleneck_summary, file_count
+            # Create comprehensive description
+            description = (
+                f"{finding['description']} detected in {file_path.name} at line {finding['line_number']}. "
+                f"Category: {finding['category'].replace('_', ' ').title()}. "
+                f"This performance bottleneck could impact {finding['performance_impact'].replace('_', ' ')} and overall system performance."
             )
-            result.metadata = analysis_summary
 
-            result.set_execution_time(start_time)
-            return result.to_dict(min_severity=min_severity)
+            standardized = {
+                "title": title,
+                "description": description,
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
+                    "bottleneck_type": finding["bottleneck_type"],
+                    "category": finding["category"],
+                    "performance_impact": finding["performance_impact"],
+                    "line_content": finding["context"],
+                    "confidence": "high",
+                },
+            }
+            all_findings.append(standardized)
 
-        except Exception as e:
-            result.set_error(f"Bottleneck analysis failed: {str(e)}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
+        return all_findings
 
-    def _analyze_file_bottlenecks(
-        self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
+    def _scan_file_for_bottlenecks(self, file_path: Path) -> List[Dict[str, Any]]:
         """Analyze performance bottlenecks in a single file."""
         findings = []
 
@@ -337,123 +407,111 @@ class BottleneckAnalyzer:
                 content = f.read()
                 lines = content.split("\n")
 
-            # Check CPU bottleneck patterns
-            findings.extend(
-                self._check_bottleneck_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.cpu_patterns,
-                    "cpu",
-                    "cpu_performance",
-                )
-            )
+            # Check all bottleneck patterns
+            pattern_groups = [
+                ("cpu", self.cpu_patterns, "cpu_performance"),
+                ("memory", self.memory_patterns, "memory_usage"),
+                ("algorithm", self.algorithm_patterns, "algorithm_efficiency"),
+                ("database", self.database_patterns, "database_performance"),
+                ("concurrency", self.concurrency_patterns, "concurrency_performance"),
+            ]
 
-            # Check memory bottleneck patterns
-            findings.extend(
-                self._check_bottleneck_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.memory_patterns,
-                    "memory",
-                    "memory_usage",
-                )
-            )
+            for category, patterns, performance_impact in pattern_groups:
+                for bottleneck_type, config in patterns.items():
+                    compiled_patterns = self._compiled_patterns.get(bottleneck_type, [])
 
-            # Check algorithm complexity patterns
-            findings.extend(
-                self._check_bottleneck_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.algorithm_patterns,
-                    "algorithm",
-                    "algorithm_efficiency",
-                )
-            )
+                    for pattern in compiled_patterns:
+                        for match in pattern.finditer(content):
+                            # Calculate line number
+                            line_number = content[: match.start()].count("\n") + 1
 
-            # Check database bottleneck patterns
-            findings.extend(
-                self._check_bottleneck_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.database_patterns,
-                    "database",
-                    "database_performance",
-                )
-            )
+                            # Get the matched line
+                            line_content = (
+                                lines[line_number - 1].strip()
+                                if line_number <= len(lines)
+                                else ""
+                            )
 
-            # Check concurrency bottleneck patterns
-            findings.extend(
-                self._check_bottleneck_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.concurrency_patterns,
-                    "concurrency",
-                    "concurrency_performance",
-                )
-            )
+                            # Skip false positives
+                            if self._is_false_positive(
+                                line_content, bottleneck_type, category
+                            ):
+                                continue
+
+                            findings.append(
+                                {
+                                    "file_path": str(file_path),
+                                    "line_number": line_number,
+                                    "bottleneck_type": bottleneck_type,
+                                    "severity": config["severity"],
+                                    "description": config["description"],
+                                    "recommendation": self._get_bottleneck_recommendation(
+                                        bottleneck_type
+                                    ),
+                                    "context": line_content[
+                                        :150
+                                    ],  # Truncate long lines
+                                    "category": category,
+                                    "performance_impact": performance_impact,
+                                }
+                            )
 
             # Additional Python-specific analysis
-            if file_path.endswith(".py"):
+            if str(file_path).endswith(".py"):
                 findings.extend(
-                    self._analyze_python_bottlenecks(content, lines, relative_path)
+                    self._analyze_python_bottlenecks(content, lines, str(file_path))
                 )
 
         except Exception as e:
-            findings.append(
-                {
-                    "file": relative_path,
-                    "line": 0,
-                    "bottleneck_type": "file_error",
-                    "severity": "low",
-                    "message": f"Could not analyze file: {str(e)}",
-                    "category": "analysis",
-                    "performance_impact": "unknown",
-                }
-            )
+            # Log but continue - file might be binary or inaccessible
+            if self.verbose:
+                print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
 
         return findings
 
-    def _check_bottleneck_patterns(
-        self,
-        content: str,
-        lines: List[str],
-        file_path: str,
-        pattern_dict: Dict,
-        category: str,
-        performance_impact: str,
-    ) -> List[Dict[str, Any]]:
-        """Check for specific bottleneck patterns in file content."""
-        findings = []
+    def _is_false_positive(
+        self, line_content: str, bottleneck_type: str, category: str
+    ) -> bool:
+        """Check if a detected bottleneck is likely a false positive."""
+        line_lower = line_content.lower()
 
-        for pattern_name, pattern_info in pattern_dict.items():
-            for indicator in pattern_info["indicators"]:
-                matches = re.finditer(indicator, content, re.MULTILINE | re.IGNORECASE)
-                for match in matches:
-                    line_num = content[: match.start()].count("\n") + 1
+        # Skip comments
+        comment_indicators = ["//", "#", "/*", "*", "<!--", "'''", '"""']
+        for indicator in comment_indicators:
+            if line_content.strip().startswith(indicator):
+                return True
 
-                    findings.append(
-                        {
-                            "file": file_path,
-                            "line": line_num,
-                            "bottleneck_type": f"{category}_{pattern_name}",
-                            "severity": pattern_info["severity"],
-                            "message": f"{pattern_info['description']} ({pattern_name})",
-                            "context": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
-                            ),
-                            "category": category,
-                            "performance_impact": performance_impact,
-                        }
-                    )
+        # Skip test/example code
+        if any(
+            word in line_lower
+            for word in ["test", "example", "sample", "demo", "mock", "fixture"]
+        ):
+            return True
 
-        return findings
+        # Skip documentation
+        if any(
+            word in line_lower
+            for word in ["@param", "@return", "docstring", "@example"]
+        ):
+            return True
+
+        # Category-specific false positive checks
+        if category == "cpu" and any(
+            word in line_lower for word in ["async", "await", "thread", "pool"]
+        ):
+            return True  # Already optimized
+
+        if category == "memory" and any(
+            word in line_lower for word in ["cleanup", "dispose", "close", "free"]
+        ):
+            return True  # Has cleanup
+
+        if category == "database" and any(
+            word in line_lower for word in ["batch", "bulk", "limit", "pagination"]
+        ):
+            return True  # Already optimized
+
+        return False
 
     def _analyze_python_bottlenecks(
         self, content: str, lines: List[str], file_path: str
@@ -472,11 +530,14 @@ class BottleneckAnalyzer:
                         if isinstance(child, ast.Global):
                             findings.append(
                                 {
-                                    "file": file_path,
-                                    "line": loop_line,
+                                    "file_path": file_path,
+                                    "line_number": loop_line,
                                     "bottleneck_type": "python_global_in_loop",
                                     "severity": "medium",
-                                    "message": "Global variable access in loop may impact performance",
+                                    "description": "Global variable access in loop may impact performance",
+                                    "recommendation": self._get_bottleneck_recommendation(
+                                        "python_global_in_loop"
+                                    ),
                                     "context": (
                                         lines[loop_line - 1].strip()
                                         if loop_line <= len(lines)
@@ -495,11 +556,14 @@ class BottleneckAnalyzer:
                                 line_num = getattr(node, "lineno", 0)
                                 findings.append(
                                     {
-                                        "file": file_path,
-                                        "line": line_num,
+                                        "file_path": file_path,
+                                        "line_number": line_num,
                                         "bottleneck_type": "python_complex_comprehension",
                                         "severity": "low",
-                                        "message": "Complex list comprehension may impact performance",
+                                        "description": "Complex list comprehension may impact performance",
+                                        "recommendation": self._get_bottleneck_recommendation(
+                                            "python_complex_comprehension"
+                                        ),
                                         "context": (
                                             lines[line_num - 1].strip()
                                             if line_num <= len(lines)
@@ -514,18 +578,11 @@ class BottleneckAnalyzer:
             # Skip files with syntax errors
             pass
         except Exception as e:
-            findings.append(
-                {
-                    "file": file_path,
-                    "line": 0,
-                    "bottleneck_type": "python_analysis_error",
-                    "severity": "low",
-                    "message": f"Python AST analysis failed: {str(e)}",
-                    "context": "",
-                    "category": "analysis",
-                    "performance_impact": "unknown",
-                }
-            )
+            if self.verbose:
+                print(
+                    f"Warning: Python AST analysis failed for {file_path}: {e}",
+                    file=sys.stderr,
+                )
 
         return findings
 
@@ -556,239 +613,12 @@ class BottleneckAnalyzer:
             bottleneck_type, "Review code for performance optimization opportunities"
         )
 
-    def _generate_bottleneck_summary(
-        self, bottleneck_summary: Dict, file_count: int
-    ) -> Dict[str, Any]:
-        """Generate summary of bottleneck analysis."""
-
-        # Categorize bottlenecks by type
-        categories = {
-            "cpu": [k for k in bottleneck_summary.keys() if k.startswith("cpu_")],
-            "memory": [k for k in bottleneck_summary.keys() if k.startswith("memory_")],
-            "algorithm": [
-                k for k in bottleneck_summary.keys() if k.startswith("algorithm_")
-            ],
-            "database": [
-                k for k in bottleneck_summary.keys() if k.startswith("database_")
-            ],
-            "concurrency": [
-                k for k in bottleneck_summary.keys() if k.startswith("concurrency_")
-            ],
-            "python": [k for k in bottleneck_summary.keys() if k.startswith("python_")],
-        }
-
-        total_issues = sum(bottleneck_summary.values())
-        severity_counts = self._count_by_severity(bottleneck_summary)
-
-        return {
-            "total_files_analyzed": file_count,
-            "total_bottlenecks": total_issues,
-            "bottlenecks_by_category": {
-                category: {
-                    "count": sum(
-                        bottleneck_summary.get(bottleneck, 0)
-                        for bottleneck in bottlenecks
-                    ),
-                    "bottlenecks": {
-                        bottleneck.replace(f"{category}_", ""): bottleneck_summary.get(
-                            bottleneck, 0
-                        )
-                        for bottleneck in bottlenecks
-                        if bottleneck_summary.get(bottleneck, 0) > 0
-                    },
-                }
-                for category, bottlenecks in categories.items()
-            },
-            "severity_breakdown": severity_counts,
-            "performance_score": self._calculate_performance_score(
-                total_issues, file_count
-            ),
-            "critical_bottlenecks": self._get_critical_bottlenecks(bottleneck_summary),
-            "recommendations": self._generate_priority_recommendations(
-                bottleneck_summary
-            ),
-        }
-
-    def _count_by_severity(self, bottleneck_summary: Dict) -> Dict[str, int]:
-        """Count bottlenecks by severity level."""
-        severity_mapping = {
-            "critical": ["memory_leaks", "n_plus_one_queries"],
-            "high": [
-                "inefficient_loops",
-                "expensive_operations_in_loops",
-                "blocking_io_operations",
-                "quadratic_complexity",
-                "race_conditions",
-                "deadlock_risk",
-            ],
-            "medium": [
-                "redundant_computations",
-                "large_object_creation",
-                "inefficient_data_structures",
-                "string_concatenation_loops",
-                "inefficient_search",
-                "repeated_sorting",
-                "missing_pagination",
-                "inefficient_queries",
-                "thread_pool_exhaustion",
-                "global_in_loop",
-            ],
-            "low": ["complex_comprehension", "file_error", "analysis_error"],
-        }
-
-        counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-        for bottleneck, count in bottleneck_summary.items():
-            bottleneck_name = bottleneck.split("_", 1)[-1]  # Remove category prefix
-            for severity, patterns in severity_mapping.items():
-                if bottleneck_name in patterns:
-                    counts[severity] += count
-                    break
-
-        return counts
-
-    def _calculate_performance_score(self, total_issues: int, file_count: int) -> float:
-        """Calculate a performance score (0-100, higher is better)."""
-        if file_count == 0:
-            return 100.0
-
-        issue_density = total_issues / file_count
-        # Score decreases with issue density, with critical bottlenecks having heavy impact
-        score = max(0, 100 - (issue_density * 18))
-        return round(score, 1)
-
-    def _get_critical_bottlenecks(
-        self, bottleneck_summary: Dict
-    ) -> List[Dict[str, Any]]:
-        """Get critical bottlenecks requiring immediate attention."""
-        critical_patterns = [
-            "memory_leaks",
-            "n_plus_one_queries",
-            "inefficient_loops",
-            "blocking_io_operations",
-        ]
-        critical_bottlenecks = []
-
-        for bottleneck, count in bottleneck_summary.items():
-            bottleneck_name = bottleneck.split("_", 1)[-1]
-            if bottleneck_name in critical_patterns and count > 0:
-                critical_bottlenecks.append(
-                    {
-                        "bottleneck": bottleneck.replace("_", " ").title(),
-                        "count": count,
-                        "severity": (
-                            "critical"
-                            if bottleneck_name in ["memory_leaks", "n_plus_one_queries"]
-                            else "high"
-                        ),
-                        "category": bottleneck.split("_")[0],
-                    }
-                )
-
-        return critical_bottlenecks
-
-    def _generate_priority_recommendations(self, bottleneck_summary: Dict) -> List[str]:
-        """Generate priority recommendations based on findings."""
-        recommendations = []
-
-        # Critical bottlenecks first
-        if any("memory_leaks" in k for k in bottleneck_summary.keys()):
-            recommendations.append(
-                "CRITICAL: Fix memory leaks to prevent application crashes"
-            )
-        if any("n_plus_one_queries" in k for k in bottleneck_summary.keys()):
-            recommendations.append(
-                "CRITICAL: Optimize N+1 query problems with batch loading"
-            )
-
-        # High impact bottlenecks
-        if any("inefficient_loops" in k for k in bottleneck_summary.keys()):
-            recommendations.append("HIGH: Optimize nested loops with better algorithms")
-        if any("blocking_io_operations" in k for k in bottleneck_summary.keys()):
-            recommendations.append(
-                "HIGH: Convert blocking I/O to asynchronous operations"
-            )
-        if any("quadratic_complexity" in k for k in bottleneck_summary.keys()):
-            recommendations.append(
-                "HIGH: Replace O(n²) algorithms with more efficient alternatives"
-            )
-
-        # General recommendations
-        total_issues = sum(bottleneck_summary.values())
-        if total_issues > 20:
-            recommendations.append("Consider performance profiling and load testing")
-
-        return recommendations[:5]
-
-    def _should_analyze_file(self, filename: str) -> bool:
-        """Check if file should be analyzed."""
-        analyze_extensions = {
-            ".py",
-            ".js",
-            ".ts",
-            ".jsx",
-            ".tsx",
-            ".java",
-            ".cs",
-            ".cpp",
-            ".c",
-            ".h",
-            ".hpp",
-            ".go",
-            ".rs",
-            ".php",
-            ".rb",
-            ".swift",
-            ".kt",
-            ".scala",
-            ".sql",
-        }
-        return any(filename.endswith(ext) for ext in analyze_extensions)
-
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze performance bottlenecks in codebase"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--min-severity",
-        choices=["low", "medium", "high", "critical"],
-        default="low",
-        help="Minimum severity level to report",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format",
-    )
-
-    args = parser.parse_args()
-
+    """Main entry point for command-line usage."""
     analyzer = BottleneckAnalyzer()
-    result = analyzer.analyze_bottlenecks(args.target_path, args.min_severity)
-
-    if args.output_format == "console":
-        # Simple console output
-        if result.get("success", False):
-            print(f"Performance Bottleneck Analysis Results for: {args.target_path}")
-            print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
-            print(f"Execution Time: {result.get('execution_time', 0)}s")
-            print(f"\nFindings: {len(result.get('findings', []))}")
-            for finding in result.get("findings", []):
-                file_path = finding.get("file_path", "unknown")
-                line = finding.get("line_number", 0)
-                desc = finding.get("description", "No description")
-                severity = finding.get("severity", "unknown")
-                print(f"  {file_path}:{line} - {desc} [{severity}]")
-        else:
-            error_msg = result.get("error_message", "Unknown error")
-            print(f"Error: {error_msg}")
-    else:  # json (default)
-        print(json.dumps(result, indent=2))
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

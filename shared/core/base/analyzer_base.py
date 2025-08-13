@@ -340,7 +340,8 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             files_to_analyze = self.scan_directory(analyze_path)
 
             if not files_to_analyze:
-                result.add_info("No files found matching analyzer criteria")
+                # Add info as metadata instead of calling non-existent add_info method
+                result.metadata["info"] = "No files found matching analyzer criteria"
                 return self.complete_analysis(result)
 
             # Process files in batches

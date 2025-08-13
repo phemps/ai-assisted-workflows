@@ -1,34 +1,108 @@
 #!/usr/bin/env python3
 """
-Architecture analysis script: Coupling analysis and dependency mapping.
-Part of Claude Code Workflows.
+Coupling Analysis Analyzer - Architecture Coupling and Dependency Analysis
+==========================================================================
+
+PURPOSE: Analyzes code coupling patterns, dependency relationships, and architectural issues.
+Part of the shared/analyzers/architecture suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Multi-language import/dependency detection
+- Dependency graph construction and analysis
+- Circular dependency detection using DFS
+- Fan-in/fan-out coupling metrics
+- Architectural anti-pattern identification
+- Cross-module dependency mapping
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements coupling-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
 import re
 import sys
-import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.output_formatter import ResultFormatter, AnalysisResult
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class CouplingAnalyzer:
-    """Analyze coupling and dependencies in codebase architecture."""
+class CouplingAnalyzer(BaseAnalyzer):
+    """Analyzes code coupling patterns and dependency relationships."""
 
-    def __init__(self):
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create architecture-specific configuration
+        architecture_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".go",
+                ".rs",
+                ".php",
+                ".rb",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".cpp",
+                ".cc",
+                ".cxx",
+                ".c",
+                ".h",
+                ".hpp",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "*.min.js",
+                "*.min.css",
+                "*.bundle.js",
+                "*.chunk.js",
+                "*.d.ts",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("architecture", architecture_config)
+
+        # Dependency graph (will be built during analysis)
+        self.dependency_graph = defaultdict(set)
+        self.reverse_graph = defaultdict(set)
+        self.module_info = {}
+
+        # Initialize patterns and mappings
+        self._init_import_patterns()
+        self._init_coupling_patterns()
+        self._init_extension_mapping()
+
+    def _init_import_patterns(self):
+        """Initialize import/dependency patterns for different languages."""
         # Import/dependency patterns for different languages
         self.import_patterns = {
             "python": {
@@ -79,6 +153,8 @@ class CouplingAnalyzer:
             },
         }
 
+    def _init_coupling_patterns(self):
+        """Initialize coupling anti-patterns."""
         # Coupling anti-patterns
         self.coupling_patterns = {
             "circular_dependency": {
@@ -103,6 +179,8 @@ class CouplingAnalyzer:
             },
         }
 
+    def _init_extension_mapping(self):
+        """Initialize file extension to language mapping."""
         # File extension mapping
         self.extension_language_map = {
             ".py": "python",
@@ -127,28 +205,152 @@ class CouplingAnalyzer:
             ".hpp": "cpp",
         }
 
-        # Legacy skip patterns - now using Universal Exclusion System via tech_detector
-        # self.skip_patterns = {
-        #     "node_modules", ".git", "__pycache__", ".pytest_cache", "venv", "env",
-        #     ".venv", "dist", "build", ".next", "coverage", ".nyc_output", "target", "vendor",
-        # }
+        # Compile import patterns for performance
+        self._compiled_patterns = {}
+        for language, pattern_info in self.import_patterns.items():
+            self._compiled_patterns[language] = re.compile(
+                pattern_info["pattern"], re.MULTILINE
+            )
 
-        # Dependency graph
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Coupling Analysis Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes code coupling patterns and dependency relationships",
+            "category": "architecture",
+            "priority": "high",
+            "capabilities": [
+                "Multi-language import detection",
+                "Dependency graph construction",
+                "Circular dependency detection",
+                "Fan-in/fan-out coupling metrics",
+                "Architectural anti-pattern identification",
+                "Cross-module dependency mapping",
+                "Coupling hotspot detection",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "languages_supported": len(self.import_patterns),
+            "coupling_patterns": len(self.coupling_patterns),
+        }
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for coupling patterns.
+
+        Note: This analyzer works at the project level, so it will analyze
+        the entire directory structure when called on any individual file.
+
+        Args:
+            target_path: Path to file to analyze
+
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
+
+        # For coupling analysis, we need to analyze the entire project
+        # So we'll get the project root and analyze from there
+        if file_path.is_file():
+            project_root = self._find_project_root(file_path)
+        else:
+            project_root = file_path
+
+        # Build dependency graph for the entire project
+        self._build_dependency_graph_for_project(project_root)
+
+        # Analyze coupling patterns
+        coupling_findings = self._analyze_coupling_patterns()
+
+        # Convert to standardized finding format
+        for finding in coupling_findings:
+            standardized = {
+                "title": f"{finding['description']} ({finding['pattern_type'].replace('_', ' ').title()})",
+                "description": finding["description"],
+                "severity": finding["severity"],
+                "file_path": finding.get("file_path", str(project_root)),
+                "line_number": 1,  # Architecture issues don't have specific line numbers
+                "recommendation": self._get_recommendation(finding["pattern_type"]),
+                "metadata": {
+                    "pattern_type": finding["pattern_type"],
+                    "module": finding.get("module"),
+                    "metric_value": finding.get("metric_value"),
+                    "dependencies": finding.get("dependencies"),
+                    "dependents": finding.get("dependents"),
+                    "cycle": finding.get("cycle"),
+                    "confidence": "high",
+                },
+            }
+            all_findings.append(standardized)
+
+        return all_findings
+
+    def _find_project_root(self, file_path: Path) -> Path:
+        """Find the project root directory."""
+        current = file_path.parent if file_path.is_file() else file_path
+
+        # Look for common project indicators
+        project_indicators = [
+            "package.json",
+            "requirements.txt",
+            "go.mod",
+            "Cargo.toml",
+            "pom.xml",
+            "build.gradle",
+            ".git",
+            "pyproject.toml",
+        ]
+
+        while current.parent != current:  # Not at filesystem root
+            if any((current / indicator).exists() for indicator in project_indicators):
+                return current
+            current = current.parent
+
+        # Fallback to the directory containing the file or the file's parent
+        return file_path.parent if file_path.is_file() else file_path
+
+    def _build_dependency_graph_for_project(self, project_root: Path):
+        """Build dependency graph for the entire project."""
+        # Reset graphs
         self.dependency_graph = defaultdict(set)
         self.reverse_graph = defaultdict(set)
         self.module_info = {}
 
-    def should_scan_file(self, file_path: Path, project_root: str = "") -> bool:
-        """Determine if file should be scanned using Universal Exclusion System."""
-        # Use Universal Exclusion System for smart filtering
-        if not self.tech_detector.should_analyze_file(str(file_path), project_root):
-            return False
+        # Scan all files in the project
+        for file_path in project_root.rglob("*"):
+            if (
+                file_path.is_file()
+                and file_path.suffix.lower() in self.extension_language_map
+                and self._should_analyze_file(file_path)
+            ):
+                module_name = self._get_module_name(file_path)
+                dependencies = self._extract_dependencies(file_path)
 
-        # Check if we support this file type for coupling analysis
-        suffix = file_path.suffix.lower()
-        return suffix in self.extension_language_map
+                self.dependency_graph[module_name] = set(dependencies)
+                self.module_info[module_name] = {
+                    "file_path": str(file_path),
+                    "dependencies": dependencies,
+                    "language": self.extension_language_map.get(
+                        file_path.suffix.lower()
+                    ),
+                }
 
-    def extract_dependencies(self, file_path: Path) -> List[str]:
+        # Build reverse graph
+        for module, deps in self.dependency_graph.items():
+            for dep in deps:
+                self.reverse_graph[dep].add(module)
+
+    def _should_analyze_file(self, file_path: Path) -> bool:
+        """Check if file should be analyzed."""
+        # Skip files in skip patterns
+        path_str = str(file_path).lower()
+        for pattern in self.config.skip_patterns:
+            if pattern.replace("*", "") in path_str:
+                return False
+        return True
+
+    def _extract_dependencies(self, file_path: Path) -> List[str]:
         """Extract dependencies from a file."""
         dependencies = []
         suffix = file_path.suffix.lower()
@@ -185,58 +387,12 @@ class CouplingAnalyzer:
 
         return list(set(dependencies))  # Remove duplicates
 
-    def build_dependency_graph(self, target_path: str) -> Dict[str, Any]:
-        """Build dependency graph for the codebase."""
-        target = Path(target_path)
-        file_count = 0
-
-        if target.is_file():
-            if self.should_scan_file(target, target_path):
-                file_count = 1
-                module_name = self._get_module_name(target)
-                dependencies = self.extract_dependencies(target)
-                self.dependency_graph[module_name] = set(dependencies)
-                self.module_info[module_name] = {
-                    "file_path": str(target),
-                    "dependencies": dependencies,
-                    "language": self.extension_language_map.get(target.suffix.lower()),
-                }
-        elif target.is_dir():
-            for file_path in target.rglob("*"):
-                if file_path.is_file() and self.should_scan_file(
-                    file_path, target_path
-                ):
-                    file_count += 1
-                    module_name = self._get_module_name(file_path)
-                    dependencies = self.extract_dependencies(file_path)
-                    self.dependency_graph[module_name] = set(dependencies)
-                    self.module_info[module_name] = {
-                        "file_path": str(file_path),
-                        "dependencies": dependencies,
-                        "language": self.extension_language_map.get(
-                            file_path.suffix.lower()
-                        ),
-                    }
-
-        # Build reverse graph
-        for module, deps in self.dependency_graph.items():
-            for dep in deps:
-                self.reverse_graph[dep].add(module)
-
-        return {
-            "total_modules": len(self.dependency_graph),
-            "total_files": file_count,
-            "total_dependencies": sum(
-                len(deps) for deps in self.dependency_graph.values()
-            ),
-        }
-
     def _get_module_name(self, file_path: Path) -> str:
         """Get module name from file path."""
         # Use relative path from project root as module name
         return str(file_path.stem)
 
-    def analyze_coupling_metrics(self) -> List[Dict[str, Any]]:
+    def _analyze_coupling_patterns(self) -> List[Dict[str, Any]]:
         """Analyze coupling metrics and find issues."""
         findings = []
 
@@ -277,7 +433,7 @@ class CouplingAnalyzer:
                 )
 
         # Check for circular dependencies
-        circular_deps = self.find_circular_dependencies()
+        circular_deps = self._find_circular_dependencies()
         for cycle in circular_deps:
             findings.append(
                 {
@@ -293,7 +449,7 @@ class CouplingAnalyzer:
 
         return findings
 
-    def find_circular_dependencies(self) -> List[List[str]]:
+    def _find_circular_dependencies(self) -> List[List[str]]:
         """Find circular dependencies using DFS."""
         visited = set()
         rec_stack = set()
@@ -325,76 +481,6 @@ class CouplingAnalyzer:
 
         return cycles
 
-    def analyze(self, target_path: str) -> AnalysisResult:
-        """
-        Main analysis function.
-
-        Args:
-            target_path: Path to analyze
-
-        Returns:
-            AnalysisResult object
-        """
-        start_time = time.time()
-        result = ResultFormatter.create_architecture_result(
-            "coupling_analysis.py", target_path
-        )
-
-        try:
-            # Build dependency graph
-            graph_stats = self.build_dependency_graph(target_path)
-
-            # Analyze coupling issues
-            coupling_findings = self.analyze_coupling_metrics()
-
-            # Convert to Finding objects
-            finding_id = 1
-            for finding_data in coupling_findings:
-                recommendation = self._get_recommendation(finding_data["pattern_type"])
-
-                finding = ResultFormatter.create_finding(
-                    f"ARCH{finding_id:03d}",
-                    f"{finding_data['category']}: {finding_data['pattern_type']}",
-                    finding_data["description"],
-                    finding_data["severity"],
-                    finding_data.get("file_path"),
-                    None,  # No specific line number for architecture issues
-                    recommendation,
-                    {
-                        "category": finding_data["category"],
-                        "pattern_type": finding_data["pattern_type"],
-                        "module": finding_data.get("module"),
-                        "metric_value": finding_data.get("metric_value"),
-                        "dependencies": finding_data.get("dependencies"),
-                        "dependents": finding_data.get("dependents"),
-                        "cycle": finding_data.get("cycle"),
-                    },
-                )
-                result.add_finding(finding)
-                finding_id += 1
-
-            # Add metadata
-            result.metadata = {
-                **graph_stats,
-                "patterns_checked": len(self.coupling_patterns),
-                "circular_dependencies": len(
-                    [
-                        f
-                        for f in coupling_findings
-                        if f["pattern_type"] == "circular_dependency"
-                    ]
-                ),
-                "high_coupling_modules": len(
-                    [f for f in coupling_findings if "fan_" in f["pattern_type"]]
-                ),
-            }
-
-        except Exception as e:
-            result.set_error(f"Analysis failed: {str(e)}")
-
-        result.set_execution_time(start_time)
-        return result
-
     def _get_recommendation(self, pattern_type: str) -> str:
         """Get recommendation for specific pattern type."""
         recommendations = {
@@ -410,52 +496,10 @@ class CouplingAnalyzer:
 
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze code coupling and dependency patterns"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console", "summary"],
-        default="json",
-        help="Output format (default: json)",
-    )
-    parser.add_argument(
-        "--summary",
-        action="store_true",
-        help="Limit output to top 10 critical/high findings for large codebases",
-    )
-    parser.add_argument(
-        "--min-severity",
-        choices=["critical", "high", "medium", "low"],
-        default="low",
-        help="Minimum severity level (default: low)",
-    )
-
-    args = parser.parse_args()
-
+    """Main entry point for command-line usage."""
     analyzer = CouplingAnalyzer()
-    result = analyzer.analyze(args.target_path)
-
-    # Auto-enable summary mode for large result sets
-    if len(result.findings) > 50 and not args.summary:
-        print(
-            f"⚠️ Large result set detected ({len(result.findings)} findings). Consider using --summary flag.",
-            file=sys.stderr,
-        )
-
-    # Output based on format choice
-    if args.output_format == "console":
-        print(ResultFormatter.format_console_output(result))
-    elif args.output_format == "summary":
-        print(result.to_json(summary_mode=True, min_severity=args.min_severity))
-    else:  # json (default)
-        print(result.to_json(summary_mode=args.summary, min_severity=args.min_severity))
-        # Also print console summary to stderr for human readability
-        print(ResultFormatter.format_console_output(result), file=sys.stderr)
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

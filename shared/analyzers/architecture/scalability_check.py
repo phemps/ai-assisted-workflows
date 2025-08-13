@@ -1,38 +1,101 @@
 #!/usr/bin/env python3
 """
-Scalability Analysis Script
-Analyzes code for potential scalability bottlenecks and architectural constraints.
+Scalability Analysis Analyzer - Code Scalability Assessment
+==========================================================
+
+PURPOSE: Analyzes code for potential scalability bottlenecks and architectural constraints.
+Part of the shared/analyzers/architecture suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Database scalability patterns (N+1 queries, missing indexes, unbounded result sets)
+- Performance bottleneck detection (synchronous I/O, nested loops, inefficient algorithms)
+- Concurrency issue identification (thread safety, blocking operations, resource contention)
+- Architecture scalability analysis (tight coupling, hardcoded config, SRP violations)
+- Python AST analysis for algorithmic complexity detection
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements scalability-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
-import sys
 import re
-import json
 import ast
-import time
-from typing import Dict, List, Any
-from collections import defaultdict
+import sys
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 
-# Add utils to path for cross-platform and output_formatter imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.cross_platform import PlatformDetector
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class ScalabilityAnalyzer:
+class ScalabilityAnalyzer(BaseAnalyzer):
     """Analyzes code for scalability bottlenecks and architectural constraints."""
 
-    def __init__(self):
-        self.platform = PlatformDetector()
-        self.formatter = ResultFormatter()
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create scalability-specific configuration
+        scalability_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".go",
+                ".rs",
+                ".php",
+                ".rb",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".sql",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "build",
+                "dist",
+                ".next",
+                ".nuxt",
+                "coverage",
+                "venv",
+                "env",
+                ".env",
+                "vendor",
+                "logs",
+                "target",
+                ".vscode",
+                ".idea",
+                "*.min.js",
+                "*.bundle.js",
+                "*.test.*",
+                "*/tests/*",
+            },
+        )
 
+        # Initialize base analyzer
+        super().__init__("architecture", scalability_config)
+
+        # Initialize scalability pattern definitions
+        self._init_scalability_patterns()
+
+    def _init_scalability_patterns(self):
+        """Initialize all scalability pattern definitions."""
         # Database scalability patterns
         self.db_patterns = {
             "n_plus_one": {
@@ -187,100 +250,44 @@ class ScalabilityAnalyzer:
             },
         }
 
-    def analyze_scalability(
-        self, target_path: str, min_severity: str = "low"
-    ) -> Dict[str, Any]:
-        """Analyze scalability bottlenecks in the target path."""
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Scalability Analysis Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes code for potential scalability bottlenecks and architectural constraints",
+            "category": "architecture",
+            "priority": "high",
+            "capabilities": [
+                "Database scalability patterns (N+1 queries, missing indexes)",
+                "Performance bottleneck detection (synchronous I/O, nested loops)",
+                "Concurrency issue identification (thread safety, resource contention)",
+                "Architecture scalability analysis (coupling, configuration)",
+                "Python AST analysis for algorithmic complexity",
+                "Multi-language scalability pattern recognition",
+                "Scalability scoring and prioritized recommendations",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "pattern_categories": {
+                "database_patterns": len(self.db_patterns),
+                "performance_patterns": len(self.performance_patterns),
+                "concurrency_patterns": len(self.concurrency_patterns),
+                "architecture_patterns": len(self.architecture_patterns),
+            },
+        }
 
-        start_time = time.time()
-        result = ResultFormatter.create_architecture_result(
-            "scalability_check.py", target_path
-        )
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for scalability bottlenecks.
 
-        if not os.path.exists(target_path):
-            result.set_error(f"Path does not exist: {target_path}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
+        Args:
+            target_path: Path to file to analyze
 
-        bottleneck_summary = defaultdict(int)
-        file_count = 0
-
-        try:
-            # Get tech stack-aware filtering rules using Universal Exclusion System
-            exclusions = self.tech_detector.get_simple_exclusions(target_path)
-            exclude_dirs = exclusions["directories"]
-
-            # Walk through all files
-            for root, dirs, files in os.walk(target_path):
-                # Apply universal exclusion system for directory filtering
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    if self.tech_detector.should_analyze_file(file_path, target_path):
-                        relative_path = os.path.relpath(file_path, target_path)
-
-                        try:
-                            file_findings = self._analyze_file_scalability(
-                                file_path, relative_path
-                            )
-                            file_count += 1
-
-                            # Convert findings to Finding objects
-                            for finding_data in file_findings:
-                                finding = ResultFormatter.create_finding(
-                                    finding_id=f"SCALE_{bottleneck_summary[finding_data['bottleneck_type']] + 1:03d}",
-                                    title=finding_data["bottleneck_type"]
-                                    .replace("_", " ")
-                                    .title(),
-                                    description=finding_data["message"],
-                                    severity=finding_data["severity"],
-                                    file_path=finding_data["file"],
-                                    line_number=finding_data["line"],
-                                    recommendation=finding_data.get(
-                                        "recommendation",
-                                        "Review for scalability improvements",
-                                    ),
-                                    evidence={
-                                        "context": finding_data.get("context", ""),
-                                        "category": finding_data.get(
-                                            "category", "unknown"
-                                        ),
-                                    },
-                                )
-                                result.add_finding(finding)
-                                bottleneck_summary[finding_data["bottleneck_type"]] += 1
-
-                        except Exception as e:
-                            error_finding = ResultFormatter.create_finding(
-                                finding_id=f"ERROR_{file_count:03d}",
-                                title="Analysis Error",
-                                description=f"Error analyzing file: {str(e)}",
-                                severity="low",
-                                file_path=relative_path,
-                                line_number=0,
-                            )
-                            result.add_finding(error_finding)
-
-            # Generate analysis summary
-            analysis_summary = self._generate_scalability_summary(
-                bottleneck_summary, file_count
-            )
-            result.metadata = analysis_summary
-
-            result.set_execution_time(start_time)
-            return result.to_dict(min_severity=min_severity)
-
-        except Exception as e:
-            result.set_error(f"Scalability analysis failed: {str(e)}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
-
-    def _analyze_file_scalability(
-        self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
-        """Analyze scalability issues in a single file."""
-        findings = []
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -288,63 +295,54 @@ class ScalabilityAnalyzer:
                 lines = content.split("\n")
 
             # Check database scalability patterns
-            findings.extend(
-                self._check_scalability_patterns(
-                    content, lines, relative_path, self.db_patterns, "database"
-                )
+            findings = self._check_scalability_patterns(
+                content, lines, str(file_path), self.db_patterns, "database"
             )
+            all_findings.extend(findings)
 
             # Check performance patterns
-            findings.extend(
-                self._check_scalability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.performance_patterns,
-                    "performance",
-                )
+            findings = self._check_scalability_patterns(
+                content, lines, str(file_path), self.performance_patterns, "performance"
             )
+            all_findings.extend(findings)
 
             # Check concurrency patterns
-            findings.extend(
-                self._check_scalability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.concurrency_patterns,
-                    "concurrency",
-                )
+            findings = self._check_scalability_patterns(
+                content, lines, str(file_path), self.concurrency_patterns, "concurrency"
             )
+            all_findings.extend(findings)
 
             # Check architecture patterns
-            findings.extend(
-                self._check_scalability_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.architecture_patterns,
-                    "architecture",
-                )
+            findings = self._check_scalability_patterns(
+                content,
+                lines,
+                str(file_path),
+                self.architecture_patterns,
+                "architecture",
             )
+            all_findings.extend(findings)
 
-            # Additional complexity analysis
-            if file_path.endswith(".py"):
-                findings.extend(
-                    self._analyze_python_complexity(content, lines, relative_path)
+            # Additional Python complexity analysis
+            if file_path.suffix == ".py":
+                complexity_findings = self._analyze_python_complexity(
+                    content, lines, str(file_path)
                 )
+                all_findings.extend(complexity_findings)
 
         except Exception as e:
-            findings.append(
+            all_findings.append(
                 {
-                    "file": relative_path,
-                    "line": 0,
-                    "bottleneck_type": "file_error",
+                    "title": "File Analysis Error",
+                    "description": f"Could not analyze file: {str(e)}",
                     "severity": "low",
-                    "message": f"Could not analyze file: {str(e)}",
+                    "file_path": str(file_path),
+                    "line_number": 0,
+                    "recommendation": "Check file encoding and permissions.",
+                    "metadata": {"error_type": "file_read_error", "confidence": "high"},
                 }
             )
 
-        return findings
+        return all_findings
 
     def _check_scalability_patterns(
         self,
@@ -362,23 +360,26 @@ class ScalabilityAnalyzer:
                 matches = re.finditer(indicator, content, re.MULTILINE | re.IGNORECASE)
                 for match in matches:
                     line_num = content[: match.start()].count("\n") + 1
+                    context = (
+                        lines[line_num - 1].strip() if line_num <= len(lines) else ""
+                    )
 
                     findings.append(
                         {
-                            "file": file_path,
-                            "line": line_num,
-                            "bottleneck_type": f"{category}_{pattern_name}",
+                            "title": f"Scalability Issue: {pattern_name.replace('_', ' ').title()}",
+                            "description": f"{pattern_info['description']} ({pattern_name})",
                             "severity": pattern_info["severity"],
-                            "message": f"{pattern_info['description']} ({pattern_name})",
-                            "context": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
-                            ),
-                            "category": category,
+                            "file_path": file_path,
+                            "line_number": line_num,
                             "recommendation": self._get_recommendation(
                                 pattern_name, category
                             ),
+                            "metadata": {
+                                "scalability_category": category,
+                                "pattern_name": pattern_name,
+                                "context": context,
+                                "confidence": "medium",
+                            },
                         }
                     )
 
@@ -399,20 +400,27 @@ class ScalabilityAnalyzer:
                     nesting_level = self._count_nesting_level(node, tree)
                     if nesting_level >= 3:
                         line_num = getattr(node, "lineno", 0)
+                        context = (
+                            lines[line_num - 1].strip()
+                            if line_num <= len(lines)
+                            else ""
+                        )
+
                         findings.append(
                             {
-                                "file": file_path,
-                                "line": line_num,
-                                "bottleneck_type": "algorithmic_complexity",
+                                "title": f"High Algorithmic Complexity (O(n^{nesting_level}))",
+                                "description": f"Deeply nested loop (level {nesting_level}) - O(n^{nesting_level}) complexity",
                                 "severity": "high",
-                                "message": f"Deeply nested loop (level {nesting_level}) - O(n^{nesting_level}) complexity",
-                                "context": (
-                                    lines[line_num - 1].strip()
-                                    if line_num <= len(lines)
-                                    else ""
-                                ),
-                                "category": "performance",
-                                "recommendation": "Consider algorithm optimization or caching",
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "recommendation": "Consider algorithm optimization, caching, or breaking into smaller functions",
+                                "metadata": {
+                                    "scalability_category": "performance",
+                                    "pattern_name": "algorithmic_complexity",
+                                    "nesting_level": nesting_level,
+                                    "context": context,
+                                    "confidence": "high",
+                                },
                             }
                         )
 
@@ -420,20 +428,27 @@ class ScalabilityAnalyzer:
                 if isinstance(node, ast.ListComp):
                     if len(node.generators) > 2:  # Multiple generators
                         line_num = getattr(node, "lineno", 0)
+                        context = (
+                            lines[line_num - 1].strip()
+                            if line_num <= len(lines)
+                            else ""
+                        )
+
                         findings.append(
                             {
-                                "file": file_path,
-                                "line": line_num,
-                                "bottleneck_type": "complex_comprehension",
+                                "title": "Complex List Comprehension",
+                                "description": "Complex list comprehension with multiple generators may impact performance",
                                 "severity": "medium",
-                                "message": "Complex list comprehension may impact performance",
-                                "context": (
-                                    lines[line_num - 1].strip()
-                                    if line_num <= len(lines)
-                                    else ""
-                                ),
-                                "category": "performance",
-                                "recommendation": "Consider breaking into simpler operations",
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "recommendation": "Consider breaking into simpler operations or using generator expressions",
+                                "metadata": {
+                                    "scalability_category": "performance",
+                                    "pattern_name": "complex_comprehension",
+                                    "generator_count": len(node.generators),
+                                    "context": context,
+                                    "confidence": "medium",
+                                },
                             }
                         )
 
@@ -443,14 +458,18 @@ class ScalabilityAnalyzer:
         except Exception as e:
             findings.append(
                 {
-                    "file": file_path,
-                    "line": 0,
-                    "bottleneck_type": "ast_analysis_error",
+                    "title": "AST Analysis Error",
+                    "description": f"AST analysis failed: {str(e)}",
                     "severity": "low",
-                    "message": f"AST analysis failed: {str(e)}",
-                    "context": "",
-                    "category": "analysis",
-                    "recommendation": "Manual review required",
+                    "file_path": file_path,
+                    "line_number": 0,
+                    "recommendation": "Manual review required - file may have syntax issues",
+                    "metadata": {
+                        "scalability_category": "analysis",
+                        "pattern_name": "ast_analysis_error",
+                        "error_type": type(e).__name__,
+                        "confidence": "high",
+                    },
                 }
             )
 
@@ -497,305 +516,12 @@ class ScalabilityAnalyzer:
         }
         return recommendations.get(pattern_name, "Review and optimize this pattern")
 
-    def _generate_scalability_summary(
-        self, bottleneck_summary: Dict, file_count: int
-    ) -> Dict[str, Any]:
-        """Generate summary of scalability analysis."""
-
-        # Categorize bottlenecks
-        categories = {
-            "database": [
-                k for k in bottleneck_summary.keys() if k.startswith("database_")
-            ],
-            "performance": [
-                k for k in bottleneck_summary.keys() if k.startswith("performance_")
-            ],
-            "concurrency": [
-                k for k in bottleneck_summary.keys() if k.startswith("concurrency_")
-            ],
-            "architecture": [
-                k for k in bottleneck_summary.keys() if k.startswith("architecture_")
-            ],
-        }
-
-        total_issues = sum(bottleneck_summary.values())
-        severity_counts = self._count_by_severity(bottleneck_summary)
-
-        return {
-            "total_files_analyzed": file_count,
-            "total_scalability_issues": total_issues,
-            "issues_by_category": {
-                category: {
-                    "count": sum(bottleneck_summary.get(issue, 0) for issue in issues),
-                    "issues": {
-                        issue.replace(f"{category}_", ""): bottleneck_summary.get(
-                            issue, 0
-                        )
-                        for issue in issues
-                        if bottleneck_summary.get(issue, 0) > 0
-                    },
-                }
-                for category, issues in categories.items()
-            },
-            "severity_breakdown": severity_counts,
-            "scalability_score": self._calculate_scalability_score(
-                total_issues, file_count
-            ),
-            "top_concerns": self._get_top_concerns(bottleneck_summary),
-            "recommendations": self._generate_priority_recommendations(
-                bottleneck_summary
-            ),
-        }
-
-    def _count_by_severity(self, bottleneck_summary: Dict) -> Dict[str, int]:
-        """Count issues by severity level."""
-        # This is a simplified mapping - in reality, we'd need to track severity per finding
-        severity_mapping = {
-            "high": [
-                "n_plus_one",
-                "synchronous_io",
-                "nested_loops",
-                "memory_leaks",
-                "thread_safety",
-                "hardcoded_config",
-            ],
-            "medium": [
-                "missing_indexes",
-                "large_result_sets",
-                "no_pagination",
-                "inefficient_algorithms",
-                "blocking_operations",
-                "resource_contention",
-                "tight_coupling",
-                "single_responsibility",
-            ],
-            "low": ["analysis_error", "file_error"],
-        }
-
-        counts = {"high": 0, "medium": 0, "low": 0}
-        for issue, count in bottleneck_summary.items():
-            issue_name = issue.split("_", 1)[-1]  # Remove category prefix
-            for severity, patterns in severity_mapping.items():
-                if issue_name in patterns:
-                    counts[severity] += count
-                    break
-
-        return counts
-
-    def _calculate_scalability_score(self, total_issues: int, file_count: int) -> float:
-        """Calculate a scalability score (0-100, higher is better)."""
-        if file_count == 0:
-            return 100.0
-
-        issue_density = total_issues / file_count
-        # Score decreases with issue density, floor at 0
-        score = max(0, 100 - (issue_density * 10))
-        return round(score, 1)
-
-    def _get_top_concerns(self, bottleneck_summary: Dict) -> List[Dict[str, Any]]:
-        """Get the top scalability concerns."""
-        sorted_issues = sorted(
-            bottleneck_summary.items(), key=lambda x: x[1], reverse=True
-        )
-        return [
-            {
-                "issue": issue.replace("_", " ").title(),
-                "count": count,
-                "category": issue.split("_")[0] if "_" in issue else "unknown",
-            }
-            for issue, count in sorted_issues[:5]
-            if count > 0
-        ]
-
-    def _generate_priority_recommendations(self, bottleneck_summary: Dict) -> List[str]:
-        """Generate priority recommendations based on findings."""
-        recommendations = []
-
-        # High priority issues
-        high_priority = [
-            "n_plus_one",
-            "synchronous_io",
-            "memory_leaks",
-            "hardcoded_config",
-        ]
-        for issue in high_priority:
-            if any(issue in k for k in bottleneck_summary.keys()):
-                if "n_plus_one" in issue:
-                    recommendations.append(
-                        "HIGH: Implement query optimization and eager loading"
-                    )
-                elif "synchronous_io" in issue:
-                    recommendations.append(
-                        "HIGH: Convert to asynchronous I/O operations"
-                    )
-                elif "memory_leaks" in issue:
-                    recommendations.append("HIGH: Implement proper resource cleanup")
-                elif "hardcoded_config" in issue:
-                    recommendations.append(
-                        "HIGH: Externalize configuration for environment scalability"
-                    )
-
-        # Medium priority issues
-        medium_priority = ["nested_loops", "missing_indexes", "thread_safety"]
-        for issue in medium_priority:
-            if any(issue in k for k in bottleneck_summary.keys()):
-                if "nested_loops" in issue:
-                    recommendations.append("MEDIUM: Optimize algorithmic complexity")
-                elif "missing_indexes" in issue:
-                    recommendations.append(
-                        "MEDIUM: Add database indexes for performance"
-                    )
-                elif "thread_safety" in issue:
-                    recommendations.append("MEDIUM: Review concurrency safety")
-
-        # General recommendations
-        total_issues = sum(bottleneck_summary.values())
-        if total_issues > 20:
-            recommendations.append("Consider architectural review for scalability")
-
-        return recommendations[:5]  # Limit to top 5 recommendations
-
-    def _should_skip_directory_smart(
-        self,
-        directory: str,
-        current_root: str,
-        target_path: str,
-        exclusion_patterns: set,
-    ) -> bool:
-        """Smart directory filtering based on tech stack detection."""
-        # Create relative path for pattern matching
-        rel_path = os.path.relpath(os.path.join(current_root, directory), target_path)
-
-        # Check against exclusion patterns
-        for pattern in exclusion_patterns:
-            if self._matches_exclusion_pattern(rel_path, pattern):
-                return True
-
-        # Fallback to basic skip logic
-        return self._should_skip_directory(directory)
-
-    def _should_analyze_file_smart(
-        self,
-        filename: str,
-        current_root: str,
-        target_path: str,
-        exclusion_patterns: set,
-    ) -> bool:
-        """Smart file filtering based on tech stack detection."""
-        # Create relative path for pattern matching
-        rel_path = os.path.relpath(os.path.join(current_root, filename), target_path)
-
-        # Check against exclusion patterns
-        for pattern in exclusion_patterns:
-            if self._matches_exclusion_pattern(rel_path, pattern):
-                return False
-
-        # Check if it's a source file we should analyze
-        return self._should_analyze_file(filename)
-
-    def _matches_exclusion_pattern(self, file_path: str, pattern: str) -> bool:
-        """Check if file path matches exclusion pattern."""
-        import fnmatch
-
-        # Handle glob patterns
-        if "**" in pattern:
-            # Convert ** to * for fnmatch
-            pattern = pattern.replace("**", "*")
-
-        return fnmatch.fnmatch(file_path, pattern) or fnmatch.fnmatch(
-            file_path, pattern.replace("/", os.sep)
-        )
-
-    def _should_skip_directory(self, directory: str) -> bool:
-        """Check if directory should be skipped (legacy method)."""
-        skip_dirs = {
-            "node_modules",
-            ".git",
-            "__pycache__",
-            ".pytest_cache",
-            "build",
-            "dist",
-            ".next",
-            ".nuxt",
-            "coverage",
-            "venv",
-            "env",
-            ".env",
-            "vendor",
-            "logs",
-        }
-        return directory in skip_dirs or directory.startswith(".")
-
-    def _should_analyze_file(self, filename: str) -> bool:
-        """Check if file should be analyzed (legacy method)."""
-        analyze_extensions = {
-            ".py",
-            ".js",
-            ".ts",
-            ".jsx",
-            ".tsx",
-            ".java",
-            ".cs",
-            ".cpp",
-            ".c",
-            ".h",
-            ".hpp",
-            ".go",
-            ".rs",
-            ".php",
-            ".rb",
-            ".swift",
-            ".kt",
-            ".scala",
-            ".sql",
-        }
-        return any(filename.endswith(ext) for ext in analyze_extensions)
-
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze scalability bottlenecks in codebase"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--min-severity",
-        choices=["low", "medium", "high", "critical"],
-        default="low",
-        help="Minimum severity level to report",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format (default: json)",
-    )
-
-    args = parser.parse_args()
-
+    """Main entry point for command-line usage."""
     analyzer = ScalabilityAnalyzer()
-    result = analyzer.analyze_scalability(args.target_path, args.min_severity)
-
-    if args.output_format == "console":
-        # Simple console output
-        if result.get("success", False):
-            print(f"Scalability Analysis Results for: {args.target_path}")
-            print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
-            print(f"Execution Time: {result.get('execution_time', 0)}s")
-            print(f"\nFindings: {len(result.get('findings', []))}")
-            for finding in result.get("findings", []):
-                file_path = finding.get("file_path", "unknown")
-                line = finding.get("line_number", 0)
-                desc = finding.get("description", "No description")
-                severity = finding.get("severity", "unknown")
-                print(f"  {file_path}:{line} - {desc} [{severity}]")
-        else:
-            error_msg = result.get("error_message", "Unknown error")
-            print(f"Error: {error_msg}")
-    else:  # json (default)
-        print(json.dumps(result, indent=2))
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

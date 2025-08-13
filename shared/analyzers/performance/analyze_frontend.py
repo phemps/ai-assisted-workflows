@@ -1,322 +1,402 @@
 #!/usr/bin/env python3
 """
-Frontend Performance Analysis Script
-Analyzes frontend code for performance issues, bundle size, and optimization opportunities.
+Frontend Performance Analyzer - Web Performance and Optimization Analysis
+=========================================================================
+
+PURPOSE: Analyzes frontend code for performance issues, bundle size, and optimization opportunities.
+Part of the shared/analyzers/performance suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Bundle size and import analysis
+- React performance patterns detection
+- CSS performance optimization
+- JavaScript efficiency patterns
+- Image and asset optimization
+- Memory leak detection
+- DOM query optimization
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements performance-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
-import sys
 import re
-import json
-import time
+import sys
 from pathlib import Path
-from typing import Dict, List, Any
-from collections import defaultdict
+from typing import List, Dict, Any, Optional
 
-# Add utils to path for cross-platform and output_formatter imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.cross_platform import PlatformDetector
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class FrontendPerformanceAnalyzer:
+class FrontendPerformanceAnalyzer(BaseAnalyzer):
     """Analyzes frontend performance issues and optimization opportunities."""
 
-    def __init__(self):
-        self.platform = PlatformDetector()
-        self.formatter = ResultFormatter()
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create frontend-specific configuration
+        frontend_config = config or AnalyzerConfig(
+            code_extensions={
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".vue",
+                ".svelte",
+                ".css",
+                ".scss",
+                ".sass",
+                ".less",
+                ".styl",
+                ".html",
+                ".htm",
+                ".xml",
+                ".json",
+                ".yaml",
+                ".yml",
+                ".md",
+                ".mdx",
+                ".astro",
+                ".solid",
+                ".qwik",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".next",
+                "dist",
+                "build",
+                "public",
+                ".nuxt",
+                ".output",
+                ".vercel",
+                ".netlify",
+                "coverage",
+                ".nyc_output",
+                "storybook-static",
+                "*.min.js",
+                "*.min.css",
+                "*.bundle.js",
+                "*.chunk.js",
+                "*.d.ts",
+                "vendor",
+            },
+        )
 
-        # Bundle size and import patterns
+        # Initialize base analyzer
+        super().__init__("performance", frontend_config)
+
+        # Initialize performance patterns
+        self._init_bundle_patterns()
+        self._init_react_patterns()
+        self._init_css_patterns()
+        self._init_js_patterns()
+        self._init_asset_patterns()
+
+        # Compile patterns for performance
+        self._compiled_patterns = {}
+        self._compile_all_patterns()
+
+    def _init_bundle_patterns(self):
+        """Initialize bundle size and import patterns."""
         self.bundle_patterns = {
             "large_imports": {
                 "indicators": [
-                    r'import\s+\*\s+from\s+[\'"].*[\'"]',
-                    r'require\s*\(\s*[\'"].*entire.*library.*[\'"]',
+                    r'import\s+\*\s+from\s+[\'"][^\'"]*[\'"]',
                     r'import.*from\s+[\'"]lodash[\'"]',
                     r'import.*from\s+[\'"]moment[\'"]',
-                    r'import.*\{.*\}\s*from\s+[\'"]react[\'"]',
+                    r'import.*from\s+[\'"]rxjs[\'"]',
+                    r'import.*from\s+[\'"]@material-ui/core[\'"]',
+                    r'import.*from\s+[\'"]antd[\'"]',
+                    r'const.*=.*require\([\'"].*entire.*[\'"]',
                 ],
                 "severity": "medium",
-                "description": "Large or entire library imports affecting bundle size",
-            },
-            "unused_imports": {
-                "indicators": [
-                    r"import\s+\w+.*(?!.*\w+)",  # Simple heuristic for unused imports
-                    r"import\s+\{[^}]*\}.*from.*(?=\n)",
-                    r"const\s+\w+\s*=\s*require.*(?!.*\w+)",
-                ],
-                "severity": "low",
-                "description": "Potentially unused imports",
+                "description": "Large library imports affecting bundle size",
+                "recommendation": "Use tree-shaking, import specific modules, or consider lighter alternatives.",
             },
             "dynamic_imports_missing": {
                 "indicators": [
-                    r'import.*[\'"].*large.*component.*[\'"]',
-                    r'import.*[\'"].*page.*[\'"]',
-                    r'import.*[\'"].*route.*[\'"]',
+                    r'import.*[\'"].*(Page|Route|Modal|Dialog).*[\'"]',
+                    r'import.*[\'"].*/(pages?|routes?).*[\'"]',
+                    r'import.*[\'"].*(Chart|Dashboard|Editor).*[\'"]',
+                    r'(?:const|var|let).*=.*import\([\'"].*\)',
                 ],
                 "severity": "medium",
                 "description": "Missing dynamic imports for code splitting",
+                "recommendation": "Use dynamic imports for large components and routes to enable code splitting.",
+            },
+            "unused_dependencies": {
+                "indicators": [
+                    r'import\s+(?:\w+|\{[^}]*\})\s+from\s+[\'"][^\'"].*[\'"]',
+                    r'const\s+\w+\s*=\s*require\([\'"][^\'"].*[\'"].*(?!.*\w+)',
+                    r'import\s+[\'"][^\'"].*[\'"](?=\s*$)',
+                ],
+                "severity": "low",
+                "description": "Potentially unused imports",
+                "recommendation": "Remove unused imports to reduce bundle size.",
             },
         }
 
-        # React performance patterns
+    def _init_react_patterns(self):
+        """Initialize React performance patterns."""
         self.react_patterns = {
             "missing_memo": {
                 "indicators": [
-                    r"function\s+\w+Component.*\{.*map\(",
-                    r"const\s+\w+\s*=\s*\(.*\)\s*=>\s*\{.*map\(",
-                    r"export.*function.*\{.*\.map\(",
-                    r"React\.Component.*render.*map\(",
+                    r"(?:function|const)\s+\w+.*=.*\{.*\.map\((?!.*React\.memo|.*memo\()",
+                    r"export.*function.*\{.*\.map\((?!.*React\.memo)",
+                    r"const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*\{.*\.map\(",
+                    r"React\.Component.*render.*\.map\(",
                 ],
                 "severity": "medium",
                 "description": "Component with expensive operations missing memoization",
+                "recommendation": "Wrap components in React.memo() or use useMemo() for expensive calculations.",
             },
             "inline_object_creation": {
                 "indicators": [
-                    r"style=\{\{.*\}\}",
-                    r"onClick=\{.*=>\s*\{",
-                    r"onChange=\{.*=>\s*\{",
-                    r"<.*\{\{.*\}\}.*>",
+                    r"style=\{\{[^}]*\}\}",
+                    r"onClick=\{[^}]*=>\s*\{",
+                    r"onChange=\{[^}]*=>\s*\{",
+                    r"onSubmit=\{[^}]*=>\s*\{",
+                    r"<\w+[^>]*\{\{[^}]*\}\}",
                 ],
                 "severity": "low",
                 "description": "Inline object/function creation causing re-renders",
+                "recommendation": "Extract inline objects and functions to avoid unnecessary re-renders.",
             },
             "missing_key_prop": {
                 "indicators": [
-                    r"\.map\(.*=>\s*<.*(?!.*key=)",
-                    r"\.map\(.*function.*<.*(?!.*key=)",
-                    r"for.*in.*<.*(?!.*key=)",
+                    r"\.map\([^)]*=>\s*<[^>]*(?!.*key=)[^>]*>",
+                    r"\.map\([^)]*function[^)]*\)[^{]*\{[^}]*<[^>]*(?!.*key=)",
+                    r"for.*in.*<[^>]*(?!.*key=)",
                 ],
                 "severity": "medium",
                 "description": "Missing key prop in list rendering",
+                "recommendation": "Always provide unique key prop when rendering lists.",
             },
             "unnecessary_rerenders": {
                 "indicators": [
-                    r"useState\(.*\{\}.*\)",
-                    r"useState\(.*\[\].*\)",
-                    r"useEffect\(.*,\s*\[\]\)",
-                    r"component.*render.*new.*",
+                    r"useState\([^)]*\{\}[^)]*\)",
+                    r"useState\([^)]*\[\][^)]*\)",
+                    r"useEffect\([^,]*,[^)]*\[\][^)]*\)",
+                    r"new\s+(?:Date|Array|Object)\s*\([^)]*\).*render",
                 ],
                 "severity": "medium",
                 "description": "Patterns causing unnecessary re-renders",
+                "recommendation": "Use useCallback, useMemo, or stable object references.",
+            },
+            "inefficient_state_updates": {
+                "indicators": [
+                    r"setState\([^)]*\{\.\.\..*,.*\}",
+                    r"useState.*\[[^,]*,\s*set\w+\].*set\w+\([^)]*\.\.\..*\)",
+                    r"dispatch\([^)]*\.\.\.state",
+                ],
+                "severity": "medium",
+                "description": "Inefficient state update patterns",
+                "recommendation": "Use functional state updates and avoid spreading large state objects.",
             },
         }
 
-        # CSS and styling performance
+    def _init_css_patterns(self):
+        """Initialize CSS performance patterns."""
         self.css_patterns = {
             "expensive_selectors": {
                 "indicators": [
                     r"\*\s*\{",  # Universal selector
                     r"\[.*\*=.*\]",  # Attribute contains selector
-                    r"[^a-zA-Z0-9]nth-child\(",
-                    r":not\(.*:not\(",  # Nested :not selectors
-                    r"[a-zA-Z]+\s+[a-zA-Z]+\s+[a-zA-Z]+\s+[a-zA-Z]+",  # Deep descendant selectors
+                    r":nth-child\(",
+                    r":not\([^)]*:not\(",  # Nested :not selectors
+                    r"[a-zA-Z-]+\s+[a-zA-Z-]+\s+[a-zA-Z-]+\s+[a-zA-Z-]+",  # Deep descendant
                 ],
                 "severity": "medium",
                 "description": "Expensive CSS selectors affecting render performance",
-            },
-            "large_css_files": {
-                "indicators": [
-                    r"/\*.*large.*css.*file.*\*/",
-                    r"@import.*url\(",
-                    r"\.css.*\{.*\n.*\n.*\n.*\n.*\n",  # Heuristic for large CSS blocks
-                ],
-                "severity": "low",
-                "description": "Large CSS files affecting load time",
+                "recommendation": "Use class selectors instead of complex descendant selectors.",
             },
             "unused_css": {
                 "indicators": [
-                    r"\.unused-class\s*\{",
-                    r"#unused-id\s*\{",
-                    r"/\*.*unused.*\*/",
+                    r'@import\s+[\'"][^\'"]*.css[\'"];?',
+                    r"\.(?:unused|deprecated|old)-[a-zA-Z-]+\s*\{",
+                    r"#(?:unused|deprecated|old)-[a-zA-Z-]+\s*\{",
                 ],
                 "severity": "low",
                 "description": "Potentially unused CSS rules",
+                "recommendation": "Remove unused CSS rules to reduce stylesheet size.",
+            },
+            "inefficient_animations": {
+                "indicators": [
+                    r"animation.*(?:left|top|right|bottom|width|height)",
+                    r"transition.*(?:left|top|right|bottom|width|height)",
+                    r"@keyframes.*\{.*(?:left|top|right|bottom|width|height)",
+                ],
+                "severity": "medium",
+                "description": "Animations causing layout thrashing",
+                "recommendation": "Use transform and opacity for animations to avoid layout recalculation.",
+            },
+            "blocking_css": {
+                "indicators": [
+                    r'<link[^>]*rel=[\'"]stylesheet[\'"][^>]*>',
+                    r"@import\s+url\(",
+                    r"<style[^>]*>[\s\S]*</style>",
+                ],
+                "severity": "medium",
+                "description": "Render-blocking CSS",
+                "recommendation": "Inline critical CSS and load non-critical CSS asynchronously.",
             },
         }
 
-        # JavaScript performance patterns
+    def _init_js_patterns(self):
+        """Initialize JavaScript performance patterns."""
         self.js_patterns = {
             "inefficient_dom_queries": {
                 "indicators": [
-                    r"document\.querySelector.*for.*",
-                    r"document\.getElementById.*loop",
-                    r"getElementsBy.*for\s*\(",
+                    r"document\.querySelector.*(?:for|while)\s*\(",
+                    r"document\.getElementById.*(?:for|while)\s*\(",
+                    r"getElementsBy.*(?:for|while)\s*\(",
                     r"querySelectorAll.*map\(",
                 ],
                 "severity": "medium",
                 "description": "Inefficient DOM queries in loops",
+                "recommendation": "Cache DOM query results outside loops.",
             },
-            "synchronous_operations": {
+            "blocking_operations": {
                 "indicators": [
-                    r"for\s*\(.*length.*\)\s*\{.*fetch",
-                    r"while\s*\(.*\)\s*\{.*await",
-                    r"forEach.*fetch\(",
-                    r"map\(.*fetch\(",
+                    r"for\s*\([^)]*\)\s*\{[^}]*(?:fetch|await)",
+                    r"while\s*\([^)]*\)\s*\{[^}]*(?:fetch|await)",
+                    r"forEach\([^)]*(?:fetch|await)",
+                    r"\.map\([^)]*(?:fetch|await)",
                 ],
                 "severity": "high",
-                "description": "Synchronous operations blocking UI thread",
+                "description": "Blocking operations on main thread",
+                "recommendation": "Use Promise.all() for parallel operations or web workers for heavy computation.",
             },
             "memory_leaks": {
                 "indicators": [
-                    r"setInterval\(.*(?!.*clearInterval)",
-                    r"setTimeout\(.*(?!.*clearTimeout)",
-                    r"addEventListener\(.*(?!.*removeEventListener)",
-                    r"new.*Observer\(.*(?!.*disconnect)",
+                    r"setInterval\([^)]*\)(?![^;]*clearInterval)",
+                    r"setTimeout\([^)]*\)(?![^;]*clearTimeout)",
+                    r"addEventListener\([^)]*\)(?![^;]*removeEventListener)",
+                    r"new\s+(?:MutationObserver|IntersectionObserver|ResizeObserver)(?![^;]*disconnect)",
                 ],
                 "severity": "high",
                 "description": "Potential memory leaks from uncleaned resources",
+                "recommendation": "Always clean up timers, event listeners, and observers.",
+            },
+            "inefficient_loops": {
+                "indicators": [
+                    r"for\s*\([^)]*\.length[^)]*\)",
+                    r"for.*in.*(?:document|window)",
+                    r"while\s*\([^)]*\.length",
+                    r"do\s*\{[^}]*\}\s*while\s*\([^)]*\.length",
+                ],
+                "severity": "medium",
+                "description": "Inefficient loop patterns",
+                "recommendation": "Cache array length and avoid DOM operations in loop conditions.",
             },
             "large_data_processing": {
                 "indicators": [
-                    r"JSON\.parse\(.*large",
-                    r"JSON\.stringify\(.*big",
-                    r"sort\(.*length.*>.*1000",
-                    r"filter\(.*length.*>.*1000",
+                    r"JSON\.(?:parse|stringify)\([^)]*(?:large|big|huge)",
+                    r"\.(?:sort|filter|map|reduce)\([^)]*\)\.(?:sort|filter|map|reduce)",
+                    r"new Array\([0-9]{4,}\)",
                 ],
                 "severity": "medium",
                 "description": "Large data processing on main thread",
+                "recommendation": "Use web workers for heavy data processing or implement virtual scrolling.",
             },
         }
 
-        # Image and asset optimization
+    def _init_asset_patterns(self):
+        """Initialize asset optimization patterns."""
         self.asset_patterns = {
             "unoptimized_images": {
                 "indicators": [
-                    r"<img.*src.*\.(?!webp|avif)",
-                    r"background-image.*url.*\.(?!webp|avif)",
-                    r"import.*\.(?:jpg|jpeg|png|gif)",
-                    r"require.*\.(?:jpg|jpeg|png|gif)",
+                    r'<img[^>]*src=[\'"][^\'"]*\.(?:jpg|jpeg|png|gif)[\'"]',
+                    r"background-image:[^;]*url\([^)]*\.(?:jpg|jpeg|png|gif)",
+                    r"import[^;]*\.(?:jpg|jpeg|png|gif)",
+                    r"require\([^)]*\.(?:jpg|jpeg|png|gif)",
                 ],
                 "severity": "low",
                 "description": "Unoptimized image formats",
+                "recommendation": "Use modern formats like WebP or AVIF for better compression.",
             },
             "missing_lazy_loading": {
                 "indicators": [
-                    r"<img.*(?!.*loading=)",
-                    r"<iframe.*(?!.*loading=)",
-                    r"background-image.*(?!.*lazy)",
+                    r"<img[^>]*src=[^>]*(?!.*loading=)",
+                    r"<iframe[^>]*src=[^>]*(?!.*loading=)",
+                    r"<video[^>]*src=[^>]*(?!.*loading=)",
                 ],
                 "severity": "medium",
-                "description": "Missing lazy loading for images/iframes",
+                "description": "Missing lazy loading for media",
+                "recommendation": "Add loading='lazy' attribute to images and iframes below the fold.",
             },
             "large_bundle_assets": {
                 "indicators": [
-                    r'import.*[\'"].*\.(?:mp4|webm|gif).*[\'"]',
-                    r'require.*[\'"].*\.(?:mp4|webm|gif).*[\'"]',
-                    r'url.*[\'"].*\.(?:mp4|webm|gif).*[\'"]',
+                    r"import[^;]*\.(?:mp4|webm|mov|avi)",
+                    r"require\([^)]*\.(?:mp4|webm|mov|avi)",
+                    r'src=[\'"][^\'"]*\.(?:mp4|webm|mov|avi)[\'"]',
                 ],
                 "severity": "medium",
                 "description": "Large media assets bundled with application",
+                "recommendation": "Host large media files externally or use streaming services.",
+            },
+            "missing_preload": {
+                "indicators": [
+                    r'<link[^>]*href=[\'"][^\'"]*\.(?:woff2|woff|ttf)[\'"][^>]*>',
+                    r"@font-face[^}]*url\([^)]*\.(?:woff2|woff|ttf)",
+                    r'<img[^>]*src=[\'"][^\'"]*hero[^\'"]*[\'"]',
+                ],
+                "severity": "medium",
+                "description": "Missing preload for critical resources",
+                "recommendation": "Preload critical fonts, hero images, and other important assets.",
             },
         }
 
-    def analyze_frontend_performance(
-        self, target_path: str, min_severity: str = "low"
-    ) -> Dict[str, Any]:
-        """Analyze frontend performance in the target path."""
+    def _compile_all_patterns(self):
+        """Compile all regex patterns for performance."""
+        pattern_groups = [
+            self.bundle_patterns,
+            self.react_patterns,
+            self.css_patterns,
+            self.js_patterns,
+            self.asset_patterns,
+        ]
 
-        start_time = time.time()
-        result = ResultFormatter.create_performance_result(
-            "analyze_frontend.py", target_path
-        )
+        for patterns in pattern_groups:
+            for perf_type, config in patterns.items():
+                self._compiled_patterns[perf_type] = [
+                    re.compile(pattern, re.MULTILINE | re.IGNORECASE)
+                    for pattern in config["indicators"]
+                ]
 
-        if not os.path.exists(target_path):
-            result.set_error(f"Path does not exist: {target_path}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Frontend Performance Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes frontend performance and optimization opportunities",
+            "category": "performance",
+            "priority": "high",
+            "capabilities": [
+                "Bundle size analysis",
+                "React performance patterns",
+                "CSS optimization detection",
+                "JavaScript efficiency analysis",
+                "Asset optimization checks",
+                "Memory leak detection",
+                "DOM query optimization",
+                "Animation performance analysis",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "patterns_checked": len(self._compiled_patterns),
+        }
 
-        performance_summary = defaultdict(int)
-        file_count = 0
-
-        try:
-            # Walk through all files using universal exclusion system
-            exclude_dirs = self.tech_detector.get_simple_exclusions(target_path)[
-                "directories"
-            ]
-
-            for root, dirs, files in os.walk(target_path):
-                # Filter directories using universal exclusion system
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    # Use universal exclusion system
-                    if self.tech_detector.should_analyze_file(
-                        file_path, target_path
-                    ) and self._should_analyze_file(file):
-                        relative_path = os.path.relpath(file_path, target_path)
-
-                        try:
-                            file_findings = self._analyze_file_frontend_performance(
-                                file_path, relative_path
-                            )
-                            file_count += 1
-
-                            # Convert findings to Finding objects
-                            for finding_data in file_findings:
-                                finding = ResultFormatter.create_finding(
-                                    finding_id=f"FRONTEND_{performance_summary[finding_data['issue_type']] + 1:03d}",
-                                    title=finding_data["issue_type"]
-                                    .replace("_", " ")
-                                    .title(),
-                                    description=finding_data["message"],
-                                    severity=finding_data["severity"],
-                                    file_path=finding_data["file"],
-                                    line_number=finding_data["line"],
-                                    recommendation=self._get_frontend_recommendation(
-                                        finding_data["issue_type"]
-                                    ),
-                                    evidence={
-                                        "context": finding_data.get("context", ""),
-                                        "category": finding_data.get(
-                                            "category", "frontend_performance"
-                                        ),
-                                        "performance_impact": finding_data.get(
-                                            "performance_impact", "unknown"
-                                        ),
-                                    },
-                                )
-                                result.add_finding(finding)
-                                performance_summary[finding_data["issue_type"]] += 1
-
-                        except Exception as e:
-                            error_finding = ResultFormatter.create_finding(
-                                finding_id=f"ERROR_{file_count:03d}",
-                                title="Analysis Error",
-                                description=f"Error analyzing file: {str(e)}",
-                                severity="low",
-                                file_path=relative_path,
-                                line_number=0,
-                            )
-                            result.add_finding(error_finding)
-
-            # Generate analysis summary
-            analysis_summary = self._generate_frontend_summary(
-                performance_summary, file_count
-            )
-            result.metadata = analysis_summary
-
-            result.set_execution_time(start_time)
-            return result.to_dict(min_severity=min_severity)
-
-        except Exception as e:
-            result.set_error(f"Frontend performance analysis failed: {str(e)}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
-
-    def _analyze_file_frontend_performance(
-        self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
-        """Analyze frontend performance issues in a single file."""
+    def _scan_file_for_issues(self, file_path: Path) -> List[Dict[str, Any]]:
+        """Scan a single file for frontend performance issues."""
         findings = []
 
         try:
@@ -324,404 +404,157 @@ class FrontendPerformanceAnalyzer:
                 content = f.read()
                 lines = content.split("\n")
 
-            file_ext = Path(file_path).suffix.lower()
+                # Check all performance patterns
+                pattern_groups = [
+                    ("bundle", self.bundle_patterns),
+                    ("react", self.react_patterns),
+                    ("css", self.css_patterns),
+                    ("javascript", self.js_patterns),
+                    ("asset", self.asset_patterns),
+                ]
 
-            # Check bundle size patterns for JS/TS files
-            if file_ext in [".js", ".jsx", ".ts", ".tsx"]:
-                findings.extend(
-                    self._check_performance_patterns(
-                        content,
-                        lines,
-                        relative_path,
-                        self.bundle_patterns,
-                        "bundle",
-                        "bundle_size",
-                    )
-                )
+                for category, patterns in pattern_groups:
+                    for perf_type, config in patterns.items():
+                        compiled_patterns = self._compiled_patterns.get(perf_type, [])
 
-                # Check React patterns for React files
-                if "react" in content.lower() or file_ext in [".jsx", ".tsx"]:
-                    findings.extend(
-                        self._check_performance_patterns(
-                            content,
-                            lines,
-                            relative_path,
-                            self.react_patterns,
-                            "react",
-                            "render_performance",
-                        )
-                    )
+                        for pattern in compiled_patterns:
+                            for match in pattern.finditer(content):
+                                # Calculate line number
+                                line_number = content[: match.start()].count("\n") + 1
 
-                # Check JavaScript patterns
-                findings.extend(
-                    self._check_performance_patterns(
-                        content,
-                        lines,
-                        relative_path,
-                        self.js_patterns,
-                        "javascript",
-                        "runtime_performance",
-                    )
-                )
+                                # Get the matched line
+                                line_content = (
+                                    lines[line_number - 1].strip()
+                                    if line_number <= len(lines)
+                                    else ""
+                                )
 
-            # Check CSS patterns for CSS files
-            elif file_ext in [".css", ".scss", ".sass", ".less"]:
-                findings.extend(
-                    self._check_performance_patterns(
-                        content,
-                        lines,
-                        relative_path,
-                        self.css_patterns,
-                        "css",
-                        "render_performance",
-                    )
-                )
+                                # Skip false positives
+                                if self._is_false_positive(
+                                    line_content, perf_type, category
+                                ):
+                                    continue
 
-            # Check asset patterns for HTML files
-            elif file_ext in [".html", ".htm"]:
-                findings.extend(
-                    self._check_performance_patterns(
-                        content,
-                        lines,
-                        relative_path,
-                        self.asset_patterns,
-                        "assets",
-                        "load_performance",
-                    )
-                )
-
-            # Check for large files
-            if len(content) > 100000:  # Files larger than 100KB
-                findings.append(
-                    {
-                        "file": relative_path,
-                        "line": 1,
-                        "issue_type": "large_file_size",
-                        "severity": "medium",
-                        "message": f"Large file size ({len(content)} bytes) may impact performance",
-                        "context": f"File size: {len(content)} bytes",
-                        "category": "file_size",
-                        "performance_impact": "load_performance",
-                    }
-                )
+                                findings.append(
+                                    {
+                                        "perf_type": perf_type,
+                                        "category": category,
+                                        "file_path": str(file_path),
+                                        "line_number": line_number,
+                                        "line_content": line_content[
+                                            :150
+                                        ],  # Truncate long lines
+                                        "severity": config["severity"],
+                                        "description": config["description"],
+                                        "recommendation": config["recommendation"],
+                                        "pattern_matched": pattern.pattern[:80],
+                                    }
+                                )
 
         except Exception as e:
-            findings.append(
-                {
-                    "file": relative_path,
-                    "line": 0,
-                    "issue_type": "file_error",
-                    "severity": "low",
-                    "message": f"Could not analyze file: {str(e)}",
-                    "category": "analysis",
-                    "performance_impact": "unknown",
-                }
-            )
+            # Log but continue - file might be binary or inaccessible
+            if self.verbose:
+                print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
 
         return findings
 
-    def _check_performance_patterns(
-        self,
-        content: str,
-        lines: List[str],
-        file_path: str,
-        pattern_dict: Dict,
-        category: str,
-        performance_impact: str,
-    ) -> List[Dict[str, Any]]:
-        """Check for specific frontend performance patterns in file content."""
-        findings = []
+    def _is_false_positive(
+        self, line_content: str, perf_type: str, category: str
+    ) -> bool:
+        """Check if a detected issue is likely a false positive."""
+        line_lower = line_content.lower()
 
-        for pattern_name, pattern_info in pattern_dict.items():
-            for indicator in pattern_info["indicators"]:
-                matches = re.finditer(indicator, content, re.MULTILINE | re.IGNORECASE)
-                for match in matches:
-                    line_num = content[: match.start()].count("\n") + 1
+        # Skip comments
+        comment_indicators = ["//", "#", "/*", "*", "<!--", "'''", '"""']
+        for indicator in comment_indicators:
+            if line_content.strip().startswith(indicator):
+                return True
 
-                    findings.append(
-                        {
-                            "file": file_path,
-                            "line": line_num,
-                            "issue_type": f"{category}_{pattern_name}",
-                            "severity": pattern_info["severity"],
-                            "message": f"{pattern_info['description']} ({pattern_name})",
-                            "context": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
-                            ),
-                            "category": category,
-                            "performance_impact": performance_impact,
-                        }
-                    )
-
-        return findings
-
-    def _get_frontend_recommendation(self, issue_type: str) -> str:
-        """Get specific recommendations for frontend performance issues."""
-        recommendations = {
-            "bundle_large_imports": "Use tree shaking and import only needed functions",
-            "bundle_unused_imports": "Remove unused imports to reduce bundle size",
-            "bundle_dynamic_imports_missing": "Implement code splitting with dynamic imports",
-            "react_missing_memo": "Use React.memo, useMemo, or useCallback for optimization",
-            "react_inline_object_creation": "Move object/function creation outside render",
-            "react_missing_key_prop": "Add unique key props to list items",
-            "react_unnecessary_rerenders": "Optimize state management and effect dependencies",
-            "css_expensive_selectors": "Simplify CSS selectors for better performance",
-            "css_large_css_files": "Split large CSS files and use critical CSS",
-            "css_unused_css": "Remove unused CSS rules to reduce file size",
-            "javascript_inefficient_dom_queries": "Cache DOM queries and avoid queries in loops",
-            "javascript_synchronous_operations": "Use async/await and batch operations",
-            "javascript_memory_leaks": "Clean up timers, listeners, and observers",
-            "javascript_large_data_processing": "Use web workers for heavy data processing",
-            "assets_unoptimized_images": "Use modern image formats (WebP, AVIF)",
-            "assets_missing_lazy_loading": "Implement lazy loading for images and iframes",
-            "assets_large_bundle_assets": "Host large media files externally or use CDN",
-            "large_file_size": "Split large files into smaller modules",
-        }
-        return recommendations.get(
-            issue_type, "Review for frontend performance optimization opportunities"
-        )
-
-    def _generate_frontend_summary(
-        self, performance_summary: Dict, file_count: int
-    ) -> Dict[str, Any]:
-        """Generate summary of frontend performance analysis."""
-
-        # Categorize issues by performance impact
-        impact_categories = {
-            "bundle_size": [
-                k for k in performance_summary.keys() if k.startswith("bundle_")
-            ],
-            "render_performance": [
-                k
-                for k in performance_summary.keys()
-                if k.startswith(("react_", "css_"))
-            ],
-            "runtime_performance": [
-                k for k in performance_summary.keys() if k.startswith("javascript_")
-            ],
-            "load_performance": [
-                k
-                for k in performance_summary.keys()
-                if k.startswith("assets_") or "large_file_size" in k
-            ],
-        }
-
-        total_issues = sum(performance_summary.values())
-        severity_counts = self._count_by_severity(performance_summary)
-
-        return {
-            "total_files_analyzed": file_count,
-            "total_performance_issues": total_issues,
-            "issues_by_performance_impact": {
-                category: {
-                    "count": sum(performance_summary.get(issue, 0) for issue in issues),
-                    "issues": {
-                        issue.replace(f"{category}_", ""): performance_summary.get(
-                            issue, 0
-                        )
-                        for issue in issues
-                        if performance_summary.get(issue, 0) > 0
-                    },
-                }
-                for category, issues in impact_categories.items()
-            },
-            "severity_breakdown": severity_counts,
-            "performance_score": self._calculate_performance_score(
-                total_issues, file_count
-            ),
-            "optimization_opportunities": self._get_optimization_opportunities(
-                performance_summary
-            ),
-            "recommendations": self._generate_priority_recommendations(
-                performance_summary
-            ),
-        }
-
-    def _count_by_severity(self, performance_summary: Dict) -> Dict[str, int]:
-        """Count issues by severity level."""
-        severity_mapping = {
-            "high": ["synchronous_operations", "memory_leaks"],
-            "medium": [
-                "large_imports",
-                "dynamic_imports_missing",
-                "missing_memo",
-                "missing_key_prop",
-                "unnecessary_rerenders",
-                "expensive_selectors",
-                "inefficient_dom_queries",
-                "large_data_processing",
-                "missing_lazy_loading",
-                "large_bundle_assets",
-                "large_file_size",
-            ],
-            "low": [
-                "unused_imports",
-                "inline_object_creation",
-                "large_css_files",
-                "unused_css",
-                "unoptimized_images",
-                "file_error",
-            ],
-        }
-
-        counts = {"high": 0, "medium": 0, "low": 0, "critical": 0}
-        for issue, count in performance_summary.items():
-            issue_name = issue.split("_", 1)[-1]  # Remove category prefix
-            for severity, patterns in severity_mapping.items():
-                if issue_name in patterns:
-                    counts[severity] += count
-                    break
-
-        return counts
-
-    def _calculate_performance_score(self, total_issues: int, file_count: int) -> float:
-        """Calculate a performance score (0-100, higher is better)."""
-        if file_count == 0:
-            return 100.0
-
-        issue_density = total_issues / file_count
-        # Score decreases with issue density
-        score = max(0, 100 - (issue_density * 12))
-        return round(score, 1)
-
-    def _get_optimization_opportunities(
-        self, performance_summary: Dict
-    ) -> List[Dict[str, Any]]:
-        """Get the top frontend optimization opportunities."""
-        high_impact_patterns = [
-            "large_imports",
-            "synchronous_operations",
-            "memory_leaks",
-            "missing_memo",
-            "large_bundle_assets",
-        ]
-        opportunities = []
-
-        for issue, count in performance_summary.items():
-            issue_name = issue.split("_", 1)[-1]
-            if issue_name in high_impact_patterns and count > 0:
-                opportunities.append(
-                    {
-                        "optimization": issue.replace("_", " ").title(),
-                        "count": count,
-                        "impact": (
-                            "high"
-                            if issue_name in ["synchronous_operations", "memory_leaks"]
-                            else "medium"
-                        ),
-                        "category": issue.split("_")[0],
-                    }
-                )
-
-        return sorted(opportunities, key=lambda x: x["count"], reverse=True)[:5]
-
-    def _generate_priority_recommendations(
-        self, performance_summary: Dict
-    ) -> List[str]:
-        """Generate priority recommendations based on findings."""
-        recommendations = []
-
-        # High impact issues first
-        if any("synchronous_operations" in k for k in performance_summary.keys()):
-            recommendations.append(
-                "HIGH: Fix synchronous operations blocking the UI thread"
-            )
-        if any("memory_leaks" in k for k in performance_summary.keys()):
-            recommendations.append(
-                "HIGH: Clean up memory leaks from timers and event listeners"
-            )
-
-        # Bundle optimization
-        if any("large_imports" in k for k in performance_summary.keys()):
-            recommendations.append(
-                "MEDIUM: Optimize bundle size with tree shaking and selective imports"
-            )
-        if any("dynamic_imports_missing" in k for k in performance_summary.keys()):
-            recommendations.append(
-                "MEDIUM: Implement code splitting for better load performance"
-            )
-
-        # React optimization
+        # Skip test files
         if any(
-            "missing_memo" in k or "unnecessary_rerenders" in k
-            for k in performance_summary.keys()
+            word in line_lower
+            for word in ["test", "spec", "mock", "fixture", "storybook"]
         ):
-            recommendations.append("MEDIUM: Optimize React rendering with memoization")
+            return True
 
-        # General recommendations
-        total_issues = sum(performance_summary.values())
-        if total_issues > 15:
-            recommendations.append(
-                "Consider implementing performance monitoring and metrics"
+        # Skip documentation
+        if any(
+            word in line_lower for word in ["@example", "@param", "docstring", "readme"]
+        ):
+            return True
+
+        # Category-specific false positive checks
+        if category == "react" and any(
+            word in line_lower for word in ["memo(", "usememo(", "usecallback("]
+        ):
+            return True  # Already optimized
+
+        if category == "bundle" and "dynamic" in line_lower:
+            return True  # Already using dynamic imports
+
+        if category == "css" and any(
+            word in line_lower for word in ["transform", "opacity", "will-change"]
+        ):
+            return True  # GPU-accelerated properties
+
+        return False
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for frontend performance issues.
+
+        Args:
+            target_path: Path to file to analyze
+
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
+
+        # Skip files that are too large
+        if file_path.stat().st_size > 1 * 1024 * 1024:  # Skip files > 1MB
+            return all_findings
+
+        findings = self._scan_file_for_issues(file_path)
+
+        # Convert to standardized finding format
+        for finding in findings:
+            # Create detailed title
+            title = f"{finding['description']} ({finding['perf_type'].replace('_', ' ').title()})"
+
+            # Create comprehensive description
+            description = (
+                f"{finding['description']} detected in {file_path.name} at line {finding['line_number']}. "
+                f"Category: {finding['category'].replace('_', ' ').title()}. "
+                f"This could impact frontend performance, user experience, or bundle size."
             )
 
-        return recommendations[:5]
+            standardized = {
+                "title": title,
+                "description": description,
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
+                    "perf_type": finding["perf_type"],
+                    "category": finding["category"],
+                    "line_content": finding["line_content"],
+                    "pattern_matched": finding["pattern_matched"],
+                    "confidence": "medium",
+                },
+            }
+            all_findings.append(standardized)
 
-    def _should_analyze_file(self, filename: str) -> bool:
-        """Check if file should be analyzed."""
-        analyze_extensions = {
-            ".js",
-            ".jsx",
-            ".ts",
-            ".tsx",
-            ".vue",
-            ".svelte",
-            ".css",
-            ".scss",
-            ".sass",
-            ".less",
-            ".html",
-            ".htm",
-        }
-        return any(filename.endswith(ext) for ext in analyze_extensions)
+        return all_findings
 
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze frontend performance in codebase"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--min-severity",
-        choices=["low", "medium", "high", "critical"],
-        default="low",
-        help="Minimum severity level to report",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format (default: json)",
-    )
-
-    args = parser.parse_args()
-
+    """Main entry point for command-line usage."""
     analyzer = FrontendPerformanceAnalyzer()
-    result = analyzer.analyze_frontend_performance(args.target_path, args.min_severity)
-
-    if args.output_format == "console":
-        # Simple console output
-        if result.get("success", False):
-            print(f"Frontend Performance Analysis Results for: {args.target_path}")
-            print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
-            print(f"Execution Time: {result.get('execution_time', 0)}s")
-            print(f"\nFindings: {len(result.get('findings', []))}")
-            for finding in result.get("findings", []):
-                file_path = finding.get("file_path", "unknown")
-                line = finding.get("line_number", 0)
-                desc = finding.get("description", "No description")
-                severity = finding.get("severity", "unknown")
-                print(f"  {file_path}:{line} - {desc} [{severity}]")
-        else:
-            error_msg = result.get("error_message", "Unknown error")
-            print(f"Error: {error_msg}")
-    else:  # json (default)
-        print(json.dumps(result, indent=2))
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

@@ -1,306 +1,357 @@
 #!/usr/bin/env python3
 """
-Input Validation Analysis Script
-Analyzes code for input validation vulnerabilities and injection attack vectors.
+Input Validation Analyzer - Input Security and Injection Prevention Analysis
+===========================================================================
+
+PURPOSE: Analyzes code for input validation vulnerabilities and injection attack vectors.
+Part of the shared/analyzers/security suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Missing input validation detection
+- Insufficient sanitization identification
+- Direct user input execution detection
+- SQL injection pattern analysis
+- Command injection vulnerability detection
+- Path traversal and file inclusion checks
+- Regex injection vulnerability detection
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements security-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
-import sys
 import re
-import json
-import time
-from typing import Dict, List, Any
-from collections import defaultdict
+import sys
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 
-# Add utils to path for cross-platform and output_formatter imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.cross_platform import PlatformDetector
-    from shared.core.utils.output_formatter import ResultFormatter
-    from analysis_environment import validate_target_directory
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class InputValidationAnalyzer:
+class InputValidationAnalyzer(BaseAnalyzer):
     """Analyzes input validation and injection vulnerabilities."""
 
-    def __init__(self):
-        self.platform = PlatformDetector()
-        self.formatter = ResultFormatter()
-        # Initialize tech stack detector for smart filtering
-        self.tech_detector = TechStackDetector()
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create security-specific configuration
+        security_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".xml",
+                ".html",
+                ".vue",
+                ".svelte",
+                ".sql",
+                ".sh",
+                ".bash",
+                ".ps1",
+                ".bat",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "test_fixtures",
+                "*.min.js",
+                "*.min.css",
+            },
+        )
 
-        # Input validation patterns
+        # Initialize base analyzer
+        super().__init__("security", security_config)
+
+        # Initialize validation patterns
+        self._init_validation_patterns()
+        self._init_injection_patterns()
+        self._init_file_operation_patterns()
+        self._init_unsafe_patterns()
+
+        # Compile patterns for performance
+        self._compiled_patterns = {}
+        self._compile_all_patterns()
+
+    def _init_validation_patterns(self):
+        """Initialize input validation patterns."""
         self.validation_patterns = {
             "missing_input_validation": {
                 "indicators": [
-                    r"request\.(args|form|json).*(?!.*validat)",
-                    r"input\(.*\).*(?!.*validat)",
-                    r"params\[.*\].*(?!.*check)",
-                    r"query\[.*\].*(?!.*sanitiz)",
-                    r"POST.*data.*(?!.*validat)",
+                    r"request\.(args|form|json|data|params)(?!.*(?:validat|sanitiz|check|filter))",
+                    r"req\.(body|query|params)(?!.*(?:validat|sanitiz|check|filter))",
+                    r"input\(.*\)(?!.*(?:validat|sanitiz|check|strip))",
+                    r"params\[.*\](?!.*(?:check|validat|sanitiz))",
+                    r"query\[.*\](?!.*(?:sanitiz|escape|filter))",
+                    r"POST.*data(?!.*(?:validat|sanitiz|check))",
+                    r"\$_(?:GET|POST|REQUEST)\[(?!.*(?:filter|escape|sanitiz))",
                 ],
                 "severity": "high",
                 "description": "Missing input validation",
+                "recommendation": "Validate all user input before processing. Use whitelist validation and type checking.",
             },
             "insufficient_sanitization": {
                 "indicators": [
-                    r"user.*input.*(?!.*escape|.*sanitiz|.*clean)",
-                    r"request.*data.*(?!.*filter|.*validat)",
-                    r"form.*data.*(?!.*sanitiz)",
-                    r"query.*param.*(?!.*escape)",
+                    r"user.*input(?!.*(?:escape|sanitiz|clean|filter))",
+                    r"request.*data(?!.*(?:filter|validat|sanitiz))",
+                    r"form.*data(?!.*(?:sanitiz|escape|clean))",
+                    r"query.*param(?!.*(?:escape|sanitiz|filter))",
+                    r"raw.*input(?!.*(?:process|sanitiz|clean))",
                 ],
                 "severity": "medium",
                 "description": "Insufficient input sanitization",
+                "recommendation": "Sanitize all user input. Use context-appropriate escaping and encoding.",
             },
-            "direct_user_input": {
+            "missing_length_check": {
                 "indicators": [
-                    r"eval\(.*request",
-                    r"exec\(.*user",
-                    r"system\(.*input",
-                    r"shell_exec\(.*user",
+                    r"(?:input|data|param).*=.*request(?!.*(?:len|length|size|max))",
+                    r"buffer.*=.*user(?!.*(?:limit|max|bound))",
+                    r"string.*=.*input(?!.*(?:substring|slice|truncate))",
+                ],
+                "severity": "medium",
+                "description": "Missing input length validation",
+                "recommendation": "Implement maximum length checks to prevent buffer overflows and DoS attacks.",
+            },
+            "missing_type_validation": {
+                "indicators": [
+                    r"parseInt\(.*request(?!.*(?:isNaN|Number\.is))",
+                    r"int\(.*input(?!.*(?:try|except|ValueError))",
+                    r"parseFloat\(.*user(?!.*(?:isNaN|Number\.is))",
+                    r"to_i.*params(?!.*(?:rescue|valid))",
+                ],
+                "severity": "medium",
+                "description": "Missing type validation",
+                "recommendation": "Validate data types and handle conversion errors gracefully.",
+            },
+        }
+
+    def _init_injection_patterns(self):
+        """Initialize injection vulnerability patterns."""
+        self.injection_patterns = {
+            "sql_injection": {
+                "indicators": [
+                    r"(?:SELECT|INSERT|UPDATE|DELETE).*\+.*(?:request|user|input|param)",
+                    r'query.*=.*[\'"].*\+.*(?:request|user|input)',
+                    r"execute.*%.*(?:request|user|input)",
+                    r"cursor\.execute.*%(?!.*\?)",
+                    r"sql.*\.format\(.*(?:request|user|input)",
+                    r"f['\"].*(?:SELECT|INSERT|UPDATE|DELETE).*{.*(?:request|user|input)",
                 ],
                 "severity": "critical",
-                "description": "Direct execution of user input",
+                "description": "SQL injection vulnerability",
+                "recommendation": "Use parameterized queries or prepared statements. Never concatenate user input into SQL.",
+            },
+            "command_injection": {
+                "indicators": [
+                    r"os\.system\(.*(?:request|user|input)",
+                    r"subprocess\.(?:call|run|Popen).*(?:request|user|input)(?!.*shell=False)",
+                    r"exec\(.*(?:request|user|input)",
+                    r"eval\(.*(?:request|user|input)",
+                    r"shell_exec\(.*(?:user|input|\$_)",
+                    r"system\(.*(?:user|input|\$_)",
+                    r"Process\.Start.*(?:request|user|input)",
+                ],
+                "severity": "critical",
+                "description": "Command injection vulnerability",
+                "recommendation": "Avoid system calls with user input. Use safe APIs and strict input validation.",
+            },
+            "ldap_injection": {
+                "indicators": [
+                    r"ldap.*search.*\+.*(?:user|input|request)",
+                    r"ldap.*filter.*=.*\+.*(?:user|input)",
+                    r"DirectorySearcher.*\+.*(?:user|input)",
+                ],
+                "severity": "high",
+                "description": "LDAP injection vulnerability",
+                "recommendation": "Use LDAP query parameterization and escape special characters.",
+            },
+            "xpath_injection": {
+                "indicators": [
+                    r"xpath.*\+.*(?:user|input|request)",
+                    r"selectNodes.*\+.*(?:user|input)",
+                    r"evaluate\(.*\+.*(?:request|input)",
+                ],
+                "severity": "high",
+                "description": "XPath injection vulnerability",
+                "recommendation": "Use XPath variable binding and avoid string concatenation.",
             },
             "regex_injection": {
                 "indicators": [
-                    r"re\.compile\(.*user",
-                    r"regex\(.*input",
-                    r"pattern.*=.*request",
-                    r"match\(.*user.*input",
+                    r"re\.compile\(.*(?:user|input|request)",
+                    r"new RegExp\(.*(?:user|input|request)",
+                    r"Pattern\.compile\(.*(?:user|input|request)",
+                    r"preg_match\(.*\$_(?:GET|POST|REQUEST)",
                 ],
                 "severity": "medium",
-                "description": "Potential regex injection vulnerability",
+                "description": "Regex injection vulnerability",
+                "recommendation": "Escape user input in regex patterns or use literal string matching.",
+            },
+            "template_injection": {
+                "indicators": [
+                    r"render_template_string\(.*(?:request|user|input)",
+                    r"Template\(.*(?:request|user|input)",
+                    r"eval.*template.*(?:user|input|request)",
+                    r"{{.*request\..*}}",
+                ],
+                "severity": "high",
+                "description": "Template injection vulnerability",
+                "recommendation": "Use safe template rendering methods and avoid user-controlled templates.",
             },
         }
 
-        # SQL injection patterns
-        self.sql_injection_patterns = {
-            "string_concatenation": {
+    def _init_file_operation_patterns(self):
+        """Initialize file operation vulnerability patterns."""
+        self.file_patterns = {
+            "path_traversal": {
                 "indicators": [
-                    r"SELECT.*\+.*request",
-                    r"INSERT.*\+.*user",
-                    r"UPDATE.*\+.*input",
-                    r"DELETE.*\+.*param",
-                    r'query.*=.*[\'"].*\+.*[\'"]',
+                    r"open\(.*(?:request|user|input)(?!.*(?:basename|realpath|sanitiz))",
+                    r"File\.open.*(?:params|request)(?!.*(?:File\.basename|sanitiz))",
+                    r"readFile.*(?:req\.|request)(?!.*path\.join)",
+                    r"include.*\$_(?:GET|POST|REQUEST)(?!.*basename)",
+                    r"require.*user.*input(?!.*whitelist)",
+                ],
+                "severity": "high",
+                "description": "Path traversal vulnerability",
+                "recommendation": "Validate file paths, use whitelists, and resolve to absolute paths.",
+            },
+            "file_upload_validation": {
+                "indicators": [
+                    r"upload.*file(?!.*(?:type|extension|mime|magic))",
+                    r"save.*uploaded(?!.*(?:validat|check|verify))",
+                    r"move_uploaded_file(?!.*(?:mime|type|check))",
+                    r"file.*write.*upload(?!.*(?:sanitiz|validat))",
+                ],
+                "severity": "high",
+                "description": "Insufficient file upload validation",
+                "recommendation": "Validate file types, extensions, content, and size. Use magic number validation.",
+            },
+            "arbitrary_file_write": {
+                "indicators": [
+                    r"file.*write.*(?:request|user|input)",
+                    r"fs\.write.*(?:req\.|request)",
+                    r"File\.write.*params",
+                    r"fwrite.*\$_(?:GET|POST|REQUEST)",
                 ],
                 "severity": "critical",
-                "description": "SQL query built with string concatenation",
+                "description": "Arbitrary file write vulnerability",
+                "recommendation": "Never use user input directly in file paths. Implement strict access controls.",
             },
-            "format_string_sql": {
+        }
+
+    def _init_unsafe_patterns(self):
+        """Initialize unsafe operation patterns."""
+        self.unsafe_patterns = {
+            "unsafe_deserialization": {
                 "indicators": [
-                    r"query.*%.*user",
-                    r"execute.*%.*request",
-                    r"cursor\.execute.*%",
-                    r"sql.*format.*input",
+                    r"pickle\.loads.*(?:request|user|input)",
+                    r"yaml\.load(?!.*SafeLoader).*(?:request|user|input)",
+                    r"unserialize\(.*\$_(?:GET|POST|REQUEST|COOKIE)",
+                    r"ObjectInputStream.*(?:request|user|input)",
+                    r"json\.loads.*eval.*(?:request|user|input)",
                 ],
                 "severity": "critical",
-                "description": "SQL query using format strings with user input",
+                "description": "Unsafe deserialization",
+                "recommendation": "Use safe deserialization methods and validate serialized data.",
             },
-            "dynamic_query_building": {
+            "unsafe_redirect": {
                 "indicators": [
-                    r"WHERE.*\+.*user",
-                    r"ORDER.*BY.*\+.*input",
-                    r"GROUP.*BY.*\+.*param",
-                    r"HAVING.*\+.*request",
+                    r"redirect\(.*(?:request|user|input)(?!.*(?:whitelist|allowed|valid))",
+                    r"location\.href.*=.*(?:request|user|input)",
+                    r"header\(['\"]Location:.*\$_(?:GET|POST|REQUEST)",
+                    r"Response\.Redirect.*Request\[",
+                ],
+                "severity": "medium",
+                "description": "Open redirect vulnerability",
+                "recommendation": "Validate redirect URLs against a whitelist of allowed destinations.",
+            },
+            "unsafe_reflection": {
+                "indicators": [
+                    r"getattr\(.*(?:request|user|input)",
+                    r"Class\.forName\(.*(?:request|user|input)",
+                    r"Assembly\.Load.*(?:request|user|input)",
+                    r"require\(.*(?:request|user|input)",
                 ],
                 "severity": "high",
-                "description": "Dynamic SQL query building with user input",
+                "description": "Unsafe reflection/dynamic loading",
+                "recommendation": "Avoid dynamic class/module loading with user input.",
             },
         }
 
-        # NoSQL injection patterns
-        self.nosql_injection_patterns = {
-            "mongodb_injection": {
-                "indicators": [
-                    r"find\(.*user.*input",
-                    r"collection\..*request",
-                    r"db\..*\$.*user",
-                    r"mongo.*query.*input",
-                ],
-                "severity": "high",
-                "description": "Potential NoSQL injection in MongoDB queries",
-            },
-            "json_injection": {
-                "indicators": [
-                    r"json\.loads.*request.*(?!.*validat)",
-                    r"eval.*json.*user",
-                    r"JSON\.parse.*user.*(?!.*validat)",
-                    r"json.*decode.*input.*(?!.*check)",
-                ],
-                "severity": "high",
-                "description": "JSON injection through unsafe parsing",
-            },
+    def _compile_all_patterns(self):
+        """Compile all regex patterns for performance."""
+        pattern_groups = [
+            self.validation_patterns,
+            self.injection_patterns,
+            self.file_patterns,
+            self.unsafe_patterns,
+        ]
+
+        for patterns in pattern_groups:
+            for vuln_type, config in patterns.items():
+                self._compiled_patterns[vuln_type] = [
+                    re.compile(pattern, re.MULTILINE | re.IGNORECASE)
+                    for pattern in config["indicators"]
+                ]
+
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Input Validation Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes input validation and injection vulnerabilities",
+            "category": "security",
+            "priority": "critical",
+            "capabilities": [
+                "Input validation detection",
+                "SQL injection analysis",
+                "Command injection detection",
+                "Path traversal identification",
+                "File upload validation",
+                "Template injection detection",
+                "Unsafe deserialization detection",
+                "Open redirect detection",
+                "LDAP/XPath injection detection",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "patterns_checked": len(self._compiled_patterns),
         }
 
-        # Path traversal patterns
-        self.path_traversal_patterns = {
-            "directory_traversal": {
-                "indicators": [
-                    r"open\(.*user.*input",
-                    r"file.*=.*request",
-                    r"path.*=.*input.*(?!.*validat)",
-                    r"filename.*=.*param.*(?!.*check)",
-                    r"\.\./.*user",
-                ],
-                "severity": "high",
-                "description": "Potential directory traversal vulnerability",
-            },
-            "file_inclusion": {
-                "indicators": [
-                    r"include.*user.*input",
-                    r"require.*request",
-                    r"import.*user.*file",
-                    r"load.*file.*input",
-                ],
-                "severity": "high",
-                "description": "Potential file inclusion vulnerability",
-            },
-        }
-
-        # Command injection patterns
-        self.command_injection_patterns = {
-            "os_command_injection": {
-                "indicators": [
-                    r"os\.system\(.*user",
-                    r"subprocess.*user.*input",
-                    r"shell_exec.*request",
-                    r"exec\(.*input",
-                    r"popen\(.*user",
-                ],
-                "severity": "critical",
-                "description": "OS command injection vulnerability",
-            },
-            "shell_metacharacters": {
-                "indicators": [
-                    r"shell=True.*user",
-                    r"system.*input.*[;&|`]",
-                    r"command.*user.*[<>]",
-                    r"exec.*param.*[$]",
-                ],
-                "severity": "critical",
-                "description": "Shell metacharacters in user input",
-            },
-        }
-
-        # LDAP injection patterns
-        self.ldap_injection_patterns = {
-            "ldap_filter_injection": {
-                "indicators": [
-                    r"ldap.*filter.*user",
-                    r"search.*base.*input",
-                    r"ldap.*query.*request",
-                    r"directory.*search.*param",
-                ],
-                "severity": "high",
-                "description": "LDAP injection in search filters",
-            }
-        }
-
-    def analyze_input_validation(
-        self, target_path: str, min_severity: str = "low"
-    ) -> Dict[str, Any]:
-        """Analyze input validation vulnerabilities in the target path."""
-
-        start_time = time.time()
-        result = ResultFormatter.create_security_result(
-            "validate_inputs.py", target_path
-        )
-
-        is_valid, error_msg, target_dir = validate_target_directory(target_path)
-        if not is_valid:
-            result.set_error(error_msg)
-            result.set_execution_time(start_time)
-            return result.to_dict()
-
-        vulnerability_summary = defaultdict(int)
-        file_count = 0
-
-        try:
-            # Walk through all files using universal exclusion system
-            exclude_dirs = self.tech_detector.get_simple_exclusions(target_path)[
-                "directories"
-            ]
-
-            for root, dirs, files in os.walk(target_path):
-                # Filter directories using universal exclusion system
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    # Use universal exclusion system
-                    if self.tech_detector.should_analyze_file(
-                        file_path, target_path
-                    ) and self._should_analyze_file(file):
-                        relative_path = os.path.relpath(file_path, target_path)
-
-                        try:
-                            file_findings = self._analyze_file_input_validation(
-                                file_path, relative_path
-                            )
-                            file_count += 1
-
-                            # Convert findings to Finding objects
-                            for finding_data in file_findings:
-                                finding = ResultFormatter.create_finding(
-                                    finding_id=f"INPUT_{vulnerability_summary[finding_data['vuln_type']] + 1:03d}",
-                                    title=finding_data["vuln_type"]
-                                    .replace("_", " ")
-                                    .title(),
-                                    description=finding_data["message"],
-                                    severity=finding_data["severity"],
-                                    file_path=finding_data["file"],
-                                    line_number=finding_data["line"],
-                                    recommendation=self._get_input_validation_recommendation(
-                                        finding_data["vuln_type"]
-                                    ),
-                                    evidence={
-                                        "context": finding_data.get("context", ""),
-                                        "category": finding_data.get(
-                                            "category", "input_validation"
-                                        ),
-                                        "injection_type": finding_data.get(
-                                            "injection_type", "unknown"
-                                        ),
-                                    },
-                                )
-                                result.add_finding(finding)
-                                vulnerability_summary[finding_data["vuln_type"]] += 1
-
-                        except Exception as e:
-                            error_finding = ResultFormatter.create_finding(
-                                finding_id=f"ERROR_{file_count:03d}",
-                                title="Analysis Error",
-                                description=f"Error analyzing file: {str(e)}",
-                                severity="low",
-                                file_path=relative_path,
-                                line_number=0,
-                            )
-                            result.add_finding(error_finding)
-
-            # Generate analysis summary
-            analysis_summary = self._generate_input_validation_summary(
-                vulnerability_summary, file_count
-            )
-            result.metadata = analysis_summary
-
-            result.set_execution_time(start_time)
-            return result.to_dict(min_severity=min_severity)
-
-        except Exception as e:
-            result.set_error(f"Input validation analysis failed: {str(e)}")
-            result.set_execution_time(start_time)
-            return result.to_dict()
-
-    def _analyze_file_input_validation(
-        self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
-        """Analyze input validation vulnerabilities in a single file."""
+    def _scan_file_for_vulnerabilities(self, file_path: Path) -> List[Dict[str, Any]]:
+        """Scan a single file for input validation vulnerabilities."""
         findings = []
 
         try:
@@ -308,406 +359,159 @@ class InputValidationAnalyzer:
                 content = f.read()
                 lines = content.split("\n")
 
-            # Check general input validation patterns
-            findings.extend(
-                self._check_input_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.validation_patterns,
-                    "validation",
-                    "input_validation",
-                )
-            )
+                # Check all vulnerability patterns
+                pattern_groups = [
+                    ("validation", self.validation_patterns),
+                    ("injection", self.injection_patterns),
+                    ("file_operation", self.file_patterns),
+                    ("unsafe_operation", self.unsafe_patterns),
+                ]
 
-            # Check SQL injection patterns
-            findings.extend(
-                self._check_input_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.sql_injection_patterns,
-                    "sql_injection",
-                    "sql_injection",
-                )
-            )
+                for category, patterns in pattern_groups:
+                    for vuln_type, config in patterns.items():
+                        compiled_patterns = self._compiled_patterns.get(vuln_type, [])
 
-            # Check NoSQL injection patterns
-            findings.extend(
-                self._check_input_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.nosql_injection_patterns,
-                    "nosql_injection",
-                    "nosql_injection",
-                )
-            )
+                        for pattern in compiled_patterns:
+                            for match in pattern.finditer(content):
+                                # Calculate line number
+                                line_number = content[: match.start()].count("\n") + 1
 
-            # Check path traversal patterns
-            findings.extend(
-                self._check_input_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.path_traversal_patterns,
-                    "path_traversal",
-                    "path_traversal",
-                )
-            )
+                                # Get the matched line
+                                line_content = (
+                                    lines[line_number - 1].strip()
+                                    if line_number <= len(lines)
+                                    else ""
+                                )
 
-            # Check command injection patterns
-            findings.extend(
-                self._check_input_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.command_injection_patterns,
-                    "command_injection",
-                    "command_injection",
-                )
-            )
+                                # Skip false positives
+                                if self._is_false_positive(
+                                    line_content, vuln_type, category
+                                ):
+                                    continue
 
-            # Check LDAP injection patterns
-            findings.extend(
-                self._check_input_patterns(
-                    content,
-                    lines,
-                    relative_path,
-                    self.ldap_injection_patterns,
-                    "ldap_injection",
-                    "ldap_injection",
-                )
-            )
+                                findings.append(
+                                    {
+                                        "vuln_type": vuln_type,
+                                        "category": category,
+                                        "file_path": str(file_path),
+                                        "line_number": line_number,
+                                        "line_content": line_content[
+                                            :200
+                                        ],  # Truncate long lines
+                                        "severity": config["severity"],
+                                        "description": config["description"],
+                                        "recommendation": config["recommendation"],
+                                        "pattern_matched": pattern.pattern[
+                                            :100
+                                        ],  # Store pattern for debugging
+                                    }
+                                )
 
         except Exception as e:
-            findings.append(
-                {
-                    "file": relative_path,
-                    "line": 0,
-                    "vuln_type": "file_error",
-                    "severity": "low",
-                    "message": f"Could not analyze file: {str(e)}",
-                    "category": "analysis",
-                    "injection_type": "N/A",
-                }
-            )
+            # Log but continue - file might be binary or inaccessible
+            if self.verbose:
+                print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
 
         return findings
 
-    def _check_input_patterns(
-        self,
-        content: str,
-        lines: List[str],
-        file_path: str,
-        pattern_dict: Dict,
-        category: str,
-        injection_type: str,
-    ) -> List[Dict[str, Any]]:
-        """Check for specific input validation patterns in file content."""
-        findings = []
+    def _is_false_positive(
+        self, line_content: str, vuln_type: str, category: str
+    ) -> bool:
+        """Check if a detected vulnerability is likely a false positive."""
+        line_lower = line_content.lower()
 
-        for pattern_name, pattern_info in pattern_dict.items():
-            for indicator in pattern_info["indicators"]:
-                matches = re.finditer(indicator, content, re.MULTILINE | re.IGNORECASE)
-                for match in matches:
-                    line_num = content[: match.start()].count("\n") + 1
+        # Skip comments
+        comment_indicators = ["//", "#", "/*", "*", "<!--", "'''", '"""']
+        for indicator in comment_indicators:
+            if line_content.strip().startswith(indicator):
+                return True
 
-                    findings.append(
-                        {
-                            "file": file_path,
-                            "line": line_num,
-                            "vuln_type": f"{category}_{pattern_name}",
-                            "severity": pattern_info["severity"],
-                            "message": f"{pattern_info['description']} ({pattern_name})",
-                            "context": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
-                            ),
-                            "category": category,
-                            "injection_type": injection_type,
-                        }
-                    )
-
-        return findings
-
-    def _get_input_validation_recommendation(self, vuln_type: str) -> str:
-        """Get specific recommendations for input validation vulnerabilities."""
-        recommendations = {
-            "validation_missing_input_validation": "Implement comprehensive input validation for all user inputs",
-            "validation_insufficient_sanitization": "Add proper input sanitization and encoding",
-            "validation_direct_user_input": "Never directly execute user input - use safe alternatives",
-            "validation_regex_injection": "Validate regex patterns and use safe regex compilation",
-            "sql_injection_string_concatenation": "Use parameterized queries instead of string concatenation",
-            "sql_injection_format_string_sql": "Use prepared statements instead of format strings",
-            "sql_injection_dynamic_query_building": "Use query builders or ORM with parameterized queries",
-            "nosql_injection_mongodb_injection": "Use parameterized queries and input validation for NoSQL",
-            "nosql_injection_json_injection": "Validate JSON structure and content before parsing",
-            "path_traversal_directory_traversal": "Validate and sanitize file paths, use whitelisting",
-            "path_traversal_file_inclusion": "Use safe file inclusion methods and path validation",
-            "command_injection_os_command_injection": "Avoid system calls with user input, use safe APIs",
-            "command_injection_shell_metacharacters": "Sanitize shell metacharacters or avoid shell execution",
-            "ldap_injection_ldap_filter_injection": "Use parameterized LDAP queries and input validation",
-        }
-        return recommendations.get(
-            vuln_type, "Implement proper input validation and sanitization"
-        )
-
-    def _generate_input_validation_summary(
-        self, vulnerability_summary: Dict, file_count: int
-    ) -> Dict[str, Any]:
-        """Generate summary of input validation analysis."""
-
-        # Categorize vulnerabilities by injection type
-        injection_categories = {
-            "input_validation": [
-                k for k in vulnerability_summary.keys() if k.startswith("validation_")
-            ],
-            "sql_injection": [
-                k
-                for k in vulnerability_summary.keys()
-                if k.startswith("sql_injection_")
-            ],
-            "nosql_injection": [
-                k
-                for k in vulnerability_summary.keys()
-                if k.startswith("nosql_injection_")
-            ],
-            "path_traversal": [
-                k
-                for k in vulnerability_summary.keys()
-                if k.startswith("path_traversal_")
-            ],
-            "command_injection": [
-                k
-                for k in vulnerability_summary.keys()
-                if k.startswith("command_injection_")
-            ],
-            "ldap_injection": [
-                k
-                for k in vulnerability_summary.keys()
-                if k.startswith("ldap_injection_")
-            ],
-        }
-
-        total_issues = sum(vulnerability_summary.values())
-        severity_counts = self._count_by_severity(vulnerability_summary)
-
-        return {
-            "total_files_analyzed": file_count,
-            "total_input_validation_issues": total_issues,
-            "issues_by_injection_type": {
-                category: {
-                    "count": sum(vulnerability_summary.get(vuln, 0) for vuln in vulns),
-                    "vulnerabilities": {
-                        vuln.replace(f"{category}_", ""): vulnerability_summary.get(
-                            vuln, 0
-                        )
-                        for vuln in vulns
-                        if vulnerability_summary.get(vuln, 0) > 0
-                    },
-                }
-                for category, vulns in injection_categories.items()
-            },
-            "severity_breakdown": severity_counts,
-            "security_score": self._calculate_security_score(total_issues, file_count),
-            "critical_injection_vectors": self._get_critical_injection_vectors(
-                vulnerability_summary
-            ),
-            "recommendations": self._generate_priority_recommendations(
-                vulnerability_summary
-            ),
-        }
-
-    def _count_by_severity(self, vulnerability_summary: Dict) -> Dict[str, int]:
-        """Count vulnerabilities by severity level."""
-        severity_mapping = {
-            "critical": [
-                "direct_user_input",
-                "string_concatenation",
-                "format_string_sql",
-                "os_command_injection",
-                "shell_metacharacters",
-            ],
-            "high": [
-                "missing_input_validation",
-                "dynamic_query_building",
-                "mongodb_injection",
-                "json_injection",
-                "directory_traversal",
-                "file_inclusion",
-                "ldap_filter_injection",
-            ],
-            "medium": ["insufficient_sanitization", "regex_injection"],
-            "low": ["file_error"],
-        }
-
-        counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-        for vuln, count in vulnerability_summary.items():
-            vuln_name = vuln.split("_", 1)[-1]  # Remove category prefix
-            for severity, patterns in severity_mapping.items():
-                if vuln_name in patterns:
-                    counts[severity] += count
-                    break
-
-        return counts
-
-    def _calculate_security_score(self, total_issues: int, file_count: int) -> float:
-        """Calculate a security score (0-100, higher is better)."""
-        if file_count == 0:
-            return 100.0
-
-        issue_density = total_issues / file_count
-        # Score decreases with issue density, with critical injection flaws having heavy impact
-        score = max(0, 100 - (issue_density * 25))
-        return round(score, 1)
-
-    def _get_critical_injection_vectors(
-        self, vulnerability_summary: Dict
-    ) -> List[Dict[str, Any]]:
-        """Get critical injection vectors requiring immediate attention."""
-        critical_patterns = [
-            "direct_user_input",
-            "string_concatenation",
-            "format_string_sql",
-            "os_command_injection",
-            "shell_metacharacters",
-        ]
-        critical_vectors = []
-
-        for vuln, count in vulnerability_summary.items():
-            vuln_name = vuln.split("_", 1)[-1]
-            if vuln_name in critical_patterns and count > 0:
-                critical_vectors.append(
-                    {
-                        "injection_vector": vuln.replace("_", " ").title(),
-                        "count": count,
-                        "severity": "critical",
-                        "category": vuln.split("_")[0],
-                    }
-                )
-
-        return critical_vectors
-
-    def _generate_priority_recommendations(
-        self, vulnerability_summary: Dict
-    ) -> List[str]:
-        """Generate priority recommendations based on findings."""
-        recommendations = []
-
-        # Critical injection vulnerabilities first
-        if any("direct_user_input" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "CRITICAL: Never directly execute user input - implement safe alternatives"
-            )
+        # Skip test/example code
         if any(
-            "string_concatenation" in k or "format_string_sql" in k
-            for k in vulnerability_summary.keys()
+            word in line_lower
+            for word in ["test", "example", "sample", "demo", "mock", "fixture"]
         ):
-            recommendations.append(
-                "CRITICAL: Replace SQL string concatenation with parameterized queries"
-            )
+            return True
+
+        # Skip documentation
         if any(
-            "os_command_injection" in k or "shell_metacharacters" in k
-            for k in vulnerability_summary.keys()
+            word in line_lower
+            for word in ["@param", "@return", "docstring", "@example"]
         ):
-            recommendations.append(
-                "CRITICAL: Fix command injection by avoiding system calls with user input"
-            )
+            return True
 
-        # High priority validation issues
-        if any("missing_input_validation" in k for k in vulnerability_summary.keys()):
-            recommendations.append(
-                "HIGH: Implement comprehensive input validation for all user inputs"
-            )
-        if any(
-            "directory_traversal" in k or "file_inclusion" in k
-            for k in vulnerability_summary.keys()
+        # Category-specific false positive checks
+        if category == "validation" and "validate" in line_lower:
+            return True  # Already has validation
+
+        if category == "injection" and any(
+            word in line_lower for word in ["prepared", "parameterized", "placeholder"]
         ):
-            recommendations.append(
-                "HIGH: Add path validation to prevent directory traversal attacks"
+            return True  # Using safe methods
+
+        if category == "file_operation" and any(
+            word in line_lower for word in ["whitelist", "allowed", "safe_path"]
+        ):
+            return True  # Has protection
+
+        return False
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for input validation vulnerabilities.
+
+        Args:
+            target_path: Path to file to analyze
+
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
+
+        # Skip files that are too large
+        if file_path.stat().st_size > 2 * 1024 * 1024:  # Skip files > 2MB
+            return all_findings
+
+        findings = self._scan_file_for_vulnerabilities(file_path)
+
+        # Convert to standardized finding format
+        for finding in findings:
+            # Create detailed title
+            title = f"{finding['description']} ({finding['vuln_type'].replace('_', ' ').title()})"
+
+            # Create comprehensive description
+            description = (
+                f"{finding['description']} detected in {file_path.name} at line {finding['line_number']}. "
+                f"Category: {finding['category'].replace('_', ' ').title()}. "
+                f"This vulnerability could allow attackers to bypass security controls or execute malicious code."
             )
 
-        # General recommendations
-        total_issues = sum(vulnerability_summary.values())
-        if total_issues > 10:
-            recommendations.append(
-                "Consider implementing a centralized input validation framework"
-            )
+            standardized = {
+                "title": title,
+                "description": description,
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
+                    "vuln_type": finding["vuln_type"],
+                    "category": finding["category"],
+                    "line_content": finding["line_content"],
+                    "pattern_matched": finding["pattern_matched"],
+                    "confidence": "high",
+                },
+            }
+            all_findings.append(standardized)
 
-        return recommendations[:5]
-
-    def _should_analyze_file(self, filename: str) -> bool:
-        """Check if file should be analyzed."""
-        analyze_extensions = {
-            ".py",
-            ".js",
-            ".ts",
-            ".jsx",
-            ".tsx",
-            ".java",
-            ".cs",
-            ".cpp",
-            ".c",
-            ".h",
-            ".hpp",
-            ".go",
-            ".rs",
-            ".php",
-            ".rb",
-            ".swift",
-            ".kt",
-            ".scala",
-            ".sql",
-        }
-        return any(filename.endswith(ext) for ext in analyze_extensions)
+        return all_findings
 
 
 def main():
-    """Main function for command-line usage."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze input validation vulnerabilities in codebase"
-    )
-    parser.add_argument("target_path", help="Path to analyze")
-    parser.add_argument(
-        "--min-severity",
-        choices=["low", "medium", "high", "critical"],
-        default="low",
-        help="Minimum severity level to report",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format",
-    )
-
-    args = parser.parse_args()
-
+    """Main entry point for command-line usage."""
     analyzer = InputValidationAnalyzer()
-    result = analyzer.analyze_input_validation(args.target_path, args.min_severity)
-
-    if args.output_format == "console":
-        # Simple console output
-        if result.get("success", False):
-            print(f"Input Validation Analysis Results for: {args.target_path}")
-            print(f"Analysis Type: {result.get('analysis_type', 'unknown')}")
-            print(f"Execution Time: {result.get('execution_time', 0)}s")
-            print(f"\nFindings: {len(result.get('findings', []))}")
-            for finding in result.get("findings", []):
-                file_path = finding.get("file_path", "unknown")
-                line = finding.get("line_number", 0)
-                desc = finding.get("description", "No description")
-                severity = finding.get("severity", "unknown")
-                print(f"  {file_path}:{line} - {desc} [{severity}]")
-        else:
-            error_msg = result.get("error_message", "Unknown error")
-            print(f"Error: {error_msg}")
-    else:  # json (default)
-        print(json.dumps(result, indent=2))
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

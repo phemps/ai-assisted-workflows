@@ -89,7 +89,7 @@ A comprehensive development automation system combining workflow commands, Pytho
 cd shared && python -m tests/integration/test_all_analyzers.py -v
 
 # Test individual analyzer
-PYTHONPATH=shared python shared/analyzers/quality/complexity_lizard.py test_codebase/monorepo --max-files 5
+PYTHONPATH=shared python shared/analyzers/quality/complexity_lizard.py test_codebase/monorepo
 
 # Test analysis engine
 PYTHONPATH=shared python shared/analyzers/quality/analysis_engine.py test_codebase/monorepo --min-severity medium
@@ -145,5 +145,5 @@ Debugging Tips
 
 - Check logs in `/tmp/claude-workflows-install.log` for installation issues
 - Use `--verbose` flag with analyzers for detailed output
-- Test analyzers with `--max-files 5` to limit scope during debugging
+- Test analyzers with `--max-files N` to limit scope during debugging if needed
 - All service logs stream to `/dev.log` when dev monitoring is enabled

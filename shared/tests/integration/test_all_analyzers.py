@@ -58,6 +58,7 @@ class AnalysisRunner:
         target_path: str,
         summary_mode: bool = True,
         min_severity: str = "low",
+        max_files: int = None,
     ) -> Dict[str, Any]:
         """Run a single analysis script."""
         script_path = Path(self.script_dir) / self.scripts[script_name]
@@ -87,6 +88,10 @@ class AnalysisRunner:
         if min_severity != "low" and script_name in scripts_with_severity:
             args.extend(["--min-severity", min_severity])
 
+        # Add max-files limit if specified (for testing/debugging purposes)
+        if max_files is not None:
+            args.extend(["--max-files", str(max_files)])
+
         start_time = time.time()
         returncode, stdout, stderr = CommandExecutor.run_python_script(
             str(script_path), args[1:]
@@ -111,7 +116,11 @@ class AnalysisRunner:
             return {"error": f"Script failed (code {returncode})", "stderr": stderr}
 
     def run_all_analyses(
-        self, target_path: str, summary_mode: bool = True, min_severity: str = "low"
+        self,
+        target_path: str,
+        summary_mode: bool = True,
+        min_severity: str = "low",
+        max_files: int = None,
     ) -> Dict[str, Any]:
         """Run all analysis scripts and combine results."""
         print("🚀 Claude Code Workflows Analysis - Running All Scripts", file=sys.stderr)
@@ -122,7 +131,7 @@ class AnalysisRunner:
 
         for script_name in self.scripts.keys():
             results[script_name] = self.run_script(
-                script_name, target_path, summary_mode, min_severity
+                script_name, target_path, summary_mode, min_severity, max_files
             )
 
         total_duration = time.time() - start_time
@@ -419,6 +428,11 @@ def main():
         default="low",
         help="Minimum severity level (default: low)",
     )
+    parser.add_argument(
+        "--max-files",
+        type=int,
+        help="Maximum number of files to analyze per script (optional, for testing/debugging)",
+    )
 
     args = parser.parse_args()
 
@@ -427,7 +441,9 @@ def main():
     )  # Inverse logic: verbose=False means summary_mode=True
 
     runner = AnalysisRunner()
-    report = runner.run_all_analyses(args.target_path, summary_mode, args.min_severity)
+    report = runner.run_all_analyses(
+        args.target_path, summary_mode, args.min_severity, args.max_files
+    )
 
     # Output based on format choice
     if args.output_format == "console":

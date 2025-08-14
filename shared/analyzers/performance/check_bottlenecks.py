@@ -117,7 +117,7 @@ class BottleneckAnalyzer(BaseAnalyzer):
                     r"forEach\(.*forEach\(.*forEach\(",
                     r"map\(.*map\(.*map\(",
                 ],
-                "severity": "high",
+                "severity": "medium",
                 "description": "Inefficient nested loops causing CPU bottlenecks",
             },
             "redundant_computations": {
@@ -139,7 +139,7 @@ class BottleneckAnalyzer(BaseAnalyzer):
                     r"forEach\(.*new\s+Date\(",
                     r"map\(.*JSON\.parse\(",
                 ],
-                "severity": "high",
+                "severity": "medium",
                 "description": "Expensive operations inside loops",
             },
             "blocking_io_operations": {
@@ -150,7 +150,7 @@ class BottleneckAnalyzer(BaseAnalyzer):
                     r"file\.read\(\)(?!.*async)",
                     r"fetch\(.*\)(?!.*\.then|await)",
                 ],
-                "severity": "high",
+                "severity": "medium",
                 "description": "Blocking I/O operations on main thread",
             },
         }
@@ -213,7 +213,7 @@ class BottleneckAnalyzer(BaseAnalyzer):
                     r"for\s+.*in\s+.*:\s*\n.*for\s+.*in\s+.*:",
                     r"while\s+.*:\s*\n.*while\s+.*:",
                 ],
-                "severity": "high",
+                "severity": "medium",
                 "description": "O(n²) algorithm complexity",
             },
             "inefficient_search": {
@@ -284,7 +284,7 @@ class BottleneckAnalyzer(BaseAnalyzer):
                     r"counter\s*\+=.*(?!.*atomic)",
                     r"threading.*(?!.*Lock)",
                 ],
-                "severity": "high",
+                "severity": "medium",
                 "description": "Potential race conditions in concurrent code",
             },
             "deadlock_risk": {
@@ -294,7 +294,7 @@ class BottleneckAnalyzer(BaseAnalyzer):
                     r"synchronized.*synchronized",
                     r"mutex.*mutex",
                 ],
-                "severity": "high",
+                "severity": "medium",
                 "description": "Potential deadlock from multiple locks",
             },
             "thread_pool_exhaustion": {
@@ -481,11 +481,25 @@ class BottleneckAnalyzer(BaseAnalyzer):
             if line_content.strip().startswith(indicator):
                 return True
 
-        # Skip test/example code
+        # Skip test/example code and config files
         if any(
             word in line_lower
-            for word in ["test", "example", "sample", "demo", "mock", "fixture"]
+            for word in [
+                "test",
+                "example",
+                "sample",
+                "demo",
+                "mock",
+                "fixture",
+                "config",
+                ".json",
+                "package.json",
+            ]
         ):
+            return True
+
+        # Skip very short lines or basic operations
+        if len(line_content.strip()) < 15:
             return True
 
         # Skip documentation

@@ -118,7 +118,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r'import.*from\s+[\'"]antd[\'"]',
                     r'const.*=.*require\([\'"].*entire.*[\'"]',
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Large library imports affecting bundle size",
                 "recommendation": "Use tree-shaking, import specific modules, or consider lighter alternatives.",
             },
@@ -129,7 +129,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r'import.*[\'"].*(Chart|Dashboard|Editor).*[\'"]',
                     r'(?:const|var|let).*=.*import\([\'"].*\)',
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Missing dynamic imports for code splitting",
                 "recommendation": "Use dynamic imports for large components and routes to enable code splitting.",
             },
@@ -155,7 +155,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*\{.*\.map\(",
                     r"React\.Component.*render.*\.map\(",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Component with expensive operations missing memoization",
                 "recommendation": "Wrap components in React.memo() or use useMemo() for expensive calculations.",
             },
@@ -177,7 +177,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"\.map\([^)]*function[^)]*\)[^{]*\{[^}]*<[^>]*(?!.*key=)",
                     r"for.*in.*<[^>]*(?!.*key=)",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Missing key prop in list rendering",
                 "recommendation": "Always provide unique key prop when rendering lists.",
             },
@@ -188,7 +188,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"useEffect\([^,]*,[^)]*\[\][^)]*\)",
                     r"new\s+(?:Date|Array|Object)\s*\([^)]*\).*render",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Patterns causing unnecessary re-renders",
                 "recommendation": "Use useCallback, useMemo, or stable object references.",
             },
@@ -198,7 +198,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"useState.*\[[^,]*,\s*set\w+\].*set\w+\([^)]*\.\.\..*\)",
                     r"dispatch\([^)]*\.\.\.state",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Inefficient state update patterns",
                 "recommendation": "Use functional state updates and avoid spreading large state objects.",
             },
@@ -215,7 +215,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r":not\([^)]*:not\(",  # Nested :not selectors
                     r"[a-zA-Z-]+\s+[a-zA-Z-]+\s+[a-zA-Z-]+\s+[a-zA-Z-]+",  # Deep descendant
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Expensive CSS selectors affecting render performance",
                 "recommendation": "Use class selectors instead of complex descendant selectors.",
             },
@@ -235,7 +235,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"transition.*(?:left|top|right|bottom|width|height)",
                     r"@keyframes.*\{.*(?:left|top|right|bottom|width|height)",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Animations causing layout thrashing",
                 "recommendation": "Use transform and opacity for animations to avoid layout recalculation.",
             },
@@ -245,7 +245,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"@import\s+url\(",
                     r"<style[^>]*>[\s\S]*</style>",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Render-blocking CSS",
                 "recommendation": "Inline critical CSS and load non-critical CSS asynchronously.",
             },
@@ -261,7 +261,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"getElementsBy.*(?:for|while)\s*\(",
                     r"querySelectorAll.*map\(",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Inefficient DOM queries in loops",
                 "recommendation": "Cache DOM query results outside loops.",
             },
@@ -294,7 +294,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"while\s*\([^)]*\.length",
                     r"do\s*\{[^}]*\}\s*while\s*\([^)]*\.length",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Inefficient loop patterns",
                 "recommendation": "Cache array length and avoid DOM operations in loop conditions.",
             },
@@ -304,7 +304,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"\.(?:sort|filter|map|reduce)\([^)]*\)\.(?:sort|filter|map|reduce)",
                     r"new Array\([0-9]{4,}\)",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Large data processing on main thread",
                 "recommendation": "Use web workers for heavy data processing or implement virtual scrolling.",
             },
@@ -330,7 +330,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"<iframe[^>]*src=[^>]*(?!.*loading=)",
                     r"<video[^>]*src=[^>]*(?!.*loading=)",
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Missing lazy loading for media",
                 "recommendation": "Add loading='lazy' attribute to images and iframes below the fold.",
             },
@@ -340,7 +340,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"require\([^)]*\.(?:mp4|webm|mov|avi)",
                     r'src=[\'"][^\'"]*\.(?:mp4|webm|mov|avi)[\'"]',
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Large media assets bundled with application",
                 "recommendation": "Host large media files externally or use streaming services.",
             },
@@ -350,7 +350,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     r"@font-face[^}]*url\([^)]*\.(?:woff2|woff|ttf)",
                     r'<img[^>]*src=[\'"][^\'"]*hero[^\'"]*[\'"]',
                 ],
-                "severity": "medium",
+                "severity": "low",
                 "description": "Missing preload for critical resources",
                 "recommendation": "Preload critical fonts, hero images, and other important assets.",
             },
@@ -470,16 +470,38 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
             if line_content.strip().startswith(indicator):
                 return True
 
-        # Skip test files
+        # Skip test files and config files
         if any(
             word in line_lower
-            for word in ["test", "spec", "mock", "fixture", "storybook"]
+            for word in [
+                "test",
+                "spec",
+                "mock",
+                "fixture",
+                "storybook",
+                "config",
+                "example",
+                ".d.ts",
+            ]
         ):
             return True
 
         # Skip documentation
         if any(
-            word in line_lower for word in ["@example", "@param", "docstring", "readme"]
+            word in line_lower
+            for word in ["@example", "@param", "docstring", "readme", "documentation"]
+        ):
+            return True
+
+        # Skip package.json and lock files
+        if any(
+            word in line_lower
+            for word in [
+                "package.json",
+                "package-lock.json",
+                "yarn.lock",
+                "node_modules",
+            ]
         ):
             return True
 
@@ -489,13 +511,19 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         ):
             return True  # Already optimized
 
-        if category == "bundle" and "dynamic" in line_lower:
+        if category == "bundle" and any(
+            word in line_lower for word in ["dynamic", "lazy", "import("]
+        ):
             return True  # Already using dynamic imports
 
         if category == "css" and any(
             word in line_lower for word in ["transform", "opacity", "will-change"]
         ):
             return True  # GPU-accelerated properties
+
+        # Skip very short lines (likely not real issues)
+        if len(line_content.strip()) < 10:
+            return True
 
         return False
 

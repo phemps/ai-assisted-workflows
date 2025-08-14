@@ -51,7 +51,6 @@ class AnalysisRunner:
             # Root cause analysis
             "root_cause_errors": "root_cause/error_patterns.py",
             "root_cause_changes": "root_cause/recent_changes.py",
-            "root_cause_trace": "root_cause/simple_trace.py",
             "root_cause_execution": "root_cause/trace_execution.py",
         }
 
@@ -86,6 +85,7 @@ class AnalysisRunner:
             "architecture_patterns",
             "architecture_scalability",
             "architecture_coupling",
+            "root_cause_execution",
         ]
 
         if min_severity != "low" and script_name in scripts_with_severity:

@@ -132,9 +132,10 @@ class AuthSecurityAnalyzer(BaseAnalyzer):
             "missing_csrf_protection": {
                 "indicators": [
                     r"@app\.route.*methods.*POST.*(?!.*csrf)",
-                    r"<form.*method.*post.*(?!.*csrf)",
-                    r"POST.*(?!.*csrf_token)",
-                    r"forms.*(?!.*CSRFProtect)",
+                    r"<form.*method=['\"]post['\"].*(?!.*csrf)",
+                    r"app\.(post|put|patch)\s*\(.*(?!.*csrf)",
+                    r"router\.(post|put|patch)\s*\(.*(?!.*csrf)",
+                    r"@(Post|Put|Patch)Mapping.*(?!.*csrf)",
                 ],
                 "severity": "high",
                 "description": "Missing CSRF protection on state-changing operations",

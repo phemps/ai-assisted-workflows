@@ -104,6 +104,16 @@ class SemgrepAnalyzer(BaseAnalyzer):
                 "*.min.css",
                 "*.bundle.js",
                 "*.chunk.js",
+                "*.map",  # Source map files
+                "*.d.ts",  # TypeScript declaration files
+                "*.generated.*",  # Generated files
+                "*.auto.*",  # Auto-generated files
+                ".turbo",  # Turbo cache
+                ".husky",  # Git hooks
+                "packages/*/dist/*",  # Package distribution directories
+                "apps/*/dist/*",  # App distribution directories
+                "*.lock",  # Lock files
+                "*.log",  # Log files
             },
         )
 
@@ -200,10 +210,87 @@ class SemgrepAnalyzer(BaseAnalyzer):
                 )
                 self.semgrep_available = False
 
+    def _run_semgrep_batch_analysis(
+        self, file_paths: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Run Semgrep analysis on multiple files efficiently with combined rulesets.
+
+        This replaces the old per-file, per-ruleset approach with a single invocation.
+        """
+        findings = []
+
+        try:
+            # Combine security and secrets rules for single invocation
+            # Using auto config which includes comprehensive security rules
+            cmd = [
+                "semgrep",
+                "scan",
+                "--config=auto",  # Auto includes security rules
+                "--json",
+                "--timeout",
+                "10",  # Faster timeout per file
+                "--timeout-threshold",
+                "3",  # Skip slow files quickly
+                "--max-target-bytes",
+                "500000",  # Skip files > 500KB
+                "--jobs",
+                "4",  # Parallel processing
+                "--optimizations",
+                "all",  # Enable all optimizations
+                "--oss-only",  # Use only OSS rules for speed
+            ]
+
+            # Add all file paths to analyze in batch
+            cmd.extend(file_paths)
+
+            self.logger.info(f"Running semgrep on {len(file_paths)} files in batch")
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,  # 1 minute total timeout for batch
+            )
+
+            if result.stdout:
+                semgrep_output = json.loads(result.stdout)
+
+                # Process Semgrep findings
+                for finding in semgrep_output.get("results", []):
+                    processed_finding = self._process_semgrep_finding(
+                        finding, "auto"  # Mark as auto-detected ruleset
+                    )
+                    if processed_finding:
+                        findings.append(processed_finding)
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+        ) as e:
+            self.logger.warning(f"Semgrep batch analysis failed: {e}")
+            # Fallback to individual file analysis if batch fails
+            return self._fallback_individual_analysis(file_paths)
+
+        return findings
+
+    def _fallback_individual_analysis(
+        self, file_paths: List[str]
+    ) -> List[Dict[str, Any]]:
+        """Fallback to analyze files individually if batch processing fails."""
+        self.logger.info("Falling back to individual file analysis")
+
+        findings = []
+        for file_path in file_paths:
+            file_findings = self._run_semgrep_analysis(file_path, ["r/security"])
+            findings.extend(file_findings)
+        return findings
+
     def _run_semgrep_analysis(
         self, target_path: str, rulesets: List[str]
     ) -> List[Dict[str, Any]]:
-        """Run Semgrep analysis with specified rulesets."""
+        """Run Semgrep analysis with specified rulesets (legacy method for fallback)."""
         findings = []
 
         for ruleset in rulesets:
@@ -215,11 +302,11 @@ class SemgrepAnalyzer(BaseAnalyzer):
                     "--json",
                     "--no-git-ignore",  # Analyze all files per our skip patterns
                     "--timeout",
-                    "30",  # Faster timeout per file
+                    "10",  # Faster timeout per file
                     "--timeout-threshold",
-                    "5",  # Skip slow files
+                    "3",  # Skip slow files
                     "--max-target-bytes",
-                    "1000000",  # Skip files > 1MB
+                    "500000",  # Skip files > 500KB
                     target_path,
                 ]
 
@@ -227,7 +314,7 @@ class SemgrepAnalyzer(BaseAnalyzer):
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=120,  # 2 minute total timeout
+                    timeout=30,  # Reduced timeout
                 )
 
                 if result.stdout:
@@ -246,11 +333,9 @@ class SemgrepAnalyzer(BaseAnalyzer):
                 subprocess.CalledProcessError,
                 json.JSONDecodeError,
             ) as e:
-                if self.verbose:
-                    print(
-                        f"Semgrep analysis failed for ruleset {ruleset}: {e}",
-                        file=sys.stderr,
-                    )
+                self.logger.warning(
+                    f"Semgrep analysis failed for ruleset {ruleset}: {e}"
+                )
 
         return findings
 
@@ -284,8 +369,7 @@ class SemgrepAnalyzer(BaseAnalyzer):
             }
 
         except Exception as e:
-            if self.verbose:
-                print(f"Failed to process Semgrep finding: {e}", file=sys.stderr)
+            self.logger.warning(f"Failed to process Semgrep finding: {e}")
             return None
 
     def _get_category_from_ruleset(self, ruleset: str) -> str:
@@ -321,6 +405,54 @@ class SemgrepAnalyzer(BaseAnalyzer):
             "Review this security finding and apply appropriate security controls",
         )
 
+    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+        """
+        Override batch processing to analyze multiple files efficiently with semgrep.
+
+        Instead of calling analyze_target for each file individually,
+        we run semgrep once on all files in the batch.
+        """
+        if not batch:
+            return []
+
+        # Skip analysis if Semgrep is not available (degraded mode)
+        if not self.semgrep_available:
+            self.logger.warning(
+                "Skipping Semgrep analysis for batch - tool not available"
+            )
+            return []
+
+        # Convert paths to strings for semgrep
+        file_paths = [str(file_path) for file_path in batch]
+
+        # Run comprehensive security analysis with combined rulesets
+        findings = self._run_semgrep_batch_analysis(file_paths)
+
+        # Update file processing counts
+        self.files_processed += len(batch)
+
+        # Convert to standardized format for BaseAnalyzer
+        standardized_findings = []
+        for finding in findings:
+            standardized = {
+                "title": f"{finding['description']} ({finding['perf_type']})",
+                "description": f"Semgrep detected: {finding['description']}. Category: {finding['category']}. This requires security review and remediation.",
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
+                    "tool": "semgrep",
+                    "check_id": finding["perf_type"],
+                    "category": finding["category"],
+                    "line_content": finding["line_content"],
+                    "confidence": finding["confidence"],
+                },
+            }
+            standardized_findings.append(standardized)
+
+        return standardized_findings
+
     def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
         Analyze target using Semgrep semantic analysis.
@@ -333,11 +465,9 @@ class SemgrepAnalyzer(BaseAnalyzer):
         """
         # Skip analysis if Semgrep is not available (degraded mode)
         if not self.semgrep_available:
-            if self.verbose:
-                print(
-                    f"Skipping Semgrep analysis for {target_path} - tool not available",
-                    file=sys.stderr,
-                )
+            self.logger.warning(
+                f"Skipping Semgrep analysis for {target_path} - tool not available"
+            )
             return []
 
         # Run comprehensive security analysis with multiple rulesets

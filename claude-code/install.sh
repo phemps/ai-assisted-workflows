@@ -470,10 +470,10 @@ copy_files() {
 
     # Verify source files exist
     # Check if we have the expected subdirectories
-    local scripts_dir="$(dirname "$source_dir")/shared/setup"
-    if [[ ! -d "$source_dir/commands" ]] || [[ ! -d "$scripts_dir" ]]; then
+    local shared_dir="$(dirname "$source_dir")/shared"
+    if [[ ! -d "$source_dir/commands" ]] || [[ ! -d "$shared_dir" ]]; then
         log_error "Source files not found"
-        log_error "Expected to find: $source_dir/commands/ and $scripts_dir"
+        log_error "Expected to find: $source_dir/commands/ and $shared_dir"
         exit 1
     fi
 
@@ -508,10 +508,15 @@ copy_files() {
         # Copy with no-clobber, excluding docs directory
         find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -rn {} "$INSTALL_DIR/" \; 2>/dev/null || true
 
-        # Also copy scripts from shared/setup if they don't exist
-        local scripts_source="$(dirname "$source_dir")/shared/setup"
-        if [[ -d "$scripts_source" ]] && [[ ! -d "$INSTALL_DIR/scripts" ]]; then
-            cp -r "$scripts_source" "$INSTALL_DIR/scripts"
+        # Copy scripts from shared/ subdirectories if they don't exist
+        local shared_dir="$(dirname "$source_dir")/shared"
+        if [[ ! -d "$INSTALL_DIR/scripts" ]]; then
+            mkdir -p "$INSTALL_DIR/scripts"
+            for subdir in analyzers generators setup utils tests ci core; do
+                if [[ -d "$shared_dir/$subdir" ]]; then
+                    cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir"
+                fi
+            done
         fi
 
         # Report custom commands preserved
@@ -560,8 +565,8 @@ copy_files() {
         fi
 
         # Update scripts directory (preserve custom scripts)
-        local scripts_source="$(dirname "$source_dir")/shared/setup"
-        if [[ -d "$scripts_source" ]]; then
+        local shared_dir="$(dirname "$source_dir")/shared"
+        if [[ -d "$shared_dir" ]]; then
             log "  Updating scripts directory (preserving custom scripts)..."
 
             # Backup custom scripts if they exist
@@ -570,7 +575,14 @@ copy_files() {
                 # Find custom scripts that aren't in our source
                 while IFS= read -r -d '' script_file; do
                     local rel_path="${script_file#$INSTALL_DIR/scripts/}"
-                    if [[ ! -f "$scripts_source/$rel_path" ]]; then
+                    local found_in_source=false
+                    for subdir in analyzers generators setup utils tests ci core; do
+                        if [[ -f "$shared_dir/$subdir/${rel_path#*/}" ]] && [[ "$rel_path" == "$subdir/"* ]]; then
+                            found_in_source=true
+                            break
+                        fi
+                    done
+                    if [[ "$found_in_source" == "false" ]]; then
                         custom_scripts+=("$rel_path")
                     fi
                 done < <(find "$INSTALL_DIR/scripts" -type f -print0 2>/dev/null)
@@ -588,7 +600,12 @@ copy_files() {
 
             # Remove and recreate scripts directory
             rm -rf "$INSTALL_DIR/scripts"
-            cp -r "$scripts_source" "$INSTALL_DIR/scripts"
+            mkdir -p "$INSTALL_DIR/scripts"
+            for subdir in analyzers generators setup utils tests ci core; do
+                if [[ -d "$shared_dir/$subdir" ]]; then
+                    cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir"
+                fi
+            done
 
             # Restore custom scripts
             if [[ ${#custom_scripts[@]} -gt 0 ]]; then
@@ -629,11 +646,14 @@ copy_files() {
         # Fresh install: copy everything except docs and install scripts
         find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -r {} "$INSTALL_DIR/" \;
 
-        # Copy scripts from shared/setup
-        local scripts_source="$(dirname "$source_dir")/shared/setup"
-        if [[ -d "$scripts_source" ]]; then
-            cp -r "$scripts_source" "$INSTALL_DIR/scripts"
-        fi
+        # Copy scripts from shared/ subdirectories
+        local shared_dir="$(dirname "$source_dir")/shared"
+        mkdir -p "$INSTALL_DIR/scripts"
+        for subdir in analyzers generators setup utils tests ci core; do
+            if [[ -d "$shared_dir/$subdir" ]]; then
+                cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir"
+            fi
+        done
     fi
 
     # Copy CLAUDE.md if it exists in root, otherwise copy claude.md as CLAUDE.md

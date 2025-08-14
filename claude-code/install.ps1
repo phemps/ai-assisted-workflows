@@ -442,12 +442,20 @@ function Copy-WorkflowFiles {
             }
         }
 
-        # Copy scripts from shared/lib/scripts
-        $sharedScriptsDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared\lib\scripts"
-        if (Test-Path $sharedScriptsDir) {
+        # Copy scripts from shared/ subdirectories
+        $sharedDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared"
+        if (Test-Path $sharedDir) {
             $targetScriptsDir = Join-Path $ClaudePath "scripts"
-            Write-Log "Copying scripts from shared/lib/scripts to $targetScriptsDir"
-            Copy-Item -Path $sharedScriptsDir -Destination $targetScriptsDir -Recurse -Force
+            New-Item -ItemType Directory -Path $targetScriptsDir -Force | Out-Null
+            Write-Log "Copying scripts from shared/ subdirectories to $targetScriptsDir"
+            foreach ($subdir in @("analyzers", "generators", "setup", "utils", "tests", "ci", "core")) {
+                $sourcePath = Join-Path $sharedDir $subdir
+                if (Test-Path $sourcePath) {
+                    $targetPath = Join-Path $targetScriptsDir $subdir
+                    Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
+                    Write-Log "Copied $subdir to scripts directory"
+                }
+            }
         }
 
         # Copy CLAUDE.md if it exists in root, otherwise copy claude.md as CLAUDE.md

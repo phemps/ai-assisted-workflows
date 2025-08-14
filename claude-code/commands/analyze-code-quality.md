@@ -24,17 +24,17 @@ Execute code quality analysis scripts via Bash tool for measurable quality metri
 1. **Try project-level .claude folder**:
 
    ```bash
-   Glob: ".claude/scripts/analyze/code_quality/*.py"
+   Glob: ".claude/scripts/analyzers/quality/*.py"
    ```
 
 2. **Try user-level .claude folder**:
 
    ```bash
-   Bash: ls "$HOME/.claude/scripts/analyze/code_quality/"
+   Bash: ls "$HOME/.claude/scripts/analyzers/quality/"
    ```
 
 3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyze/code_quality/` and `$HOME/.claude/scripts/analyze/code_quality/`
+   - List searched locations: `.claude/scripts/analyzers/quality/` and `$HOME/.claude/scripts/analyzers/quality/`
    - Ask user: "Could not locate code_quality analysis scripts. Please provide full path to the scripts directory:"
    - Validate provided path contains expected scripts (complexity_lizard.py, complexity_lizard.py)
    - Set SCRIPT_PATH to user-provided location

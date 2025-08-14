@@ -97,6 +97,10 @@ class AnalysisRunner:
             try:
                 result = json.loads(stdout)
                 result["runner_duration"] = round(duration, 3)
+
+                # Validate result quality in testing environment
+                self._validate_test_result_quality(script_name, result, stderr)
+
                 print(f"✅ {script_name} completed in {duration:.3f}s", file=sys.stderr)
                 return result
             except json.JSONDecodeError as e:
@@ -340,10 +344,59 @@ class AnalysisRunner:
 
         return recommendations
 
+    def _validate_test_result_quality(
+        self, script_name: str, result: Dict[str, Any], stderr: str
+    ):
+        """Validate that test results indicate proper tool functionality."""
+        import os
+
+        # Only run validation in testing environments
+        if os.environ.get("TESTING", "").lower() != "true":
+            return
+
+        # Check for warning messages that indicate missing dependencies
+        warning_indicators = [
+            "WARNING: Missing required",
+            "plugin not found",
+            "tool not available",
+            "degraded",
+            "Install with:",
+            "not installed",
+        ]
+
+        if stderr and any(indicator in stderr for indicator in warning_indicators):
+            print(
+                f"🚨 TESTING FAILURE: {script_name} has dependency issues:",
+                file=sys.stderr,
+            )
+            print(f"   stderr: {stderr}", file=sys.stderr)
+            # In testing, we want to know about these issues
+            # but not fail the entire test suite - log for investigation
+
+        # Check for suspicious patterns that might indicate silent tool failures
+        findings_count = len(result.get("findings", []))
+        execution_time = result.get("execution_time", 0)
+
+        # Performance analyzers should find SOMETHING in a real codebase unless very clean
+        if (
+            script_name.startswith("performance_")
+            and findings_count == 0
+            and execution_time < 0.1
+        ):
+            print(
+                f"⚠️  SUSPICIOUS: {script_name} found no issues and ran very quickly",
+                file=sys.stderr,
+            )
+            print("   This might indicate missing tools or plugins", file=sys.stderr)
+
 
 def main():
     """Main function for command-line usage."""
     import argparse
+    import os
+
+    # Set testing environment flag for strict dependency validation
+    os.environ["TESTING"] = "true"
 
     parser = argparse.ArgumentParser(
         description="Run comprehensive code analysis across multiple dimensions"

@@ -12,7 +12,7 @@ script_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
 
 try:
-    from shared.core.utils.cross_platform import (
+    from cross_platform import (
         PlatformDetector,
         CommandExecutor,
         DependencyChecker,

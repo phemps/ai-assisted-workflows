@@ -45,17 +45,17 @@ Execute debugging analysis scripts via Bash tool for systematic issue analysis:
 1. **Try project-level .claude folder**:
 
    ```bash
-   Glob: ".claude/scripts/analyze/root_cause/*.py"
+   Glob: ".claude/scripts/analyzers/root_cause/*.py"
    ```
 
 2. **Try user-level .claude folder**:
 
    ```bash
-   Bash: ls "$HOME/.claude/scripts/analyze/root_cause/"
+   Bash: ls "$HOME/.claude/scripts/analyzers/root_cause/"
    ```
 
 3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyze/root_cause/` and `$HOME/.claude/scripts/analyze/root_cause/`
+   - List searched locations: `.claude/scripts/analyzers/root_cause/` and `$HOME/.claude/scripts/analyzers/root_cause/`
    - Ask user: "Could not locate root cause analysis scripts. Please provide full path to the scripts directory:"
    - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py)
    - Set SCRIPT_PATH to user-provided location

@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tempfile
 import ast
+import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -85,7 +86,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
         # Flake8 performance configuration
         self.flake8_performance_rules = {
-            # flake8-performance rules (PERF)
+            # perflint rules (PERF)
             "PERF101": "high",  # Unnecessary list() call inside list comprehension
             "PERF102": "medium",  # Incorrect use of dict() constructor
             "PERF203": "high",  # try-except within a loop incurs performance overhead
@@ -140,21 +141,97 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
                     file=sys.stderr,
                 )
                 print(
-                    "Install with: pip install flake8 flake8-performance flake8-comprehensions flake8-bugbear",
+                    "Install with: pip install flake8 perflint flake8-comprehensions flake8-bugbear",
                     file=sys.stderr,
                 )
                 sys.exit(1)
 
-            version = result.stdout.strip()
-            print(f"Found Flake8 {version}", file=sys.stderr)
+            version_output = result.stdout.strip()
+            print(f"Found Flake8 {version_output}", file=sys.stderr)
+
+            # Validate required plugins are installed
+            self._validate_required_plugins(version_output)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
             print("ERROR: Flake8 is required but not available.", file=sys.stderr)
             print(
-                "Install with: pip install flake8 flake8-performance flake8-comprehensions flake8-bugbear",
+                "Install with: pip install flake8 perflint flake8-comprehensions flake8-bugbear",
                 file=sys.stderr,
             )
             sys.exit(1)
+
+    def _validate_required_plugins(self, version_output: str):
+        """Validate that required Flake8 plugins are installed."""
+        # Check flake8 plugins
+        flake8_plugins = {
+            "flake8-comprehensions": "C4 comprehension optimization rules",
+            "flake8-bugbear": "B bug and performance rules",
+        }
+
+        missing_flake8_plugins = []
+        for plugin_name, description in flake8_plugins.items():
+            # Check if plugin name appears in flake8 --version output
+            if (
+                plugin_name not in version_output
+                and plugin_name.replace("-", "_") not in version_output
+            ):
+                missing_flake8_plugins.append(f"{plugin_name} ({description})")
+
+        # Check perflint separately since it's not a flake8 plugin
+        perflint_available = self._check_perflint_availability()
+
+        if missing_flake8_plugins or not perflint_available:
+            print(
+                "WARNING: Missing required performance analysis tools:", file=sys.stderr
+            )
+            for plugin in missing_flake8_plugins:
+                print(f"  - {plugin}", file=sys.stderr)
+            if not perflint_available:
+                print("  - perflint (PERF performance analysis rules)", file=sys.stderr)
+
+            # In testing environments, this should fail hard
+            if self._is_testing_environment():
+                print(
+                    "ERROR: In testing environment - all tools must be available",
+                    file=sys.stderr,
+                )
+                print("Install missing tools:", file=sys.stderr)
+                print(
+                    "  pip install perflint flake8-comprehensions flake8-bugbear",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            else:
+                # In production, warn but continue with degraded functionality
+                print(
+                    "Continuing with degraded performance analysis capabilities",
+                    file=sys.stderr,
+                )
+
+    def _check_perflint_availability(self) -> bool:
+        """Check if perflint is available separately."""
+        try:
+            result = subprocess.run(
+                ["perflint", "--help"], capture_output=True, text=True, timeout=5
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    def _is_testing_environment(self) -> bool:
+        """Detect if we're running in a testing environment."""
+        import os
+
+        # Check for common testing environment indicators
+        return any(
+            [
+                "test" in os.environ.get("PYTHONPATH", "").lower(),
+                "test" in os.getcwd().lower(),
+                os.environ.get("TESTING", "").lower() == "true",
+                "pytest" in str(os.environ.get("_", "")),
+                any("test" in arg for arg in os.sys.argv),
+            ]
+        )
 
     def _run_flake8_analysis(self, target_path: str) -> List[Dict[str, Any]]:
         """Run Flake8 analysis with performance-focused plugins."""
@@ -205,6 +282,156 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
                 pass
 
         return findings
+
+    def _run_perflint_analysis(self, target_path: str) -> List[Dict[str, Any]]:
+        """Run perflint analysis for PERF rules."""
+        findings = []
+
+        # Only run on Python files
+        if not target_path.endswith(".py"):
+            return findings
+
+        try:
+            # Run perflint with output format that we can parse
+            cmd = [
+                "perflint",
+                target_path,
+                "--output-format",
+                "json",
+                "--disable",
+                "all",
+                "--enable",
+                "C,R,W",  # Enable categories that include PERF-like rules
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            # Parse perflint JSON output
+            if result.stdout:
+                try:
+                    perflint_data = json.loads(result.stdout)
+                    if isinstance(perflint_data, list):
+                        for issue in perflint_data:
+                            finding = self._parse_perflint_issue(issue, target_path)
+                            if finding:
+                                findings.append(finding)
+                except json.JSONDecodeError:
+                    # Fallback to text parsing if JSON fails
+                    for line in result.stdout.strip().split("\n"):
+                        if (
+                            line
+                            and ":" in line
+                            and any(perf_code in line for perf_code in ["C", "R", "W"])
+                        ):
+                            finding = self._parse_perflint_line(line, target_path)
+                            if finding:
+                                findings.append(finding)
+
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+            if self.verbose:
+                print(
+                    f"Perflint analysis failed for {target_path}: {e}", file=sys.stderr
+                )
+        except Exception as e:
+            if self.verbose:
+                print(
+                    f"Perflint unexpected error for {target_path}: {e}", file=sys.stderr
+                )
+
+        return findings
+
+    def _parse_perflint_issue(
+        self, issue: Dict[str, Any], file_path: str
+    ) -> Optional[Dict[str, Any]]:
+        """Parse a perflint JSON issue."""
+        try:
+            message_id = issue.get("message-id", "")
+            message = issue.get("message", "")
+            line_no = issue.get("line", 0)
+
+            # Map perflint codes to our performance types
+            if message_id.startswith(("C", "R", "W")) and any(
+                keyword in message.lower()
+                for keyword in [
+                    "performance",
+                    "loop",
+                    "comprehension",
+                    "efficient",
+                    "optimization",
+                ]
+            ):
+                severity = self._get_perflint_severity(message_id)
+
+                return {
+                    "perf_type": f"PERF_{message_id}",
+                    "category": "performance_optimization",
+                    "file_path": file_path,
+                    "line_number": line_no,
+                    "severity": severity,
+                    "description": message,
+                    "recommendation": self._get_perflint_recommendation(
+                        message_id, message
+                    ),
+                    "pattern_matched": f"Perflint: {message_id}",
+                    "confidence": "high",
+                }
+
+        except (KeyError, ValueError) as e:
+            if self.verbose:
+                print(f"Failed to parse perflint issue: {issue} - {e}", file=sys.stderr)
+
+        return None
+
+    def _parse_perflint_line(
+        self, line: str, file_path: str
+    ) -> Optional[Dict[str, Any]]:
+        """Parse perflint text output line."""
+        # Simple text parsing as fallback
+        try:
+            if ":" in line and any(code in line for code in ["C", "R", "W"]):
+                # Basic parsing - this would need refinement based on actual perflint output format
+                parts = line.split(":", 2)
+                if len(parts) >= 3:
+                    line_no = int(parts[1]) if parts[1].isdigit() else 0
+                    message = parts[2].strip()
+
+                    return {
+                        "perf_type": "PERF_TEXT",
+                        "category": "performance_optimization",
+                        "file_path": file_path,
+                        "line_number": line_no,
+                        "severity": "medium",
+                        "description": message,
+                        "recommendation": "Review for performance optimization opportunities",
+                        "pattern_matched": "Perflint: text",
+                        "confidence": "medium",
+                    }
+        except (ValueError, IndexError):
+            pass
+
+        return None
+
+    def _get_perflint_severity(self, message_id: str) -> str:
+        """Map perflint message IDs to severity levels."""
+        # Map based on pylint conventions
+        if message_id.startswith("C"):  # Convention
+            return "medium"
+        elif message_id.startswith("R"):  # Refactor
+            return "high"
+        elif message_id.startswith("W"):  # Warning
+            return "high"
+        else:
+            return "medium"
+
+    def _get_perflint_recommendation(self, message_id: str, message: str) -> str:
+        """Generate recommendations for perflint findings."""
+        # Extract recommendations from message or provide generic ones
+        if "comprehension" in message.lower():
+            return "Use list/dict/set comprehensions for better performance"
+        elif "loop" in message.lower():
+            return "Optimize loop structure for better performance"
+        else:
+            return f"Address performance issue: {message}"
 
     def _parse_flake8_line(self, line: str, file_path: str) -> Optional[Dict[str, Any]]:
         """Parse a single Flake8 output line."""
@@ -347,7 +574,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
     def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
-        Analyze target using Flake8 and AST for performance analysis.
+        Analyze target using Flake8, perflint, and AST for performance analysis.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
@@ -357,9 +584,13 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
         """
         all_findings = []
 
-        # Run Flake8 performance analysis
+        # Run Flake8 performance analysis (C4, B rules)
         flake8_findings = self._run_flake8_analysis(target_path)
         all_findings.extend(flake8_findings)
+
+        # Run perflint analysis for PERF-style rules
+        perflint_findings = self._run_perflint_analysis(target_path)
+        all_findings.extend(perflint_findings)
 
         # Run additional AST analysis for Python files
         if target_path.endswith(".py"):
@@ -414,7 +645,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
             "supported_languages": ["Python", "Python type stubs (.pyi)"],
             "tool": "flake8",
             "plugins": [
-                "flake8-performance",
+                "perflint",
                 "flake8-comprehensions",
                 "flake8-bugbear",
             ],

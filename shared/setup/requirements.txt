@@ -17,7 +17,7 @@ sqlfluff>=2.3.0                # SQL linting and security analysis
 psutil>=5.8.0                  # System and process utilities
 memory-profiler>=0.60.0        # Memory usage profiling
 py-spy>=0.3.0; platform_system != "Windows"  # Python profiler (Unix only)
-flake8-performance>=1.1.0      # Performance-specific Flake8 rules (replacing bespoke patterns)
+perflint>=0.7.0               # Performance anti-pattern detection (PERF error codes)
 flake8-comprehensions>=3.10.0  # List/dict comprehension performance rules
 flake8-bugbear>=23.3.0         # Bug and performance issue detection
 
@@ -52,15 +52,11 @@ shutil-backports>=1.0.0; python_version < "3.8"  # Enhanced file operations
 subprocess32>=3.5.4; python_version < "3.2"       # Backport subprocess improvements
 
 # Foundation Layer - State Management
-sqlite3                        # Task state persistence (built-in)
 filelock>=3.8.0               # File-based locking for task coordination
 watchdog>=2.1.0               # File system monitoring for dynamic updates
 
 # Continuous Improvement Framework
 dataclasses>=0.6; python_version < "3.7"  # Backport for older Python
-uuid                          # UUID generation for correlation IDs (built-in)
-subprocess                    # Process execution (built-in)
-datetime                      # Date/time operations (built-in)
 
 # Optional: Frontend analysis (requires Node.js)
 # These would be installed separately via npm/yarn

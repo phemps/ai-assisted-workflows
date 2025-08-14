@@ -14,7 +14,7 @@
 
       ```bash
       Glob: ".claude/scripts/*.py"
-      Glob: ".claude/scripts/analyze/**/*.py"
+      Glob: ".claude/scripts/analyzers/**/*.py"
       ```
 
    2. **Try user-level .claude folder**:

@@ -17,17 +17,17 @@ Comprehensive security analysis using OWASP Top 10 framework with automated scri
    1. **Try project-level .claude folder**:
 
       ```bash
-      Glob: ".claude/scripts/analyze/security/*.py"
+      Glob: ".claude/scripts/analyzers/security/*.py"
       ```
 
    2. **Try user-level .claude folder**:
 
       ```bash
-      Bash: ls "$HOME/.claude/scripts/analyze/security/"
+      Bash: ls "$HOME/.claude/scripts/analyzers/security/"
       ```
 
    3. **Interactive fallback if not found**:
-      - List searched locations: `.claude/scripts/analyze/security/` and `$HOME/.claude/scripts/analyze/security/`
+      - List searched locations: `.claude/scripts/analyzers/security/` and `$HOME/.claude/scripts/analyzers/security/`
       - Ask user: "Could not locate security analysis scripts. Please provide full path to the scripts directory:"
       - Validate provided path contains expected scripts (semgrep_analyzer.py, detect_secrets_analyzer.py)
       - Set SCRIPT_PATH to user-provided location

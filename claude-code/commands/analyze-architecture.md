@@ -15,17 +15,17 @@ Execute architecture analysis scripts via Bash tool for measurable design metric
 1. **Try project-level .claude folder**:
 
    ```bash
-   Glob: ".claude/scripts/analyze/architecture/*.py"
+   Glob: ".claude/scripts/analyzers/architecture/*.py"
    ```
 
 2. **Try user-level .claude folder**:
 
    ```bash
-   Bash: ls "$HOME/.claude/scripts/analyze/architecture/"
+   Bash: ls "$HOME/.claude/scripts/analyzers/architecture/"
    ```
 
 3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyze/architecture/` and `$HOME/.claude/scripts/analyze/architecture/`
+   - List searched locations: `.claude/scripts/analyzers/architecture/` and `$HOME/.claude/scripts/analyzers/architecture/`
    - Ask user: "Could not locate architecture analysis scripts. Please provide full path to the scripts directory:"
    - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py)
    - Set SCRIPT_PATH to user-provided location

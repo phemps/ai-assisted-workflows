@@ -109,10 +109,10 @@ class AnalyzerConfig:
     )
 
     # Analysis settings
-    max_files: int = 5000
+    max_files: Optional[int] = None
     max_file_size_mb: int = 5
     batch_size: int = 50
-    timeout_seconds: int = 120
+    timeout_seconds: Optional[int] = None
 
     # Severity filtering
     severity_thresholds: Dict[str, float] = field(
@@ -130,13 +130,13 @@ class AnalyzerConfig:
 
     def _validate_config(self):
         """Validate configuration values."""
-        if self.max_files <= 0:
+        if self.max_files is not None and self.max_files <= 0:
             raise ValueError("max_files must be positive")
         if self.max_file_size_mb <= 0:
             raise ValueError("max_file_size_mb must be positive")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be positive")
-        if self.timeout_seconds <= 0:
+        if self.timeout_seconds is not None and self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
 
         valid_formats = {"json", "console", "summary"}
@@ -259,7 +259,10 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
                 files_to_scan.append(target)
         elif target.is_dir():
             for file_path in target.rglob("*"):
-                if len(files_to_scan) >= self.config.max_files:
+                if (
+                    self.config.max_files is not None
+                    and len(files_to_scan) >= self.config.max_files
+                ):
                     self.log_operation(
                         "max_files_reached", {"limit": self.config.max_files}
                     )
@@ -458,7 +461,7 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             "--max-files",
             type=int,
             default=self.config.max_files,
-            help=f"Maximum files to analyze (default: {self.config.max_files})",
+            help="Maximum files to analyze (default: unlimited)",
         )
 
         cli.parser.add_argument(

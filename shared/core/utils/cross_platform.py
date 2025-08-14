@@ -61,7 +61,7 @@ class CommandExecutor:
 
     @staticmethod
     def run_command(
-        command: List[str], cwd: Optional[str] = None, timeout: int = 30
+        command: List[str], cwd: Optional[str] = None, timeout: Optional[int] = None
     ) -> Tuple[int, str, str]:
         """
         Execute command and return (return_code, stdout, stderr).
@@ -69,7 +69,7 @@ class CommandExecutor:
         Args:
             command: Command and arguments as list
             cwd: Working directory (optional)
-            timeout: Command timeout in seconds
+            timeout: Command timeout in seconds (optional, no timeout if None)
 
         Returns:
             Tuple of (return_code, stdout, stderr)

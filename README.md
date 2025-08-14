@@ -16,20 +16,15 @@
 ./claude-code/install.sh              # Install to current directory
 ./claude-code/install.sh ~            # Install globally
 /setup-dev-monitoring                 # Optional: Setup unified dev logging
-/setup-ci-monitoring                 # Setup AI-powered code improvement
+/setup-ci-monitoring                  # Optional: Git actions quality checks
+/add-serena-mcp                       # Recommended per project mcp lsp tool
 ```
 
 **Key Features:**
 
 - **8-Agent Orchestration System** - Intelligent workflow coordination with CTO escalation
-- **Continuous Code Improvement** - AI-powered duplicate detection and refactoring suggestions
 - **Dynamic Quality Gates** - Automatic tech stack detection and validation
 - **Contextual Awareness** - Understands your project technologies and patterns
-- **Live Monitoring Dashboard** - Real-time service status and unified logging
-
-## 🤖 Continuous Improvement System
-
-The flagship feature of this system is an AI-powered continuous improvement engine that proactively maintains code quality through intelligent analysis and automated workflows.
 
 ### Core Features
 
@@ -42,7 +37,6 @@ The flagship feature of this system is an AI-powered continuous improvement engi
 
 **🚀 8-Agent Orchestration**
 
-- **build-orchestrator**: Central workflow coordination
 - **plan-manager**: Task state and progress tracking
 - **fullstack-developer**: Cross-platform implementation
 - **solution-validator**: Pre-implementation validation
@@ -61,22 +55,17 @@ The flagship feature of this system is an AI-powered continuous improvement engi
 
 ### Quick Start
 
-```bash
-# Setup the continuous improvement system
-claude /setup-ci-monitoring
-
-# Check system health and recent activity
-claude /ci-monitoring-status
-
 # Trigger comprehensive workflow orchestration
+
 claude /todo-orchestrate implementation-plan.md
 
 # Add quality gates to your project
-claude /add-code-precommit-checks
-claude /add-code-posttooluse-quality-gates
-```
 
-### System Status Monitoring
+claude /add-code-precommit-checks
+
+````
+
+### System Status Monitoring (WIP)
 
 ```bash
 # Quick health check
@@ -102,7 +91,7 @@ $ claude /ci-monitoring-status
 
 🚀 Next Steps:
   - Review recommendations: python3 shared/ci/framework/ci_framework.py recommendations
-```
+````
 
 ## 🚀 Workflow Examples
 
@@ -123,7 +112,6 @@ $ claude /ci-monitoring-status
 
 # Add quality gates
 /add-code-precommit-checks
-/add-code-posttooluse-quality-gates
 ```
 
 ### Example 2: Research and Implement with Quality Assurance
@@ -167,19 +155,19 @@ $ claude /ci-monitoring-status
 **Analysis:** `/analyze-security`, `/analyze-architecture`, `/analyze-performance`, `/analyze-code-quality`
 **Planning:** `/plan-solution`, `/plan-ux-prd`, `/plan-refactor`
 **Project Setup:** `/create-project` - Initialize with [better-t-stack.dev](https://better-t-stack.dev/new)
-**Implementation:** `/todo-orchestrate`, `/todo-branch`, `/todo-worktree`
+**Implementation:** `/todo-orchestrate`, `/todo-worktree`
 **Fixes:** `/fix-bug`, `/fix-performance`, `/fix-test`
 
-### Continuous Improvement Commands
+### Continuous Improvement Commands (WIP)
 
 **Setup:** `/setup-ci-monitoring` - Initialize AI-powered code quality system
 **Monitoring:** `/ci-monitoring-status` - Health check and activity overview
-**Quality Gates:** `/add-code-precommit-checks`, `/add-code-posttooluse-quality-gates`
+**Quality Gates:** `/add-code-precommit-checks`
 **Development:** `/setup-dev-monitoring` - Live service monitoring dashboard
 
 ### Build Flags
 
-**Mode Flags:** `--prototype` (rapid POC), `--tdd` (test-driven), `--c7` (framework best practices), `--seq` (complex breakdown)
+**Mode Flags:** `--prototype` (rapid POC), `--tdd` (test-driven), `--seq` (complex breakdown)
 
 ## 📊 Development Monitoring System
 
@@ -208,23 +196,22 @@ _Real-time service monitoring: Live status for API and Mobile services with heal
 
 ```
 .claude/
-├── commands/              # Slash commands including continuous improvement
-├── agents/                # 8-agent system definitions
-├── modes/                 # Behavior modification modes
-├── rules/                 # Framework-specific rules
-├── templates/             # Code generation templates
-└── scripts/               # Python analysis and CI scripts
-    ├── continuous-improvement/   # CI framework components
-    │   ├── core/                 # Serena MCP, embeddings, similarity
-    │   ├── analyzers/           # Symbol extraction, duplicate detection
-    │   ├── workflows/           # GitHub integration, CTO orchestration
-    │   ├── framework/           # Core CI framework
-    │   ├── metrics/             # Metrics collection and reporting
-    │   ├── detection/           # Quality gate detection
-    │   └── integration/         # Agent orchestration
-    ├── analyze/           # Security, performance, architecture analysis
-    ├── setup/             # Installation and monitoring scripts
-    └── utils/             # Cross-platform utilities
+├── commands/                  # Slash commands for workflows and CI
+├── agents/                    # 8-agent orchestration definitions
+├── rules/                     # Tech stack and quality gate rules
+├── templates/                 # Project and code generation templates
+└── scripts/
+  ├── ci/                    # Continuous improvement engine
+  │   ├── core/              # Embeddings, Serena MCP, similarity
+  │   ├── analyzers/         # Symbol extraction, duplication, metrics
+  │   ├── workflows/         # GitHub, escalation, orchestration
+  │   ├── framework/         # CI framework core logic
+  │   ├── metrics/           # Metrics collection and reporting
+  │   ├── detection/         # Build/test/lint/quality gate detection
+  │   └── integration/       # Agent and CI/CD integration
+  ├── analyze/               # Security, performance, architecture analysis
+  ├── setup/                 # Install, monitoring, environment setup
+  └── utils/                 # Cross-platform utilities and helpers
 ```
 
 ### Quality Gate Detection
@@ -261,25 +248,6 @@ The system automatically detects and integrates with your existing tools:
 - **Proactive Recommendations**: Suggests improvements before problems occur
 - **Cross-Platform Compatibility**: Works on macOS, Linux, Windows WSL
 
-## 📚 Documentation
-
-### Implementation Details
-
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for complete technical specifications, implementation phases, and system architecture.
-
-### Advanced Configuration
-
-```bash
-# Custom threshold configuration
-claude /setup-ci-monitoring --threshold=0.75 --auto-refactor=complex
-
-# Language-specific settings
-claude /setup-ci-monitoring --languages=python,typescript,rust
-
-# Integration with existing CI/CD
-claude /setup-ci-monitoring --github-actions --pre-commit-hooks
-```
-
 ### Monitoring and Metrics
 
 ```bash
@@ -306,16 +274,6 @@ The `todos/wip-workflows/` directory contains experimental workflow agents being
 
 Feel free to explore and adapt these for experimentation.
 
-## 🤝 Contributing
-
-We welcome contributions to improve the continuous improvement system and workflow automation. Key areas:
-
-- **Agent Intelligence**: Enhance agent decision-making capabilities
-- **Language Support**: Add support for additional programming languages
-- **Integration**: Build plugins for popular development tools
-- **Quality Gates**: Expand quality gate detection for more frameworks
-- **Analytics**: Improve metrics collection and insights
-
 ## 🙏 Acknowledgments
 
 - **Todo workflow** - Adapted from [@badlogic](https://github.com/badlogic/claude-commands/blob/main/todo.md)'s efficient Claude Commands plan mode
@@ -327,13 +285,3 @@ We welcome contributions to improve the continuous improvement system and workfl
 MIT License - See LICENSE file for details.
 
 ---
-
-**Ready to transform your development workflow?**
-
-```bash
-./claude-code/install.sh
-claude /setup-ci-monitoring
-claude /ci-monitoring-status
-```
-
-_Experience intelligent, automated code quality management with AI-powered workflow orchestration._

@@ -114,7 +114,7 @@ The system automatically detects and runs appropriate quality checks based on te
 │   ├── modes/                 # Behavior modification modes
 │   └── install.sh             # Installation script
 ├── eval/                      # WIP evaluation framework
-├── shared/                    # WIP Opencode-specific workflows and configurations
+├── opencode/                    # WIP Opencode-specific workflows and configurations
 ├── shared/                    # Shared Python infrastructure
 │   ├── core/base/             # BaseAnalyzer and BaseProfiler frameworks
 │   ├── analyzers/             # Analysis tools by category

@@ -77,6 +77,10 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
         # Initialize base analyzer
         super().__init__("complexity", quality_config)
 
+        # Check for Lizard availability
+        self.lizard_available = True  # Will be set to False if not available
+        self._check_lizard_availability()
+
         # Thresholds based on industry standards
         self.thresholds = {
             "cyclomatic_complexity": {
@@ -96,6 +100,21 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
             },
         }
 
+    def _is_testing_environment(self) -> bool:
+        """Detect if we're running in a testing environment."""
+        import os
+
+        # Check for common testing environment indicators
+        return any(
+            [
+                "test" in os.environ.get("PYTHONPATH", "").lower(),
+                "test" in os.getcwd().lower(),
+                os.environ.get("TESTING", "").lower() == "true",
+                "pytest" in str(os.environ.get("_", "")),
+                any("test" in arg for arg in os.sys.argv),
+            ]
+        )
+
     def check_lizard_installed(self) -> bool:
         """Check if lizard is installed."""
         try:
@@ -103,6 +122,33 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
+
+    def _check_lizard_availability(self):
+        """Check if Lizard is available."""
+        if not self.check_lizard_installed():
+            print(
+                "WARNING: Lizard is required for complexity analysis but not found.",
+                file=sys.stderr,
+            )
+            print("Install with: pip install lizard", file=sys.stderr)
+
+            # In testing environments, this should fail hard
+            if self._is_testing_environment():
+                print(
+                    "ERROR: In testing environment - all tools must be available",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            else:
+                # In production, warn but continue with degraded functionality
+                print(
+                    "Continuing with degraded complexity analysis capabilities",
+                    file=sys.stderr,
+                )
+                self.lizard_available = False
+                return
+
+        self.lizard_available = True
 
     def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
@@ -114,6 +160,15 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
         Returns:
             List of complexity findings
         """
+        # Skip analysis if Lizard is not available (degraded mode)
+        if not self.lizard_available:
+            if self.verbose:
+                print(
+                    f"Skipping Lizard analysis for {target_path} - tool not available",
+                    file=sys.stderr,
+                )
+            return []
+
         findings = []
 
         # For complexity analysis, we process the file with Lizard

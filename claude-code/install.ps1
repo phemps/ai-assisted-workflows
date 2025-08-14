@@ -249,7 +249,7 @@ function Test-WritePermissions {
     }
 }
 
-function Backup-ExistingInstallation {
+function Handle-ExistingInstallation {
     param([string]$ClaudePath)
 
     if (Test-Path $ClaudePath) {
@@ -260,17 +260,59 @@ function Backup-ExistingInstallation {
 
         if ($DryRun) {
             Write-ColorOutput "[DRY RUN] Would backup existing installation to: $backupPath" -Color $Colors.Blue
-            return $backupPath
+            Write-ColorOutput "[DRY RUN] Would prompt for installation mode selection" -Color $Colors.Blue
+            return @{ BackupPath = $backupPath; Mode = "fresh" }
         }
 
-        Write-Output "Creating backup of existing installation..."
+        # Always create backup first
+        Write-Output "Creating automatic backup of existing installation..."
         Copy-Item -Path $ClaudePath -Destination $backupPath -Recurse -Force
         Write-ColorOutput "Backup created: $backupPath" -Color $Colors.Green
         Write-Log "Created backup: $backupPath"
-        return $backupPath
+
+        # Prompt for installation mode
+        Write-Output ""
+        Write-Output "Found existing .claude directory at: $ClaudePath"
+        Write-Output "Automatic backup created at: $backupPath"
+        Write-Output ""
+        Write-Output "Choose an option:"
+        Write-Output "  1) Fresh install (replace existing)"
+        Write-Output "  2) Merge with existing (preserve user customizations)"
+        Write-Output "  3) Update workflows only (overwrite commands & scripts, preserve everything else)"
+        Write-Output "  4) Cancel installation (backup remains)"
+        Write-Output ""
+
+        do {
+            $choice = Read-Host "Enter choice [1-4]"
+        } while ($choice -notin @("1", "2", "3", "4"))
+
+        switch ($choice) {
+            "1" {
+                Write-ColorOutput "Proceeding with fresh installation" -Color $Colors.Green
+                Write-Log "Fresh installation mode selected"
+                Remove-Item -Path $ClaudePath -Recurse -Force
+                return @{ BackupPath = $backupPath; Mode = "fresh" }
+            }
+            "2" {
+                Write-ColorOutput "Merging with existing installation" -Color $Colors.Green
+                Write-Log "Merge mode selected"
+                return @{ BackupPath = $backupPath; Mode = "merge" }
+            }
+            "3" {
+                Write-ColorOutput "Updating workflows only (commands & scripts)" -Color $Colors.Green
+                Write-Log "Update workflows only mode selected"
+                return @{ BackupPath = $backupPath; Mode = "update-workflows" }
+            }
+            "4" {
+                Write-ColorOutput "Installation cancelled by user" -Color $Colors.Yellow
+                Write-Output "Your backup is preserved at: $backupPath"
+                Write-Log "Installation cancelled by user"
+                exit 0
+            }
+        }
     }
 
-    return $null
+    return @{ BackupPath = $null; Mode = "fresh" }
 }
 
 function Install-PythonDependencies {
@@ -284,9 +326,9 @@ function Install-PythonDependencies {
     Write-ColorOutput "Installing Python dependencies..." -Color $Colors.Yellow
     Write-Log "Starting Python dependencies installation"
 
-    # Scripts are now in shared/lib/scripts
-    $sharedScriptsDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared\lib\scripts"
-    $setupDir = Join-Path $sharedScriptsDir "setup"
+    # Scripts are now in shared/ subdirectories
+    $sharedDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared"
+    $setupDir = Join-Path $sharedDir "setup"
     $requirementsPath = Join-Path $setupDir "requirements.txt"
 
     if (-not (Test-Path $requirementsPath)) {
@@ -392,11 +434,14 @@ function Install-McpTools {
 }
 
 function Copy-WorkflowFiles {
-    param([string]$ClaudePath)
+    param(
+        [string]$ClaudePath,
+        [string]$InstallMode = "fresh"
+    )
 
     Write-Output ""
     Write-ColorOutput "Copying workflow files..." -Color $Colors.Yellow
-    Write-Log "Starting workflow files copy"
+    Write-Log "Starting workflow files copy in mode: $InstallMode"
 
     # Source directory is the script directory itself
     $sourceClaudeDir = $SCRIPT_DIR
@@ -410,6 +455,7 @@ function Copy-WorkflowFiles {
     if ($DryRun) {
         Write-ColorOutput "[DRY RUN] Would copy workflow files from: $sourceClaudeDir" -Color $Colors.Blue
         Write-ColorOutput "[DRY RUN] Would copy to: $ClaudePath" -Color $Colors.Blue
+        Write-ColorOutput "[DRY RUN] Install mode: $InstallMode" -Color $Colors.Blue
         return
     }
 
@@ -419,42 +465,216 @@ function Copy-WorkflowFiles {
             New-Item -ItemType Directory -Path $ClaudePath -Force | Out-Null
         }
 
-        # Copy all files and directories to target/.claude/, excluding docs folder and install scripts
-        $items = Get-ChildItem $sourceClaudeDir -Recurse | Where-Object {
-            $relativePath = [System.IO.Path]::GetRelativePath($sourceClaudeDir, $_.FullName)
-            -not ($relativePath -like "docs\*" -or $relativePath -eq "docs" -or $relativePath -eq "install.sh" -or $relativePath -eq "install.ps1")
-        }
-        foreach ($item in $items) {
-            $relativePath = [System.IO.Path]::GetRelativePath($sourceClaudeDir, $item.FullName)
-            $targetPath = Join-Path $ClaudePath $relativePath
-            $targetDir = Split-Path $targetPath -Parent
+        switch ($InstallMode) {
+            "fresh" {
+                # Fresh install: copy everything except docs and install scripts
+                Write-ColorOutput "Fresh install mode: copying all files" -Color $Colors.Green
 
-            if (-not (Test-Path $targetDir)) {
-                New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-            }
-
-            if ($item.PSIsContainer) {
-                if (-not (Test-Path $targetPath)) {
-                    New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+                $items = Get-ChildItem $sourceClaudeDir -Recurse | Where-Object {
+                    $relativePath = [System.IO.Path]::GetRelativePath($sourceClaudeDir, $_.FullName)
+                    -not ($relativePath -like "docs\*" -or $relativePath -eq "docs" -or $relativePath -eq "install.sh" -or $relativePath -eq "install.ps1")
                 }
-            } else {
-                Copy-Item -Path $item.FullName -Destination $targetPath -Force
-            }
-        }
+                foreach ($item in $items) {
+                    $relativePath = [System.IO.Path]::GetRelativePath($sourceClaudeDir, $item.FullName)
+                    $targetPath = Join-Path $ClaudePath $relativePath
+                    $targetDir = Split-Path $targetPath -Parent
 
-        # Copy scripts from shared/ subdirectories
-        $sharedDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared"
-        if (Test-Path $sharedDir) {
-            $targetScriptsDir = Join-Path $ClaudePath "scripts"
-            New-Item -ItemType Directory -Path $targetScriptsDir -Force | Out-Null
-            Write-Log "Copying scripts from shared/ subdirectories to $targetScriptsDir"
-            foreach ($subdir in @("analyzers", "generators", "setup", "utils", "tests", "ci", "core")) {
-                $sourcePath = Join-Path $sharedDir $subdir
-                if (Test-Path $sourcePath) {
-                    $targetPath = Join-Path $targetScriptsDir $subdir
-                    Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
-                    Write-Log "Copied $subdir to scripts directory"
+                    if (-not (Test-Path $targetDir)) {
+                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                    }
+
+                    if ($item.PSIsContainer) {
+                        if (-not (Test-Path $targetPath)) {
+                            New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+                        }
+                    } else {
+                        Copy-Item -Path $item.FullName -Destination $targetPath -Force
+                    }
                 }
+
+                # Copy scripts from shared/ subdirectories
+                Copy-SharedScripts -ClaudePath $ClaudePath
+            }
+            "merge" {
+                # Merge mode: preserve existing files, copy new ones
+                Write-ColorOutput "Merge mode: preserving existing files while adding new ones" -Color $Colors.Green
+
+                # Track custom commands
+                $customCommands = @()
+                $commandsPath = Join-Path $ClaudePath "commands"
+
+                if (Test-Path $commandsPath) {
+                    foreach ($cmd in Get-ChildItem $commandsPath -Filter "*.md") {
+                        $sourceCmd = Join-Path $sourceClaudeDir "commands" $cmd.Name
+                        if (-not (Test-Path $sourceCmd)) {
+                            $customCommands += $cmd.Name
+                        }
+                    }
+                }
+
+                # Copy with no-clobber (preserve existing)
+                $items = Get-ChildItem $sourceClaudeDir | Where-Object {
+                    $_.Name -notin @("docs", "install.sh", "install.ps1")
+                }
+                foreach ($item in $items) {
+                    $targetPath = Join-Path $ClaudePath $item.Name
+                    if ($item.PSIsContainer) {
+                        if (-not (Test-Path $targetPath)) {
+                            Copy-Item -Path $item.FullName -Destination $targetPath -Recurse -Force
+                        }
+                    } else {
+                        if (-not (Test-Path $targetPath)) {
+                            Copy-Item -Path $item.FullName -Destination $targetPath -Force
+                        }
+                    }
+                }
+
+                # Copy scripts from shared/ subdirectories if they don't exist
+                if (-not (Test-Path (Join-Path $ClaudePath "scripts"))) {
+                    Copy-SharedScripts -ClaudePath $ClaudePath
+                }
+
+                # Report custom commands preserved
+                if ($customCommands.Count -gt 0) {
+                    Write-Output "  Preserved custom commands:"
+                    foreach ($cmd in $customCommands) {
+                        Write-Output "    - $cmd"
+                    }
+                }
+
+                Write-Output "  Merge complete. Existing files preserved, new files added."
+            }
+            "update-workflows" {
+                # Update workflows only: update built-in commands, scripts, agents, templates, and rules
+                Write-ColorOutput "Update workflows mode: updating built-in commands, scripts, agents, templates, and rules" -Color $Colors.Green
+
+                # Update built-in commands while preserving custom commands
+                $commandsPath = Join-Path $ClaudePath "commands"
+                $sourceCommandsPath = Join-Path $sourceClaudeDir "commands"
+                if (Test-Path $sourceCommandsPath) {
+                    Write-Output "  Updating commands directory (preserving custom commands)..."
+
+                    # Identify custom commands
+                    $customCommands = @()
+                    if (Test-Path $commandsPath) {
+                        foreach ($cmd in Get-ChildItem $commandsPath -Filter "*.md") {
+                            $sourceCmd = Join-Path $sourceCommandsPath $cmd.Name
+                            if (-not (Test-Path $sourceCmd)) {
+                                $customCommands += @{Name = $cmd.Name; Path = $cmd.FullName}
+                            }
+                        }
+                    }
+
+                    # Backup custom commands
+                    $tempCustomCommands = @()
+                    foreach ($cmd in $customCommands) {
+                        $tempPath = [System.IO.Path]::GetTempFileName() + ".md"
+                        Copy-Item -Path $cmd.Path -Destination $tempPath -Force
+                        $tempCustomCommands += @{Name = $cmd.Name; TempPath = $tempPath}
+                    }
+
+                    # Create commands directory and copy built-in commands
+                    if (-not (Test-Path $commandsPath)) {
+                        New-Item -ItemType Directory -Path $commandsPath -Force | Out-Null
+                    }
+                    Copy-Item -Path (Join-Path $sourceCommandsPath "*") -Destination $commandsPath -Force
+
+                    # Restore custom commands
+                    foreach ($cmd in $tempCustomCommands) {
+                        Copy-Item -Path $cmd.TempPath -Destination (Join-Path $commandsPath $cmd.Name) -Force
+                        Remove-Item -Path $cmd.TempPath -Force
+                    }
+
+                    # Report preserved custom commands
+                    if ($customCommands.Count -gt 0) {
+                        Write-Output "    Preserved custom commands:"
+                        foreach ($cmd in $customCommands) {
+                            Write-Output "      - $($cmd.Name)"
+                        }
+                    }
+                }
+
+                # Update scripts directory (preserve custom scripts)
+                Write-Output "  Updating scripts directory (preserving custom scripts)..."
+                $scriptsPath = Join-Path $ClaudePath "scripts"
+
+                # Backup custom scripts if they exist
+                $customScripts = @()
+                if (Test-Path $scriptsPath) {
+                    $sharedDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared"
+                    foreach ($scriptFile in Get-ChildItem $scriptsPath -Recurse -File) {
+                        $relativePath = [System.IO.Path]::GetRelativePath($scriptsPath, $scriptFile.FullName)
+                        $foundInSource = $false
+                        foreach ($subdir in @("analyzers", "generators", "setup", "utils", "tests", "ci", "core")) {
+                            $sourcePath = Join-Path $sharedDir $subdir ($relativePath -replace "^$subdir[\\/]", "")
+                            if ((Test-Path $sourcePath) -and $relativePath.StartsWith("$subdir\")) {
+                                $foundInSource = $true
+                                break
+                            }
+                        }
+                        if (-not $foundInSource) {
+                            $tempPath = [System.IO.Path]::GetTempFileName()
+                            Copy-Item -Path $scriptFile.FullName -Destination $tempPath -Force
+                            $customScripts += @{RelativePath = $relativePath; TempPath = $tempPath}
+                        }
+                    }
+                }
+
+                # Remove and recreate scripts directory
+                if (Test-Path $scriptsPath) {
+                    Remove-Item -Path $scriptsPath -Recurse -Force
+                }
+                Copy-SharedScripts -ClaudePath $ClaudePath
+
+                # Restore custom scripts
+                if ($customScripts.Count -gt 0) {
+                    Write-Output "    Preserved custom scripts:"
+                    foreach ($script in $customScripts) {
+                        $targetPath = Join-Path $scriptsPath $script.RelativePath
+                        $targetDir = Split-Path $targetPath -Parent
+                        if (-not (Test-Path $targetDir)) {
+                            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                        }
+                        Copy-Item -Path $script.TempPath -Destination $targetPath -Force
+                        Remove-Item -Path $script.TempPath -Force
+                        Write-Output "      - $($script.RelativePath)"
+                    }
+                }
+
+                # Update agents directory
+                $agentsPath = Join-Path $ClaudePath "agents"
+                $sourceAgentsPath = Join-Path $sourceClaudeDir "agents"
+                if (Test-Path $sourceAgentsPath) {
+                    Write-Output "  Updating agents directory..."
+                    if (Test-Path $agentsPath) {
+                        Remove-Item -Path $agentsPath -Recurse -Force
+                    }
+                    Copy-Item -Path $sourceAgentsPath -Destination $agentsPath -Recurse -Force
+                }
+
+                # Update templates directory
+                $templatesPath = Join-Path $ClaudePath "templates"
+                $sourceTemplatesPath = Join-Path $sourceClaudeDir "templates"
+                if (Test-Path $sourceTemplatesPath) {
+                    Write-Output "  Updating templates directory..."
+                    if (Test-Path $templatesPath) {
+                        Remove-Item -Path $templatesPath -Recurse -Force
+                    }
+                    Copy-Item -Path $sourceTemplatesPath -Destination $templatesPath -Recurse -Force
+                }
+
+                # Update rules directory
+                $rulesPath = Join-Path $ClaudePath "rules"
+                $sourceRulesPath = Join-Path $sourceClaudeDir "rules"
+                if (Test-Path $sourceRulesPath) {
+                    Write-Output "  Updating rules directory..."
+                    if (Test-Path $rulesPath) {
+                        Remove-Item -Path $rulesPath -Recurse -Force
+                    }
+                    Copy-Item -Path $sourceRulesPath -Destination $rulesPath -Recurse -Force
+                }
+
+                Write-Output "  Workflow update complete. Built-in commands, scripts, agents, templates, and rules updated, custom commands and other files preserved."
             }
         }
 
@@ -480,6 +700,7 @@ Claude Code Workflows Installation Log
 Installation Date: $timestamp
 Installer Version: $VERSION
 Target Path: $ClaudePath
+Install Mode: $InstallMode
 MCP Tools: $mcpStatus
 Python Dependencies: $pythonStatus
 "@ | Set-Content -Path $installLog
@@ -491,6 +712,25 @@ Python Dependencies: $pythonStatus
         Write-ColorOutput "[ERROR] Error copying workflow files: $($_.Exception.Message)" -Color $Colors.Red
         Write-Log "Error copying workflow files: $($_.Exception.Message)" -Level "ERROR"
         exit 1
+    }
+}
+
+function Copy-SharedScripts {
+    param([string]$ClaudePath)
+
+    $sharedDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared"
+    if (Test-Path $sharedDir) {
+        $targetScriptsDir = Join-Path $ClaudePath "scripts"
+        New-Item -ItemType Directory -Path $targetScriptsDir -Force | Out-Null
+        Write-Log "Copying scripts from shared/ subdirectories to $targetScriptsDir"
+        foreach ($subdir in @("analyzers", "generators", "setup", "utils", "tests", "ci", "core")) {
+            $sourcePath = Join-Path $sharedDir $subdir
+            if (Test-Path $sourcePath) {
+                $targetPath = Join-Path $targetScriptsDir $subdir
+                Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
+                Write-Log "Copied $subdir to scripts directory"
+            }
+        }
     }
 }
 
@@ -645,8 +885,10 @@ try {
     # Check prerequisites
     Test-Prerequisites
 
-    # Backup existing installation if present
-    $backupPath = Backup-ExistingInstallation $claudePath
+    # Handle existing installation and get install mode
+    $installResult = Handle-ExistingInstallation $claudePath
+    $backupPath = $installResult.BackupPath
+    $installMode = $installResult.Mode
 
     if ($DryRun) {
         Write-ColorOutput "[DRY RUN] Installation preview completed" -Color $Colors.Blue
@@ -654,8 +896,8 @@ try {
         exit 0
     }
 
-    # Copy workflow files
-    Copy-WorkflowFiles $claudePath
+    # Copy workflow files with selected mode
+    Copy-WorkflowFiles $claudePath $installMode
 
     # Install Python dependencies
     Install-PythonDependencies

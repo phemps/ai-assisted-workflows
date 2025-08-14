@@ -470,7 +470,7 @@ copy_files() {
 
     # Verify source files exist
     # Check if we have the expected subdirectories
-    local scripts_dir="$(dirname "$source_dir")/shared/lib/scripts"
+    local scripts_dir="$(dirname "$source_dir")/shared/setup"
     if [[ ! -d "$source_dir/commands" ]] || [[ ! -d "$scripts_dir" ]]; then
         log_error "Source files not found"
         log_error "Expected to find: $source_dir/commands/ and $scripts_dir"
@@ -508,8 +508,8 @@ copy_files() {
         # Copy with no-clobber, excluding docs directory
         find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -rn {} "$INSTALL_DIR/" \; 2>/dev/null || true
 
-        # Also copy scripts from shared/lib if they don't exist
-        local scripts_source="$(dirname "$source_dir")/shared/lib/scripts"
+        # Also copy scripts from shared/setup if they don't exist
+        local scripts_source="$(dirname "$source_dir")/shared/setup"
         if [[ -d "$scripts_source" ]] && [[ ! -d "$INSTALL_DIR/scripts" ]]; then
             cp -r "$scripts_source" "$INSTALL_DIR/scripts"
         fi
@@ -560,7 +560,7 @@ copy_files() {
         fi
 
         # Update scripts directory (preserve custom scripts)
-        local scripts_source="$(dirname "$source_dir")/shared/lib/scripts"
+        local scripts_source="$(dirname "$source_dir")/shared/setup"
         if [[ -d "$scripts_source" ]]; then
             log "  Updating scripts directory (preserving custom scripts)..."
 
@@ -629,8 +629,8 @@ copy_files() {
         # Fresh install: copy everything except docs and install scripts
         find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -r {} "$INSTALL_DIR/" \;
 
-        # Copy scripts from shared/lib
-        local scripts_source="$(dirname "$source_dir")/shared/lib/scripts"
+        # Copy scripts from shared/setup
+        local scripts_source="$(dirname "$source_dir")/shared/setup"
         if [[ -d "$scripts_source" ]]; then
             cp -r "$scripts_source" "$INSTALL_DIR/scripts"
         fi

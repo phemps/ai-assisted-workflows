@@ -42,7 +42,7 @@ def generate_comprehensive_report(
 
     try:
         # Placeholder implementation - would aggregate results from:
-        # - Security scans (scan_vulnerabilities.py)
+        # - Security scans (semgrep_analyzer.py, detect_secrets_analyzer.py)
         # - Performance profiling (profile_code.py)
         # - Dependency analysis (dependency_analysis.py)
         # - Code quality metrics

@@ -177,22 +177,25 @@ check_python() {
 }
 
 check_node() {
-    if [[ "$SKIP_MCP" == "true" ]]; then
-        log_verbose "Skipping Node.js check (MCP installation disabled)"
-        return 0
-    fi
-
     log_verbose "Checking Node.js installation..."
 
     if ! command -v node &> /dev/null; then
-        log_error "Node.js is required for MCP tools but not installed"
-        echo "Install Node.js from https://nodejs.org or use --skip-mcp to skip MCP tools"
+        log_error "Node.js is required for frontend analysis and MCP tools"
+        echo "Install Node.js from https://nodejs.org"
+        exit 1
+    fi
+
+    if ! command -v npm &> /dev/null; then
+        log_error "npm is required for frontend analysis dependencies"
+        echo "Install npm (usually comes with Node.js)"
         exit 1
     fi
 
     local node_version
     node_version=$(node --version)
-    log_verbose "Found Node.js $node_version"
+    local npm_version
+    npm_version=$(npm --version)
+    log_verbose "Found Node.js $node_version, npm $npm_version"
 }
 
 check_claude_cli() {
@@ -212,6 +215,115 @@ check_claude_cli() {
     local claude_version
     claude_version=$(claude --version 2>/dev/null || echo "unknown")
     log_verbose "Found Claude CLI $claude_version"
+}
+
+check_eslint() {
+    log "Checking ESLint installation (required for frontend analysis)..."
+
+    # Check if ESLint is available via npx
+    if ! npx eslint --version &> /dev/null; then
+        log "ESLint not found, installing required packages..."
+        install_eslint_packages
+    else
+        log_verbose "ESLint found, verifying required plugins..."
+        verify_eslint_plugins
+    fi
+}
+
+check_security_tools() {
+    log "Checking security analysis tools (required for semantic analysis)..."
+
+    # Check if Semgrep is available
+    if ! command -v semgrep &> /dev/null; then
+        log "Semgrep not found, will be installed with Python dependencies..."
+        SEMGREP_MISSING=true
+    else
+        local semgrep_version
+        semgrep_version=$(semgrep --version 2>/dev/null || echo "unknown")
+        log_verbose "Found Semgrep $semgrep_version"
+    fi
+
+    # Check if detect-secrets is available
+    if ! command -v detect-secrets &> /dev/null; then
+        log "detect-secrets not found, will be installed with Python dependencies..."
+        DETECT_SECRETS_MISSING=true
+    else
+        local detect_secrets_version
+        detect_secrets_version=$(detect-secrets --version 2>/dev/null || echo "unknown")
+        log_verbose "Found detect-secrets $detect_secrets_version"
+    fi
+
+    # Check if sqlfluff is available
+    if ! command -v sqlfluff &> /dev/null; then
+        log "SQLFluff not found, will be installed with Python dependencies..."
+        SQLFLUFF_MISSING=true
+    else
+        local sqlfluff_version
+        sqlfluff_version=$(sqlfluff --version 2>/dev/null || echo "unknown")
+        log_verbose "Found SQLFluff $sqlfluff_version"
+    fi
+}
+
+install_eslint_packages() {
+    log "Installing ESLint and required plugins..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would install ESLint packages"
+        return 0
+    fi
+
+    cd "$INSTALL_DIR"
+
+    # Create package.json if it doesn't exist
+    if [[ ! -f "package.json" ]]; then
+        log_verbose "Creating package.json..."
+        cat > package.json << EOF
+{
+  "name": "claude-code-workflows",
+  "version": "1.0.0",
+  "description": "Frontend analysis dependencies for Claude Code Workflows",
+  "private": true,
+  "devDependencies": {}
+}
+EOF
+    fi
+
+    # Install ESLint and required plugins
+    log_verbose "Installing ESLint packages..."
+    if npm install --save-dev \
+        eslint@latest \
+        @typescript-eslint/parser@latest \
+        @typescript-eslint/eslint-plugin@latest \
+        eslint-plugin-react@latest \
+        eslint-plugin-react-hooks@latest \
+        eslint-plugin-import@latest \
+        eslint-plugin-vue@latest \
+        eslint-plugin-svelte@latest; then
+        log "ESLint packages installed successfully"
+    else
+        log_error "Failed to install ESLint packages"
+        echo "Please install manually with:"
+        echo "  npm install -g eslint @typescript-eslint/parser eslint-plugin-react eslint-plugin-vue eslint-plugin-import"
+        exit 1
+    fi
+}
+
+verify_eslint_plugins() {
+    local required_plugins=(
+        "@typescript-eslint/parser"
+        "eslint-plugin-react"
+        "eslint-plugin-import"
+        "eslint-plugin-vue"
+    )
+
+    for plugin in "${required_plugins[@]}"; do
+        # Try to check if plugin is available (this is a best-effort check)
+        if ! npm list "$plugin" &> /dev/null && ! npm list -g "$plugin" &> /dev/null; then
+            log_verbose "Plugin $plugin may not be available, but continuing..."
+        fi
+    done
+
+    log_verbose "ESLint plugin verification completed"
 }
 
 # Directory setup with custom paths
@@ -922,10 +1034,12 @@ main() {
     check_python
     check_node
     check_claude_cli
+    check_security_tools
     setup_install_dir
     copy_files
     create_installation_log
     install_python_deps
+    check_eslint
     install_mcp_tools
     verify_installation
 

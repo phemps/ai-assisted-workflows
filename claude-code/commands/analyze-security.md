@@ -29,24 +29,20 @@ Comprehensive security analysis using OWASP Top 10 framework with automated scri
    3. **Interactive fallback if not found**:
       - List searched locations: `.claude/scripts/analyze/security/` and `$HOME/.claude/scripts/analyze/security/`
       - Ask user: "Could not locate security analysis scripts. Please provide full path to the scripts directory:"
-      - Validate provided path contains expected scripts (detect_secrets.py, scan_vulnerabilities.py, check_auth.py, validate_inputs.py)
+      - Validate provided path contains expected scripts (semgrep_analyzer.py, detect_secrets_analyzer.py)
       - Set SCRIPT_PATH to user-provided location
 
    **THEN - Execute with resolved SCRIPT_PATH:**
 
    ```bash
-   python [SCRIPT_PATH]/detect_secrets.py . --output-format json
-   python [SCRIPT_PATH]/scan_vulnerabilities.py . --output-format json
-   python [SCRIPT_PATH]/check_auth.py . --output-format json
-   python [SCRIPT_PATH]/validate_inputs.py . --output-format json
+   python [SCRIPT_PATH]/semgrep_analyzer.py . --output-format json
+   python [SCRIPT_PATH]/detect_secrets_analyzer.py . --output-format json
    ```
 
 2. **Analyze script outputs** - Process automated findings against OWASP framework
 
-   - **scan_vulnerabilities.py**: Detects A01 (Injection) and A03 (XSS)
-   - **validate_inputs.py**: Comprehensive injection detection (SQL, NoSQL, Command, Path Traversal, LDAP)
-   - **check_auth.py**: Covers A07 (Authentication Failures) including weak passwords, session management
-   - **detect_secrets.py**: Identifies hardcoded credentials and API keys (A02 - Cryptographic Failures)
+   - **semgrep_analyzer.py**: Comprehensive OWASP Top 10 detection including A01 (Injection), A03 (XSS), A07 (Authentication Failures), and input validation using semantic analysis
+   - **detect_secrets_analyzer.py**: Advanced entropy-based secrets detection for hardcoded credentials and API keys (A02 - Cryptographic Failures)
 
 3. **Generate security baseline** - Compile automated results for contextual analysis
 

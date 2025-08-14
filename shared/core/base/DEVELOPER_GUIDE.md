@@ -598,7 +598,7 @@ Your analyzer is ready for production when:
 
 ### **Working Examples**
 
-- **Simple Pattern Matching**: `shared/analyzers/security/check_auth.py`
+- **Semantic Security Analysis**: `shared/analyzers/security/semgrep_analyzer.py`
 - **External Tool Integration**: `shared/analyzers/quality/complexity_lizard.py`
 - **Multi-Component Orchestration**: `shared/analyzers/quality/analysis_engine.py`
 - **Performance Analysis**: `shared/analyzers/performance/profile_code.py`

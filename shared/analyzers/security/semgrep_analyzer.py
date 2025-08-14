@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""
+Semgrep Security Analyzer - Semantic Static Analysis Security Scanner
+=====================================================================
+
+PURPOSE: Comprehensive security analysis using Semgrep's semantic analysis engine.
+Replaces bespoke regex pattern matching with established semantic analysis.
+
+APPROACH:
+- Uses Semgrep's extensive ruleset for OWASP Top 10 vulnerabilities
+- Semantic analysis instead of brittle regex patterns
+- Multi-language support with native language parsers
+- Real-time rule updates from security community
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements security-specific analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
+
+REPLACES: Multiple bespoke analyzers with regex patterns
+- scan_vulnerabilities.py - SQL injection, XSS, command injection
+- check_auth.py - Authentication and authorization issues
+- validate_inputs.py - Input validation vulnerabilities
+"""
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+try:
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+except ImportError as e:
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
+    sys.exit(1)
+
+
+class SemgrepAnalyzer(BaseAnalyzer):
+    """Semantic security analysis using Semgrep instead of regex patterns."""
+
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create security-specific configuration
+        security_config = config or AnalyzerConfig(
+            code_extensions={
+                # Semgrep supports extensive language coverage
+                ".py",
+                ".js",
+                ".ts",
+                ".jsx",
+                ".tsx",
+                ".java",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".cpp",
+                ".c",
+                ".h",
+                ".hpp",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".dart",
+                ".vue",
+                ".xml",
+                ".html",
+                ".sql",
+                ".sh",
+                ".bash",
+                ".ps1",
+                ".bat",
+                ".yaml",
+                ".yml",
+                ".json",
+                ".tf",
+                ".hcl",
+                ".dockerfile",
+                ".lock",
+                ".gradle",
+                ".pom",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "venv",
+                "env",
+                ".venv",
+                "dist",
+                "build",
+                ".next",
+                "coverage",
+                ".nyc_output",
+                "target",
+                "vendor",
+                "*.min.js",
+                "*.min.css",
+                "*.bundle.js",
+                "*.chunk.js",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("security", security_config)
+
+        # Check for Semgrep availability - required for accurate analysis
+        self._check_semgrep_availability()
+
+        # Semgrep rule configurations for different security categories
+        self.semgrep_rulesets = {
+            "owasp_top10": "r/security",
+            "injection": "r/security/audit/injection",
+            "xss": "r/security/audit/xss",
+            "auth": "r/security/audit/auth",
+            "secrets": "r/secrets",
+            "input_validation": "r/security/audit/validation",
+            "crypto": "r/security/audit/crypto",
+            "deserialization": "r/security/audit/deserialization",
+        }
+
+        # Severity mapping from Semgrep to our levels
+        self.severity_mapping = {
+            "ERROR": "critical",
+            "WARNING": "high",
+            "INFO": "medium",
+        }
+
+    def _check_semgrep_availability(self):
+        """Check if Semgrep is available. Exit if not found."""
+        try:
+            result = subprocess.run(
+                ["semgrep", "--version"], capture_output=True, text=True, timeout=10
+            )
+            if result.returncode != 0:
+                print(
+                    "ERROR: Semgrep is required for semantic security analysis but not found.",
+                    file=sys.stderr,
+                )
+                print("Install with: pip install semgrep", file=sys.stderr)
+                sys.exit(1)
+
+            version = result.stdout.strip()
+            print(f"Found Semgrep {version}", file=sys.stderr)
+
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print("ERROR: Semgrep is required but not available.", file=sys.stderr)
+            print("Install with: pip install semgrep", file=sys.stderr)
+            sys.exit(1)
+
+    def _run_semgrep_analysis(
+        self, target_path: str, rulesets: List[str]
+    ) -> List[Dict[str, Any]]:
+        """Run Semgrep analysis with specified rulesets."""
+        findings = []
+
+        for ruleset in rulesets:
+            try:
+                cmd = [
+                    "semgrep",
+                    "--config",
+                    ruleset,
+                    "--json",
+                    "--no-git-ignore",  # Analyze all files per our skip patterns
+                    "--timeout",
+                    "30",  # Faster timeout per file
+                    "--timeout-threshold",
+                    "5",  # Skip slow files
+                    "--max-target-bytes",
+                    "1000000",  # Skip files > 1MB
+                    target_path,
+                ]
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,  # 2 minute total timeout
+                )
+
+                if result.stdout:
+                    semgrep_output = json.loads(result.stdout)
+
+                    # Process Semgrep findings
+                    for finding in semgrep_output.get("results", []):
+                        processed_finding = self._process_semgrep_finding(
+                            finding, ruleset
+                        )
+                        if processed_finding:
+                            findings.append(processed_finding)
+
+            except (
+                subprocess.TimeoutExpired,
+                subprocess.CalledProcessError,
+                json.JSONDecodeError,
+            ) as e:
+                if self.verbose:
+                    print(
+                        f"Semgrep analysis failed for ruleset {ruleset}: {e}",
+                        file=sys.stderr,
+                    )
+
+        return findings
+
+    def _process_semgrep_finding(
+        self, finding: Dict[str, Any], ruleset: str
+    ) -> Optional[Dict[str, Any]]:
+        """Convert Semgrep finding to our standardized format."""
+        try:
+            # Extract key information from Semgrep finding
+            check_id = finding.get("check_id", "unknown")
+            message = finding.get("message", "Security issue detected")
+            path = finding.get("path", "")
+            start_line = finding.get("start", {}).get("line", 0)
+            severity = finding.get("extra", {}).get("severity", "WARNING")
+
+            # Map Semgrep severity to our levels
+            our_severity = self.severity_mapping.get(severity, "medium")
+
+            # Create standardized finding
+            return {
+                "perf_type": check_id,
+                "category": self._get_category_from_ruleset(ruleset),
+                "file_path": path,
+                "line_number": start_line,
+                "line_content": finding.get("extra", {}).get("lines", "")[:150],
+                "severity": our_severity,
+                "description": message,
+                "recommendation": self._get_recommendation(check_id),
+                "pattern_matched": f"Semgrep: {check_id}",
+                "confidence": "high",  # Semgrep provides high confidence findings
+            }
+
+        except Exception as e:
+            if self.verbose:
+                print(f"Failed to process Semgrep finding: {e}", file=sys.stderr)
+            return None
+
+    def _get_category_from_ruleset(self, ruleset: str) -> str:
+        """Map Semgrep ruleset to our category system."""
+        if "injection" in ruleset:
+            return "injection"
+        elif "xss" in ruleset:
+            return "xss"
+        elif "auth" in ruleset:
+            return "authentication"
+        elif "secrets" in ruleset:
+            return "secrets"
+        elif "validation" in ruleset:
+            return "input_validation"
+        elif "crypto" in ruleset:
+            return "cryptography"
+        else:
+            return "security"
+
+    def _get_recommendation(self, check_id: str) -> str:
+        """Get specific recommendations based on Semgrep check ID."""
+        # Map common Semgrep rules to actionable recommendations
+        recommendations = {
+            "python.lang.security.audit.dangerous-subprocess-use": "Use subprocess with shell=False and validate all inputs",
+            "python.lang.security.audit.sql-injection": "Use parameterized queries or ORM methods to prevent SQL injection",
+            "javascript.lang.security.audit.xss.direct-write-to-innerhtml": "Use textContent instead of innerHTML or sanitize user input",
+            "java.lang.security.audit.command-injection": "Avoid runtime.exec() with user input. Use ProcessBuilder with validation",
+            "generic.secrets.security.detected-private-key": "Remove private keys from code. Use environment variables or secure vaults",
+        }
+
+        return recommendations.get(
+            check_id,
+            "Review this security finding and apply appropriate security controls",
+        )
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze target using Semgrep semantic analysis.
+
+        Args:
+            target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
+
+        Returns:
+            List of security findings with standardized structure
+        """
+        # Run comprehensive security analysis with multiple rulesets
+        rulesets = [
+            "r/security",  # OWASP Top 10 and general security
+            "r/secrets",  # Hardcoded secrets detection
+        ]
+
+        findings = self._run_semgrep_analysis(target_path, rulesets)
+
+        # Convert to our standardized format for BaseAnalyzer
+        standardized_findings = []
+        for finding in findings:
+            standardized = {
+                "title": f"{finding['description']} ({finding['perf_type']})",
+                "description": f"Semgrep detected: {finding['description']}. Category: {finding['category']}. This requires security review and remediation.",
+                "severity": finding["severity"],
+                "file_path": finding["file_path"],
+                "line_number": finding["line_number"],
+                "recommendation": finding["recommendation"],
+                "metadata": {
+                    "tool": "semgrep",
+                    "check_id": finding["perf_type"],
+                    "category": finding["category"],
+                    "line_content": finding["line_content"],
+                    "confidence": finding["confidence"],
+                },
+            }
+            standardized_findings.append(standardized)
+
+        return standardized_findings
+
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Semgrep Security Analyzer",
+            "version": "2.0.0",
+            "description": "Semantic security analysis using Semgrep (replacing bespoke regex patterns)",
+            "category": "security",
+            "priority": "critical",
+            "capabilities": [
+                "OWASP Top 10 vulnerability detection",
+                "SQL injection analysis",
+                "XSS vulnerability detection",
+                "Authentication/authorization analysis",
+                "Hardcoded secrets detection",
+                "Input validation analysis",
+                "Cryptographic weakness detection",
+                "Multi-language semantic analysis",
+                "Real-time security rule updates",
+            ],
+            "supported_languages": [
+                "Python",
+                "JavaScript",
+                "TypeScript",
+                "Java",
+                "C#",
+                "PHP",
+                "Ruby",
+                "Go",
+                "Rust",
+                "C/C++",
+                "Swift",
+                "Kotlin",
+                "Scala",
+                "Dart",
+                "HTML",
+                "SQL",
+                "Shell",
+                "YAML",
+                "Terraform",
+            ],
+            "tool": "semgrep",
+            "replaces": [
+                "scan_vulnerabilities.py",
+                "check_auth.py",
+                "validate_inputs.py",
+            ],
+        }
+
+
+def main():
+    """Main entry point for command-line usage."""
+    analyzer = SemgrepAnalyzer()
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

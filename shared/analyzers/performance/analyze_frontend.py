@@ -23,6 +23,9 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import re
 import sys
+import subprocess
+import json
+import tempfile
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -94,6 +97,9 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         # Initialize base analyzer
         super().__init__("performance", frontend_config)
 
+        # Check for ESLint availability - required for accurate analysis
+        self._check_eslint_availability()
+
         # Initialize performance patterns
         self._init_bundle_patterns()
         self._init_react_patterns()
@@ -104,6 +110,61 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         # Compile patterns for performance
         self._compiled_patterns = {}
         self._compile_all_patterns()
+
+    def _check_eslint_availability(self):
+        """Check if ESLint is available. Exit if not found."""
+        try:
+            # Check if ESLint is available via npx
+            result = subprocess.run(
+                ["npx", "eslint", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                print(
+                    "ERROR: ESLint is required for accurate frontend analysis but not found.",
+                    file=sys.stderr,
+                )
+                print(
+                    "Install with: npm install -g eslint @typescript-eslint/parser eslint-plugin-react eslint-plugin-vue",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            # Check for required plugins
+            required_plugins = [
+                "@typescript-eslint/parser",
+                "eslint-plugin-react",
+                "eslint-plugin-import",
+                "eslint-plugin-vue",
+            ]
+
+            for plugin in required_plugins:
+                try:
+                    # Try to verify plugin is available
+                    plugin_check = subprocess.run(
+                        ["npm", "list", "-g", plugin],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if plugin_check.returncode != 0:
+                        print(
+                            f"WARNING: ESLint plugin {plugin} not found globally. Analysis may be limited.",
+                            file=sys.stderr,
+                        )
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    pass  # npm might not be available, continue anyway
+
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print("ERROR: ESLint is required but not available.", file=sys.stderr)
+            print("Ensure Node.js and npm are installed, then run:", file=sys.stderr)
+            print(
+                "  npm install -g eslint @typescript-eslint/parser eslint-plugin-react eslint-plugin-vue eslint-plugin-import",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     def _init_bundle_patterns(self):
         """Initialize bundle size and import patterns."""
@@ -133,16 +194,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                 "description": "Missing dynamic imports for code splitting",
                 "recommendation": "Use dynamic imports for large components and routes to enable code splitting.",
             },
-            "unused_dependencies": {
-                "indicators": [
-                    r'import\s+(?:\w+|\{[^}]*\})\s+from\s+[\'"][^\'"].*[\'"]',
-                    r'const\s+\w+\s*=\s*require\([\'"][^\'"].*[\'"].*(?!.*\w+)',
-                    r'import\s+[\'"][^\'"].*[\'"](?=\s*$)',
-                ],
-                "severity": "low",
-                "description": "Potentially unused imports",
-                "recommendation": "Remove unused imports to reduce bundle size.",
-            },
+            # unused_dependencies pattern removed - now handled by ESLint
         }
 
     def _init_react_patterns(self):
@@ -456,7 +508,140 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
             if self.verbose:
                 print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
 
+        # Use ESLint for JavaScript/TypeScript files
+        if str(file_path).endswith((".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte")):
+            eslint_findings = self._run_eslint_analysis(str(file_path))
+            findings.extend(eslint_findings)
+
         return findings
+
+    def _run_eslint_analysis(self, file_path: str) -> List[Dict[str, Any]]:
+        """Run ESLint analysis on JavaScript/TypeScript files."""
+        findings = []
+
+        # Create temporary ESLint config
+        eslint_config = {
+            "env": {"browser": True, "node": True, "es2022": True},
+            "extends": ["eslint:recommended"],
+            "plugins": ["import", "react", "react-hooks"],
+            "parser": "@typescript-eslint/parser",
+            "parserOptions": {
+                "ecmaVersion": 2022,
+                "sourceType": "module",
+                "ecmaFeatures": {"jsx": True},
+            },
+            "rules": {
+                "no-unused-vars": "error",
+                "import/no-unused-modules": "error",
+                "react/jsx-no-bind": "warn",
+                "react/jsx-key": "error",
+                "react-hooks/exhaustive-deps": "warn",
+            },
+            "overrides": [
+                {"files": ["*.vue"], "processor": "vue/.vue"},
+                {"files": ["*.svelte"], "processor": "svelte3/svelte3"},
+            ],
+        }
+
+        try:
+            # Create temporary config file
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as config_file:
+                json.dump(eslint_config, config_file, indent=2)
+                config_path = config_file.name
+
+            # Run ESLint
+            cmd = [
+                "npx",
+                "eslint",
+                "--config",
+                config_path,
+                "--format",
+                "json",
+                "--no-ignore",
+                file_path,
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            # Parse ESLint JSON output
+            if result.stdout:
+                eslint_results = json.loads(result.stdout)
+
+                for file_result in eslint_results:
+                    for message in file_result.get("messages", []):
+                        # Convert ESLint findings to our format
+                        severity_map = {
+                            2: "high",  # error
+                            1: "medium",  # warning
+                            0: "info",  # info
+                        }
+
+                        finding = {
+                            "perf_type": self._map_eslint_rule_to_type(
+                                message.get("ruleId", "unknown")
+                            ),
+                            "category": "bundle"
+                            if "import" in message.get("ruleId", "")
+                            else "react",
+                            "file_path": file_path,
+                            "line_number": message.get("line", 0),
+                            "line_content": message.get("source", "")[:150],
+                            "severity": severity_map.get(
+                                message.get("severity", 1), "medium"
+                            ),
+                            "description": message.get(
+                                "message", "ESLint issue detected"
+                            ),
+                            "recommendation": self._get_eslint_recommendation(
+                                message.get("ruleId", "unknown")
+                            ),
+                            "pattern_matched": f"ESLint: {message.get('ruleId', 'unknown')}",
+                        }
+                        findings.append(finding)
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+            FileNotFoundError,
+        ) as e:
+            # If ESLint fails, log but don't crash the analyzer
+            if self.verbose:
+                print(f"ESLint analysis failed for {file_path}: {e}", file=sys.stderr)
+        finally:
+            # Clean up temp config file
+            try:
+                Path(config_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        return findings
+
+    def _map_eslint_rule_to_type(self, rule_id: str) -> str:
+        """Map ESLint rule IDs to our performance types."""
+        rule_mapping = {
+            "no-unused-vars": "unused_dependencies",
+            "import/no-unused-modules": "unused_dependencies",
+            "react/jsx-no-bind": "inline_object_creation",
+            "react/jsx-key": "missing_key_prop",
+            "react-hooks/exhaustive-deps": "unnecessary_rerenders",
+        }
+        return rule_mapping.get(rule_id, "performance_issue")
+
+    def _get_eslint_recommendation(self, rule_id: str) -> str:
+        """Get recommendation for ESLint rule violations."""
+        recommendations = {
+            "no-unused-vars": "Remove unused variables and imports to reduce bundle size.",
+            "import/no-unused-modules": "Remove unused imports to reduce bundle size.",
+            "react/jsx-no-bind": "Extract inline functions to prevent unnecessary re-renders.",
+            "react/jsx-key": "Add unique key prop to list items.",
+            "react-hooks/exhaustive-deps": "Fix hook dependencies to prevent stale closures.",
+        }
+        return recommendations.get(
+            rule_id, "Fix this performance issue detected by ESLint."
+        )
 
     def _is_false_positive(
         self, line_content: str, perf_type: str, category: str

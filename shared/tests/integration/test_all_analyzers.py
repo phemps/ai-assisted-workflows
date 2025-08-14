@@ -30,16 +30,14 @@ class AnalysisRunner:
         current_script_dir = Path(__file__).parent
         self.script_dir = current_script_dir.parent.parent / "analyzers"
         self.scripts = {
-            # Security analysis
-            "security_auth": "security/check_auth.py",
-            "security_vulnerabilities": "security/scan_vulnerabilities.py",
-            "security_input_validation": "security/validate_inputs.py",
-            "security_secrets": "security/detect_secrets.py",
-            # Performance analysis
+            # Security analysis - Updated to use established tools
+            "security_semgrep": "security/semgrep_analyzer.py",  # Replaces vulnerabilities, auth, input validation
+            "security_secrets": "security/detect_secrets_analyzer.py",  # Enhanced secrets detection
+            # Performance analysis - Updated to use established tools
             "performance_frontend": "performance/analyze_frontend.py",
-            "performance_bottlenecks": "performance/check_bottlenecks.py",
+            "performance_flake8": "performance/flake8_performance_analyzer.py",  # Replaces check_bottlenecks.py
             "performance_baseline": "performance/performance_baseline.py",
-            "performance_database": "performance/profile_database.py",
+            "performance_sqlfluff": "performance/sqlfluff_analyzer.py",  # Replaces profile_database.py
             # Code quality analysis
             "code_quality": "quality/complexity_lizard.py",
             "code_quality_metrics": "quality/complexity_lizard.py",
@@ -73,13 +71,11 @@ class AnalysisRunner:
 
         # Only certain scripts support --min-severity flag
         scripts_with_severity = [
-            "security_auth",
-            "security_vulnerabilities",
-            "security_input_validation",
+            "security_semgrep",
             "security_secrets",
             "performance_frontend",
-            "performance_bottlenecks",
-            "performance_database",
+            "performance_flake8",
+            "performance_sqlfluff",
             "code_quality",
             "code_quality_metrics",
             "architecture_patterns",
@@ -231,9 +227,7 @@ class AnalysisRunner:
         security_critical = 0
         security_high = 0
         for category in [
-            "security_auth",
-            "security_vulnerabilities",
-            "security_input_validation",
+            "security_semgrep",
             "security_secrets",
         ]:
             if category in summary["by_category"]:
@@ -260,9 +254,9 @@ class AnalysisRunner:
         perf_high = 0
         for category in [
             "performance_frontend",
-            "performance_bottlenecks",
+            "performance_flake8",
             "performance_baseline",
-            "performance_database",
+            "performance_sqlfluff",
         ]:
             if category in summary["by_category"]:
                 perf_critical += (

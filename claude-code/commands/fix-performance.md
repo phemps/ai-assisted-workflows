@@ -65,15 +65,15 @@ Execute performance analysis scripts via Bash tool for systematic bottleneck det
 3. **Interactive fallback if not found**:
    - List searched locations: `.claude/scripts/analyze/performance/` and `$HOME/.claude/scripts/analyze/performance/`
    - Ask user: "Could not locate performance analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (check_bottlenecks.py, analyze_frontend.py, profile_database.py)
+   - Validate provided path contains expected scripts (flake8_performance_analyzer.py, analyze_frontend.py, sqlfluff_analyzer.py)
    - Set SCRIPT_PATH to user-provided location
 
 **THEN - Execute with resolved SCRIPT_PATH:**
 
 ```bash
-python [SCRIPT_PATH]/check_bottlenecks.py . --output-format json
+python [SCRIPT_PATH]/flake8_performance_analyzer.py . --output-format json
 python [SCRIPT_PATH]/analyze_frontend.py . --output-format json
-python [SCRIPT_PATH]/profile_database.py . --output-format json
+python [SCRIPT_PATH]/sqlfluff_analyzer.py . --output-format json
 ```
 
 ## Performance Areas

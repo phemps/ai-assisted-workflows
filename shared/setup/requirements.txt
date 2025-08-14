@@ -6,15 +6,20 @@ python-dotenv>=0.19.0          # Environment variable management
 requests>=2.25.0               # HTTP requests for external APIs
 pathlib2>=2.3.5; python_version < "3.4"  # Backport for older Python
 
-# Security analysis
-bandit>=1.7.0                  # Security linting
+# Security analysis - Established Tools Integration
+bandit>=1.7.0                  # Python security linting
 safety>=2.0.0                  # Vulnerability scanning
-semgrep>=0.100.0               # Static analysis security scanner
+semgrep>=1.45.0                # Semantic static analysis security scanner (replacing bespoke patterns)
+detect-secrets>=1.4.0          # Hardcoded secrets detection (replacing regex patterns)
+sqlfluff>=2.3.0                # SQL linting and security analysis
 
-# Performance analysis
+# Performance analysis - Established Tools Integration
 psutil>=5.8.0                  # System and process utilities
 memory-profiler>=0.60.0        # Memory usage profiling
 py-spy>=0.3.0; platform_system != "Windows"  # Python profiler (Unix only)
+flake8-performance>=1.1.0      # Performance-specific Flake8 rules (replacing bespoke patterns)
+flake8-comprehensions>=3.10.0  # List/dict comprehension performance rules
+flake8-bugbear>=23.3.0         # Bug and performance issue detection
 
 # Code quality analysis
 flake8>=4.0.0                  # Style guide enforcement

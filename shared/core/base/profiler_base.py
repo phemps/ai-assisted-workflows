@@ -15,7 +15,7 @@ FEATURES:
 
 ELIMINATES DUPLICATION FROM:
 - shared/analyzers/performance/profile_code.py (initialization, CLI, timing)
-- shared/analyzers/performance/profile_database.py (file scanning, CLI, result formatting)
+- shared/analyzers/performance/sqlfluff_analyzer.py (SQL performance analysis with established tools)
 - shared/analyzers/performance/performance_baseline.py (platform detection, configuration)
 """
 

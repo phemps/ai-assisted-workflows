@@ -402,7 +402,7 @@ Before submitting your BaseAnalyzer/BaseProfiler implementation:
 
 ### **Working Implementations**
 
-- `shared/analyzers/security/check_auth.py` - Security analysis with pattern matching
+- `shared/analyzers/security/semgrep_analyzer.py` - Comprehensive security analysis with semantic analysis
 - `shared/analyzers/quality/complexity_lizard.py` - Code complexity analysis with Lizard integration
 - `shared/analyzers/performance/profile_code.py` - Performance profiling with heuristics
 - `shared/analyzers/quality/pattern_classifier.py` - Pattern classification with multiple detectors

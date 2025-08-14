@@ -25,7 +25,6 @@ import re
 import sys
 import subprocess
 import json
-import tempfile
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -110,6 +109,10 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         # Compile patterns for performance
         self._compiled_patterns = {}
         self._compile_all_patterns()
+
+        # Cache for batch ESLint results
+        self._eslint_results_cache = {}
+        self._eslint_config_path = None
 
     def _check_eslint_availability(self):
         """Check if ESLint is available. Exit if not found."""
@@ -456,14 +459,31 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                 content = f.read()
                 lines = content.split("\n")
 
-                # Check all performance patterns
-                pattern_groups = [
-                    ("bundle", self.bundle_patterns),
-                    ("react", self.react_patterns),
-                    ("css", self.css_patterns),
-                    ("javascript", self.js_patterns),
-                    ("asset", self.asset_patterns),
-                ]
+                # Get file extension for type-specific pattern filtering
+                file_ext = file_path.suffix.lower()
+
+                # Filter pattern groups based on file type for better performance
+                pattern_groups = []
+
+                # CSS patterns only for CSS files
+                if file_ext in {".css", ".scss", ".sass", ".less", ".styl"}:
+                    pattern_groups.append(("css", self.css_patterns))
+                    pattern_groups.append(("asset", self.asset_patterns))
+
+                # React patterns only for JS/TS files
+                elif file_ext in {".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"}:
+                    pattern_groups.append(("bundle", self.bundle_patterns))
+                    pattern_groups.append(("react", self.react_patterns))
+                    pattern_groups.append(("javascript", self.js_patterns))
+                    pattern_groups.append(("asset", self.asset_patterns))
+
+                # HTML files - asset and bundle patterns only
+                elif file_ext in {".html", ".htm"}:
+                    pattern_groups.append(("asset", self.asset_patterns))
+
+                # Other files get minimal pattern checking
+                else:
+                    pattern_groups.append(("asset", self.asset_patterns))
 
                 for category, patterns in pattern_groups:
                     for perf_type, config in patterns.items():
@@ -505,7 +525,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
 
         except Exception as e:
             # Log but continue - file might be binary or inaccessible
-            if self.verbose:
+            if hasattr(self, "verbose") and self.verbose:
                 print(f"Warning: Could not scan {file_path}: {e}", file=sys.stderr)
 
         # Use ESLint for JavaScript/TypeScript files
@@ -515,11 +535,92 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _run_eslint_analysis(self, file_path: str) -> List[Dict[str, Any]]:
-        """Run ESLint analysis on JavaScript/TypeScript files."""
-        findings = []
+    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+        """
+        Override BaseAnalyzer batch processing to run ESLint once per batch.
+        This dramatically improves performance vs per-file ESLint calls.
+        """
+        # First run ESLint on all JS/TS files in the batch at once
+        js_files = [
+            f
+            for f in batch
+            if str(f).endswith((".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"))
+        ]
 
-        # Create temporary ESLint config
+        if js_files:
+            print(
+                f"Running batch ESLint analysis on {len(js_files)} files...",
+                file=sys.stderr,
+            )
+            self._run_batch_eslint_analysis(js_files)
+
+        # Now process individual files with cached ESLint results
+        batch_findings = []
+        for i, file_path in enumerate(batch):
+            try:
+                if i > 0 and i % 10 == 0:
+                    print(
+                        f"Processed {i}/{len(batch)} files in batch...", file=sys.stderr
+                    )
+
+                file_findings = self.analyze_target(str(file_path))
+                batch_findings.extend(file_findings)
+                self.files_processed += 1
+            except Exception as e:
+                self.processing_errors += 1
+                self.logger.warning(f"Error processing {file_path}: {e}")
+
+        if len(batch) > 1:
+            print(
+                f"Completed batch: {len(batch)} files, {len(batch_findings)} findings",
+                file=sys.stderr,
+            )
+
+        return batch_findings
+
+    def _run_batch_eslint_analysis(self, js_files: List[Path]) -> None:
+        """Run ESLint on a batch of JS/TS files and cache results."""
+        if not js_files:
+            return
+
+        # Create temporary ESLint config once
+        if self._eslint_config_path is None:
+            self._create_eslint_config()
+
+        try:
+            # Run ESLint on all files at once
+            cmd = [
+                "npx",
+                "eslint",
+                "--config",
+                self._eslint_config_path,
+                "--format",
+                "json",
+                "--no-ignore",
+            ]
+            cmd.extend(str(f) for f in js_files)
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+            # Parse and cache results
+            if result.stdout:
+                eslint_results = json.loads(result.stdout)
+                for file_result in eslint_results:
+                    file_path = file_result.get("filePath", "")
+                    if file_path:
+                        self._eslint_results_cache[file_path] = file_result.get(
+                            "messages", []
+                        )
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+        ) as e:
+            print(f"Batch ESLint analysis failed: {e}", file=sys.stderr)
+
+    def _create_eslint_config(self) -> None:
+        """Create temporary ESLint config file."""
         eslint_config = {
             "env": {"browser": True, "node": True, "es2022": True},
             "extends": ["eslint:recommended"],
@@ -544,78 +645,52 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         }
 
         try:
-            # Create temporary config file
-            with tempfile.NamedTemporaryFile(
+            import tempfile
+
+            config_file = tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False
-            ) as config_file:
-                json.dump(eslint_config, config_file, indent=2)
-                config_path = config_file.name
+            )
+            json.dump(eslint_config, config_file, indent=2)
+            config_file.close()
+            self._eslint_config_path = config_file.name
+        except Exception as e:
+            print(f"Failed to create ESLint config: {e}", file=sys.stderr)
 
-            # Run ESLint
-            cmd = [
-                "npx",
-                "eslint",
-                "--config",
-                config_path,
-                "--format",
-                "json",
-                "--no-ignore",
-                file_path,
-            ]
+    def _run_eslint_analysis(self, file_path: str) -> List[Dict[str, Any]]:
+        """Get ESLint analysis results from cache (populated by batch processing)."""
+        findings = []
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        # Get cached results for this file
+        cached_messages = self._eslint_results_cache.get(
+            str(Path(file_path).resolve()), []
+        )
 
-            # Parse ESLint JSON output
-            if result.stdout:
-                eslint_results = json.loads(result.stdout)
+        for message in cached_messages:
+            # Convert ESLint findings to our format
+            severity_map = {
+                2: "high",  # error
+                1: "medium",  # warning
+                0: "info",  # info
+            }
 
-                for file_result in eslint_results:
-                    for message in file_result.get("messages", []):
-                        # Convert ESLint findings to our format
-                        severity_map = {
-                            2: "high",  # error
-                            1: "medium",  # warning
-                            0: "info",  # info
-                        }
-
-                        finding = {
-                            "perf_type": self._map_eslint_rule_to_type(
-                                message.get("ruleId", "unknown")
-                            ),
-                            "category": "bundle"
-                            if "import" in message.get("ruleId", "")
-                            else "react",
-                            "file_path": file_path,
-                            "line_number": message.get("line", 0),
-                            "line_content": message.get("source", "")[:150],
-                            "severity": severity_map.get(
-                                message.get("severity", 1), "medium"
-                            ),
-                            "description": message.get(
-                                "message", "ESLint issue detected"
-                            ),
-                            "recommendation": self._get_eslint_recommendation(
-                                message.get("ruleId", "unknown")
-                            ),
-                            "pattern_matched": f"ESLint: {message.get('ruleId', 'unknown')}",
-                        }
-                        findings.append(finding)
-
-        except (
-            subprocess.TimeoutExpired,
-            subprocess.CalledProcessError,
-            json.JSONDecodeError,
-            FileNotFoundError,
-        ) as e:
-            # If ESLint fails, log but don't crash the analyzer
-            if self.verbose:
-                print(f"ESLint analysis failed for {file_path}: {e}", file=sys.stderr)
-        finally:
-            # Clean up temp config file
-            try:
-                Path(config_path).unlink(missing_ok=True)
-            except Exception:
-                pass
+            finding = {
+                "perf_type": self._map_eslint_rule_to_type(
+                    message.get("ruleId", "unknown")
+                ),
+                "category": "bundle"
+                if "import" in message.get("ruleId", "")
+                else "react",
+                "file_path": file_path,
+                "line_number": message.get("line", 0),
+                "line_content": message.get("source", "")[:150],
+                "severity": severity_map.get(message.get("severity", 1), "medium"),
+                "description": message.get("message", "ESLint issue detected"),
+                "recommendation": self._get_eslint_recommendation(
+                    message.get("ruleId", "unknown")
+                ),
+                "pattern_matched": f"ESLint: {message.get('ruleId', 'unknown')}",
+            }
+            findings.append(finding)
 
         return findings
 
@@ -725,10 +800,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         all_findings = []
         file_path = Path(target_path)
 
-        # Skip files that are too large
-        if file_path.stat().st_size > 1 * 1024 * 1024:  # Skip files > 1MB
-            return all_findings
-
+        # File size check is already handled by BaseAnalyzer.should_scan_file()
         findings = self._scan_file_for_issues(file_path)
 
         # Convert to standardized finding format
@@ -761,6 +833,14 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
             all_findings.append(standardized)
 
         return all_findings
+
+    def __del__(self):
+        """Clean up temporary ESLint config file."""
+        if self._eslint_config_path:
+            try:
+                Path(self._eslint_config_path).unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 def main():

@@ -1,39 +1,97 @@
 #!/usr/bin/env python3
 """
-Root cause analysis script: Error pattern matching for known failure modes.
-Part of Claude Code Workflows.
+Error Pattern Analyzer - Root Cause Analysis Through Pattern Detection
+=====================================================================
+
+PURPOSE: Analyzes code for known error patterns and failure modes to assist with root cause analysis.
+Part of the shared/analyzers/root_cause suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Pattern matching for 9 error categories (memory leaks, null pointers, race conditions, etc.)
+- Language-specific pattern detection (Python, JavaScript, Java)
+- Error keyword detection in comments for debugging hints
+- Error clustering analysis to identify systemic issues
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements error pattern analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
 import re
 import sys
-import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.output_formatter import (
-        ResultFormatter,
-        Severity,
-        AnalysisType,
-        Finding,
-        AnalysisResult,
-    )
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class ErrorPatternAnalyzer:
-    """Analyze code for known error patterns and failure modes."""
+class ErrorPatternAnalyzer(BaseAnalyzer):
+    """Analyze code for known error patterns and failure modes to assist with root cause analysis."""
 
-    def __init__(self):
+    def __init__(self, config: Optional[AnalyzerConfig] = None):
+        # Create error pattern specific configuration
+        error_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".java",
+                ".cpp",
+                ".c",
+                ".cs",
+                ".php",
+                ".rb",
+                ".go",
+                ".rs",
+                ".kt",
+                ".scala",
+                ".swift",
+            },
+            skip_patterns={
+                "node_modules",
+                ".git",
+                "__pycache__",
+                ".pytest_cache",
+                "build",
+                "dist",
+                ".next",
+                ".nuxt",
+                "coverage",
+                "venv",
+                "env",
+                ".env",
+                "vendor",
+                "logs",
+                "target",
+                ".vscode",
+                ".idea",
+                "*.min.js",
+                "*.bundle.js",
+                "*.test.*",
+                "*/tests/*",
+            },
+        )
+
+        # Initialize base analyzer
+        super().__init__("root_cause", error_config)
+
+        # Initialize error pattern definitions
+        self._init_error_patterns()
+
+    def _init_error_patterns(self):
+        """Initialize all error pattern definitions."""
         self.error_patterns = {
             # Memory and Resource Patterns
             "memory_leak": {
@@ -189,39 +247,82 @@ class ErrorPatternAnalyzer:
             },
         }
 
-    def analyze_file(self, file_path: Path) -> List[Dict[str, Any]]:
-        """Analyze a single file for error patterns."""
-        findings = []
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Error Pattern Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes code for known error patterns and failure modes to assist with root cause analysis",
+            "category": "root_cause",
+            "priority": "high",
+            "capabilities": [
+                "Memory leak and resource management pattern detection",
+                "Null pointer and undefined access pattern identification",
+                "Race condition and concurrency issue detection",
+                "Security vulnerability pattern matching (injection, auth bypass)",
+                "Error handling anti-pattern identification",
+                "Performance bottleneck pattern recognition",
+                "State management issue detection",
+                "Data corruption pattern analysis",
+                "Language-specific error pattern detection",
+                "Error keyword analysis in comments",
+                "Error clustering analysis for systemic issues",
+            ],
+            "supported_formats": list(self.config.code_extensions),
+            "pattern_categories": {
+                "general_error_patterns": len(self.error_patterns),
+                "language_specific_patterns": len(self.language_patterns),
+                "error_keywords": len(self.error_keywords),
+            },
+        }
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze a single file for error patterns.
+
+        Args:
+            target_path: Path to file to analyze
+
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        file_path = Path(target_path)
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-
-            lines = content.split("\n")
+                lines = content.split("\n")
 
             # Check general error patterns
-            findings.extend(self._check_error_patterns(content, lines, file_path))
+            findings = self._check_error_patterns(content, lines, str(file_path))
+            all_findings.extend(findings)
 
             # Check language-specific patterns
-            findings.extend(self._check_language_patterns(content, lines, file_path))
+            findings = self._check_language_patterns(content, lines, str(file_path))
+            all_findings.extend(findings)
 
             # Check for error keywords in comments
-            findings.extend(self._check_error_keywords(lines, file_path))
+            findings = self._check_error_keywords(lines, str(file_path))
+            all_findings.extend(findings)
 
         except Exception as e:
-            findings.append(
+            all_findings.append(
                 {
-                    "type": "analysis_error",
-                    "file_path": str(file_path),
-                    "error": str(e),
+                    "title": "File Analysis Error",
+                    "description": f"Could not analyze file for error patterns: {str(e)}",
                     "severity": "low",
+                    "file_path": str(file_path),
+                    "line_number": 0,
+                    "recommendation": "Check file encoding and permissions.",
+                    "metadata": {"error_type": "file_read_error", "confidence": "high"},
                 }
             )
 
-        return findings
+        return all_findings
 
     def _check_error_patterns(
-        self, content: str, lines: List[str], file_path: Path
+        self, content: str, lines: List[str], file_path: str
     ) -> List[Dict[str, Any]]:
         """Check for general error patterns."""
         findings = []
@@ -232,34 +333,39 @@ class ErrorPatternAnalyzer:
 
                 for match in matches:
                     line_num = content[: match.start()].count("\n") + 1
+                    context = (
+                        lines[line_num - 1].strip() if line_num <= len(lines) else ""
+                    )
 
                     findings.append(
                         {
-                            "type": "error_pattern",
-                            "pattern_name": pattern_name,
-                            "category": pattern_info["category"],
-                            "file_path": str(file_path),
-                            "line": line_num,
+                            "title": f"Error Pattern: {pattern_name.replace('_', ' ').title()}",
+                            "description": f"{pattern_info['description']} - Pattern: {pattern_name}",
                             "severity": pattern_info["severity"],
-                            "description": pattern_info["description"],
-                            "code_snippet": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
+                            "file_path": file_path,
+                            "line_number": line_num,
+                            "recommendation": self._get_pattern_recommendation(
+                                pattern_name, pattern_info["category"]
                             ),
-                            "matched_text": match.group(0),
+                            "metadata": {
+                                "error_category": pattern_info["category"],
+                                "pattern_name": pattern_name,
+                                "matched_text": match.group(0),
+                                "context": context,
+                                "confidence": "high",
+                            },
                         }
                     )
 
         return findings
 
     def _check_language_patterns(
-        self, content: str, lines: List[str], file_path: Path
+        self, content: str, lines: List[str], file_path: str
     ) -> List[Dict[str, Any]]:
         """Check for language-specific patterns."""
         findings = []
 
-        file_ext = file_path.suffix.lower()
+        file_ext = Path(file_path).suffix.lower()
         if file_ext in self.language_patterns:
             lang_config = self.language_patterns[file_ext]
 
@@ -268,28 +374,34 @@ class ErrorPatternAnalyzer:
 
                 for match in matches:
                     line_num = content[: match.start()].count("\n") + 1
+                    context = (
+                        lines[line_num - 1].strip() if line_num <= len(lines) else ""
+                    )
 
                     findings.append(
                         {
-                            "type": "language_pattern",
-                            "language": file_ext,
-                            "file_path": str(file_path),
-                            "line": line_num,
+                            "title": f"Language Anti-Pattern ({file_ext.upper()})",
+                            "description": f"Language-specific anti-pattern detected for {file_ext} files",
                             "severity": lang_config["severity"],
-                            "description": f"Language-specific anti-pattern for {file_ext}",
-                            "code_snippet": (
-                                lines[line_num - 1].strip()
-                                if line_num <= len(lines)
-                                else ""
+                            "file_path": file_path,
+                            "line_number": line_num,
+                            "recommendation": self._get_language_recommendation(
+                                file_ext, match.group(0)
                             ),
-                            "matched_text": match.group(0),
+                            "metadata": {
+                                "error_category": "language_specific",
+                                "language": file_ext,
+                                "matched_text": match.group(0),
+                                "context": context,
+                                "confidence": "medium",
+                            },
                         }
                     )
 
         return findings
 
     def _check_error_keywords(
-        self, lines: List[str], file_path: Path
+        self, lines: List[str], file_path: str
     ) -> List[Dict[str, Any]]:
         """Check for error-related keywords in comments."""
         findings = []
@@ -311,17 +423,65 @@ class ErrorPatternAnalyzer:
                     if keyword in line_lower:
                         findings.append(
                             {
-                                "type": "error_keyword",
-                                "keyword": keyword,
-                                "file_path": str(file_path),
-                                "line": line_num,
+                                "title": f"Error Keyword Found: {keyword.upper()}",
+                                "description": f"Error-related keyword '{keyword}' found in comment, may indicate debugging context",
                                 "severity": "low",
-                                "description": f"Error-related keyword '{keyword}' found in comment",
-                                "code_snippet": line.strip(),
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "recommendation": f"Review comment containing '{keyword}' for potential issues or technical debt",
+                                "metadata": {
+                                    "error_category": "error_keyword",
+                                    "keyword": keyword,
+                                    "context": line.strip(),
+                                    "confidence": "low",
+                                },
                             }
                         )
 
         return findings
+
+    def _get_pattern_recommendation(self, pattern_name: str, category: str) -> str:
+        """Get specific recommendations for error patterns."""
+        recommendations = {
+            "memory_leak": "Ensure proper resource cleanup with try-finally blocks or context managers",
+            "null_pointer": "Add null/undefined checks before accessing object properties",
+            "race_condition": "Use proper synchronization mechanisms or atomic operations",
+            "injection_vulnerability": "Use parameterized queries and input sanitization",
+            "poor_error_handling": "Implement proper error handling with specific error messages and recovery",
+            "performance_issue": "Optimize algorithm complexity and reduce nested operations",
+            "state_mutation": "Use immutable data structures or proper state management patterns",
+            "auth_bypass": "Implement proper authentication and authorization checks",
+            "data_corruption": "Add input validation and bounds checking for data operations",
+        }
+        return recommendations.get(
+            pattern_name, f"Review and address this {category} pattern"
+        )
+
+    def _get_language_recommendation(self, file_ext: str, matched_text: str) -> str:
+        """Get language-specific recommendations."""
+        if file_ext == ".py":
+            if "except:" in matched_text:
+                return "Use specific exception types instead of bare except clauses"
+            elif "import *" in matched_text:
+                return "Use explicit imports instead of wildcard imports"
+            elif "eval" in matched_text or "exec" in matched_text:
+                return "Avoid eval() and exec() - use safer alternatives like ast.literal_eval()"
+        elif file_ext == ".js":
+            if "==" in matched_text and (
+                "null" in matched_text or "undefined" in matched_text
+            ):
+                return "Use strict equality (===) instead of loose equality (==)"
+            elif "var " in matched_text:
+                return "Use let or const instead of var for better scoping"
+        elif file_ext == ".java":
+            if "printStackTrace" in matched_text:
+                return (
+                    "Use proper logging instead of printStackTrace() in production code"
+                )
+            elif "System.out.print" in matched_text:
+                return "Use a proper logging framework instead of System.out"
+
+        return f"Follow {file_ext} best practices and avoid this anti-pattern"
 
     def analyze_error_clusters(
         self, all_findings: List[Dict[str, Any]]
@@ -333,9 +493,9 @@ class ErrorPatternAnalyzer:
         file_categories = defaultdict(lambda: defaultdict(list))
 
         for finding in all_findings:
-            if finding.get("type") == "error_pattern":
+            if finding.get("metadata", {}).get("error_category") in self.error_patterns:
                 file_path = finding.get("file_path", "")
-                category = finding.get("category", "unknown")
+                category = finding.get("metadata", {}).get("error_category", "unknown")
                 file_categories[file_path][category].append(finding)
 
         # Find files with multiple issues in same category
@@ -344,13 +504,19 @@ class ErrorPatternAnalyzer:
                 if len(findings) >= 3:  # 3+ issues in same category
                     clusters.append(
                         {
-                            "type": "error_cluster",
-                            "file_path": file_path,
-                            "category": category,
-                            "issue_count": len(findings),
+                            "title": f"Error Cluster: {category.replace('_', ' ').title()}",
+                            "description": f"Multiple {category} issues clustered in {Path(file_path).name} - indicates systemic problem",
                             "severity": "high",
-                            "description": f"Multiple {category} issues clustered in {Path(file_path).name}",
-                            "findings": findings,
+                            "file_path": file_path,
+                            "line_number": 0,
+                            "recommendation": f"Perform comprehensive review of {category} patterns in this file",
+                            "metadata": {
+                                "error_category": "error_cluster",
+                                "cluster_category": category,
+                                "issue_count": len(findings),
+                                "clustered_findings": findings,
+                                "confidence": "high",
+                            },
                         }
                     )
 
@@ -358,148 +524,10 @@ class ErrorPatternAnalyzer:
 
 
 def main():
-    """Main execution function."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Analyze error patterns and debug traces in codebase"
-    )
-    parser.add_argument(
-        "target_path",
-        nargs="?",
-        default=os.getcwd(),
-        help="Directory path to analyze (default: current directory)",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format (default: json)",
-    )
-
-    args = parser.parse_args()
-    start_time = time.time()
-
-    # Get target directory
-    target_dir = Path(args.target_path)
-
-    # Initialize analyzer
+    """Main entry point for command-line usage."""
     analyzer = ErrorPatternAnalyzer()
-    result = AnalysisResult(
-        AnalysisType.ARCHITECTURE, "error_patterns.py", str(target_dir)
-    )
-
-    # Configuration for analysis
-    max_files = int(os.environ.get("MAX_FILES", "50"))  # Configurable via environment
-    max_file_size = int(os.environ.get("MAX_FILE_SIZE", "1048576"))  # 1MB default
-
-    # File extensions to analyze
-    extensions = {
-        ".py",
-        ".js",
-        ".ts",
-        ".jsx",
-        ".tsx",
-        ".java",
-        ".cpp",
-        ".c",
-        ".cs",
-        ".php",
-        ".rb",
-        ".go",
-    }
-
-    # Initialize tech stack detector for smart filtering
-    tech_detector = TechStackDetector()
-
-    # Analyze all relevant files with limits using universal exclusion
-    all_findings = []
-    files_analyzed = 0
-
-    for ext in extensions:
-        for file_path in target_dir.rglob(f"*{ext}"):
-            # Break if we've analyzed enough files
-            if files_analyzed >= max_files:
-                break
-
-            # Use universal exclusion system
-            if not tech_detector.should_analyze_file(str(file_path), str(target_dir)):
-                continue
-
-            # Skip files that are too large
-            try:
-                if file_path.stat().st_size > max_file_size:
-                    continue
-            except OSError:
-                continue
-
-            try:
-                findings = analyzer.analyze_file(file_path)
-                all_findings.extend(findings)
-                files_analyzed += 1
-            except Exception:
-                # Continue processing other files if one fails
-                continue
-
-        # Break outer loop if we've reached file limit
-        if files_analyzed >= max_files:
-            break
-
-    # Analyze error clusters
-    clusters = analyzer.analyze_error_clusters(all_findings)
-    all_findings.extend(clusters)
-
-    # Convert findings to formatter format
-    for finding in all_findings:
-        severity_map = {
-            "critical": Severity.CRITICAL,
-            "high": Severity.HIGH,
-            "medium": Severity.MEDIUM,
-            "low": Severity.LOW,
-        }
-
-        finding_title = (
-            finding.get("pattern_name", finding.get("type", "Unknown"))
-            .replace("_", " ")
-            .title()
-        )
-
-        finding_obj = Finding(
-            finding_id=f"{finding.get('type', 'unknown')}_{hash(str(finding)) % 10000}",
-            title=finding_title,
-            description=finding.get("description", "Error pattern detected"),
-            severity=severity_map.get(finding.get("severity", "low"), Severity.LOW),
-            file_path=finding.get("file_path"),
-            line_number=finding.get("line"),
-            evidence=finding,
-        )
-        result.add_finding(finding_obj)
-
-    # Set execution time and add metadata
-    result.set_execution_time(start_time)
-    result.metadata.update(
-        {
-            "files_analyzed": files_analyzed,
-            "error_patterns_found": len(
-                [f for f in all_findings if f.get("type") == "error_pattern"]
-            ),
-            "error_clusters_found": len(
-                [f for f in all_findings if f.get("type") == "error_cluster"]
-            ),
-            "critical_issues": len(
-                [f for f in all_findings if f.get("severity") == "critical"]
-            ),
-            "high_issues": len(
-                [f for f in all_findings if f.get("severity") == "high"]
-            ),
-        }
-    )
-
-    # Output based on format choice
-    if args.output_format == "console":
-        print(ResultFormatter.format_console_output(result))
-    else:  # json (default)
-        print(result.to_json())
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

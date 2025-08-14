@@ -1,42 +1,77 @@
 #!/usr/bin/env python3
 """
-Root cause analysis script: Git blame and recent changes analysis.
-Part of Claude Code Workflows.
+Recent Changes Analyzer - Root Cause Analysis Through Git History
+================================================================
+
+PURPOSE: Analyzes recent code changes using git history to identify potential root causes.
+Part of the shared/analyzers/root_cause suite using BaseAnalyzer infrastructure.
+
+APPROACH:
+- Git commit analysis for risky change patterns (hotfixes, rollbacks, temp fixes)
+- File change frequency analysis to identify hotspots
+- Commit timing pattern analysis (weekend/late night commits indicating emergencies)
+- Authentication, database, API, and critical file change detection
+
+EXTENDS: BaseAnalyzer for common analyzer infrastructure
+- Inherits file scanning, CLI, configuration, and result formatting
+- Implements git history analysis logic in analyze_target()
+- Uses shared timing, logging, and error handling patterns
 """
 
-import os
 import re
 import sys
-import time
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Import base analyzer infrastructure
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
-    from shared.core.utils.output_formatter import (
-        ResultFormatter,
-        Severity,
-        AnalysisType,
-        Finding,
-        AnalysisResult,
-    )
+    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 
-class ChangeAnalyzer:
-    """Analyze recent code changes and correlate with potential issues."""
+class RecentChangesAnalyzer(BaseAnalyzer):
+    """Analyze recent code changes using git history to identify potential root causes."""
 
-    def __init__(self, days_back: int = 30, max_commits: int = 100):
+    def __init__(
+        self,
+        config: Optional[AnalyzerConfig] = None,
+        days_back: int = 30,
+        max_commits: int = 100,
+    ):
+        # Create recent changes specific configuration
+        # Git analysis doesn't use file extensions - we analyze repos directly
+        changes_config = config or AnalyzerConfig(
+            code_extensions={
+                ".py",
+                ".js",
+                ".ts",
+                ".java",
+                ".go",
+                ".rs",
+            },  # Dummy extensions for BaseAnalyzer
+            skip_patterns=set(),  # Don't skip anything for git analysis
+        )
+
+        # Initialize base analyzer
+        super().__init__("root_cause", changes_config)
+
+        # Git analysis parameters
         self.days_back = days_back
         self.max_commits = max_commits
+
+        # Initialize change pattern definitions
+        self._init_change_patterns()
+
+    def _init_change_patterns(self):
+        """Initialize change pattern definitions."""
         self.change_patterns = {
             "auth_changes": {
                 "patterns": [r"auth", r"login", r"session", r"token", r"permission"],
@@ -88,10 +123,291 @@ class ChangeAnalyzer:
             },
         }
 
+    def get_analyzer_metadata(self) -> Dict[str, Any]:
+        """Return metadata about this analyzer."""
+        return {
+            "name": "Recent Changes Analyzer",
+            "version": "2.0.0",
+            "description": "Analyzes recent code changes using git history to identify potential root causes",
+            "category": "root_cause",
+            "priority": "high",
+            "capabilities": [
+                "Git commit risk pattern analysis (hotfixes, rollbacks, temp fixes)",
+                "File change frequency analysis and hotspot detection",
+                "Commit timing pattern analysis (emergency commits)",
+                "Authentication and authorization change detection",
+                "Database and schema change analysis",
+                "API endpoint change tracking",
+                "Configuration and dependency change detection",
+                "Critical application file change monitoring",
+                "Commit author and collaboration pattern analysis",
+                "Change correlation and root cause identification",
+            ],
+            "supported_formats": ["git"],
+            "pattern_categories": {
+                "change_patterns": len(self.change_patterns),
+                "analysis_period_days": self.days_back,
+                "max_commits_analyzed": self.max_commits,
+            },
+        }
+
+    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+        """
+        Analyze git repository for recent changes and potential root causes.
+
+        Note: This analyzer works on the git repository level, not individual files.
+        The target_path should be a directory path containing a git repository.
+
+        Args:
+            target_path: Path to git repository to analyze
+
+        Returns:
+            List of findings with standardized structure
+        """
+        all_findings = []
+        repo_path = Path(target_path)
+
+        # Check if we're in a git repository
+        if not (repo_path / ".git").exists() and not self._find_git_root(repo_path):
+            all_findings.append(
+                {
+                    "title": "No Git Repository Found",
+                    "description": "Not in a git repository - cannot analyze recent changes",
+                    "severity": "low",
+                    "file_path": str(repo_path),
+                    "line_number": 0,
+                    "recommendation": "Initialize git repository or run analysis from within a git repository",
+                    "metadata": {"error_type": "no_git_repo", "confidence": "high"},
+                }
+            )
+            return all_findings
+
+        try:
+            # Use git root for analysis
+            git_root = self._find_git_root(repo_path) or repo_path
+
+            # Analyze recent commits
+            commits = self.get_recent_commits(git_root)
+            if not commits:
+                all_findings.append(
+                    {
+                        "title": "No Recent Commits",
+                        "description": f"No commits found in the last {self.days_back} days",
+                        "severity": "low",
+                        "file_path": str(git_root),
+                        "line_number": 0,
+                        "recommendation": "Check git history or increase analysis period",
+                        "metadata": {
+                            "analysis_period": self.days_back,
+                            "confidence": "high",
+                        },
+                    }
+                )
+                return all_findings
+
+            # Analyze commit risks
+            risky_commits = self.analyze_change_risk(commits)
+            for risk_commit in risky_commits:
+                finding = self._create_risky_commit_finding(risk_commit)
+                all_findings.append(finding)
+
+            # Analyze timing patterns
+            timing_issues = self.analyze_commit_timing_patterns(commits)
+            for timing_issue in timing_issues:
+                finding = self._create_timing_issue_finding(timing_issue)
+                all_findings.append(finding)
+
+            # Analyze changed files and hotspots
+            changed_files = self.get_changed_files(git_root)
+            hotspots = self.analyze_file_change_frequency(changed_files)
+            for hotspot in hotspots:
+                finding = self._create_hotspot_finding(hotspot)
+                all_findings.append(finding)
+
+        except Exception as e:
+            all_findings.append(
+                {
+                    "title": "Git Analysis Error",
+                    "description": f"Could not analyze git repository: {str(e)}",
+                    "severity": "medium",
+                    "file_path": str(repo_path),
+                    "line_number": 0,
+                    "recommendation": "Check git repository integrity and permissions",
+                    "metadata": {
+                        "error_type": "git_analysis_error",
+                        "confidence": "high",
+                    },
+                }
+            )
+
+        return all_findings
+
+    def analyze(self, target_path: Optional[str] = None) -> Any:
+        """
+        Override analyze method to handle git repository analysis directly.
+
+        Git analysis doesn't follow the typical file-by-file pattern,
+        so we analyze the repository as a whole.
+        """
+        self.start_analysis()
+
+        analyze_path = target_path or self.config.target_path
+        result = self.create_result("git_analysis")
+
+        try:
+            # Analyze the git repository directly
+            all_findings = self.analyze_target(analyze_path)
+
+            # Convert findings to Finding objects
+            self._add_findings_to_result(result, all_findings)
+
+            # Add git-specific metadata
+            result.metadata = {
+                "analyzer_type": self.analyzer_type,
+                "target_path": analyze_path,
+                "total_findings": len(all_findings),
+                "analysis_period_days": self.days_back,
+                "max_commits_limit": self.max_commits,
+                "severity_breakdown": self._calculate_severity_breakdown(all_findings),
+                **self.get_analyzer_metadata(),
+            }
+
+        except Exception as e:
+            result.set_error(f"Git analysis failed: {str(e)}")
+            self.logger.error(f"Git analysis failed: {e}")
+
+        return self.complete_analysis(result)
+
+    def _find_git_root(self, path: Path) -> Optional[Path]:
+        """Find the git repository root directory."""
+        current = path.resolve()
+        while current != current.parent:
+            if (current / ".git").exists():
+                return current
+            current = current.parent
+        return None
+
+    def _create_risky_commit_finding(
+        self, risk_commit: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Create a finding for a risky commit."""
+        commit = risk_commit["commit"]
+        risks = risk_commit["risks"]
+        risk_level = risk_commit["risk_level"]
+
+        return {
+            "title": f"Risky Commit: {commit['hash'][:8]}",
+            "description": f"Commit contains risk factors: {', '.join(risks)} - {commit['message'][:100]}",
+            "severity": risk_level,
+            "file_path": "git_history",
+            "line_number": 0,
+            "recommendation": self._get_risk_recommendation(risks),
+            "metadata": {
+                "commit_hash": commit["hash"],
+                "author": commit["author"],
+                "date": commit["date"],
+                "message": commit["message"],
+                "risk_factors": risks,
+                "risk_level": risk_level,
+                "confidence": "high",
+            },
+        }
+
+    def _create_timing_issue_finding(
+        self, timing_issue: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Create a finding for a suspicious timing issue."""
+        commit = timing_issue["commit"]
+        concern = timing_issue["timing_concern"]
+        risk_level = timing_issue["risk_level"]
+
+        description = (
+            f"Commit {commit['hash'][:8]} made during {concern.replace('_', ' ')}"
+        )
+        if "time_diff_minutes" in timing_issue:
+            description += (
+                f" ({timing_issue['time_diff_minutes']:.1f} minutes after previous)"
+            )
+
+        return {
+            "title": "Suspicious Commit Timing",
+            "description": description,
+            "severity": risk_level,
+            "file_path": "git_history",
+            "line_number": 0,
+            "recommendation": self._get_timing_recommendation(concern),
+            "metadata": {
+                "commit_hash": commit["hash"],
+                "author": commit["author"],
+                "date": commit["date"],
+                "message": commit["message"],
+                "timing_concern": concern,
+                "risk_level": risk_level,
+                "confidence": "medium",
+                **{
+                    k: v
+                    for k, v in timing_issue.items()
+                    if k not in ["commit", "timing_concern", "risk_level"]
+                },
+            },
+        }
+
+    def _create_hotspot_finding(self, hotspot: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a finding for a file change hotspot."""
+        return {
+            "title": "File Change Hotspot",
+            "description": f"File {hotspot['file_path']} changed {hotspot['change_count']} times recently - potential instability",
+            "severity": hotspot["risk_level"],
+            "file_path": hotspot["file_path"],
+            "line_number": 0,
+            "recommendation": "Review file stability, consider refactoring or additional testing",
+            "metadata": {
+                "change_count": hotspot["change_count"],
+                "change_types": hotspot["change_types"],
+                "recent_commits": hotspot["recent_commits"],
+                "confidence": "high",
+            },
+        }
+
+    def _get_risk_recommendation(self, risks: List[str]) -> str:
+        """Get recommendations for risky commits."""
+        recommendations = {
+            "hotfix": "Review the urgency and consider adding automated tests to prevent similar issues",
+            "rollback": "Investigate root cause of the issue that required rollback",
+            "temp_fix": "Ensure temporary fixes are properly tracked and replaced with permanent solutions",
+            "major_change": "Ensure adequate testing and monitoring for major changes",
+            "merge_conflict": "Review merge resolution for potential integration issues",
+            "auth_changes": "Thoroughly test authentication flows and security implications",
+            "database_changes": "Verify database migration safety and backup procedures",
+            "api_changes": "Ensure API compatibility and update documentation",
+            "config_changes": "Verify configuration changes across all environments",
+            "dependency_changes": "Test for breaking changes and security vulnerabilities",
+            "critical_file_changes": "Extra scrutiny needed for changes to critical application files",
+        }
+
+        primary_recommendations = [
+            recommendations.get(risk, f"Review {risk} implications")
+            for risk in risks[:3]
+        ]
+        return "; ".join(primary_recommendations)
+
+    def _get_timing_recommendation(self, concern: str) -> str:
+        """Get recommendations for timing concerns."""
+        recommendations = {
+            "weekend": "Weekend commits may indicate emergency fixes - review for proper testing and monitoring",
+            "late_night": "Late night commits may indicate emergency fixes - ensure proper code review process",
+            "rapid_consecutive": "Rapid consecutive commits may indicate incomplete initial fix - review change sequence",
+        }
+        return recommendations.get(
+            concern, "Review commit timing context for emergency fix patterns"
+        )
+
     def run_git_command(
         self, command: List[str], cwd: Optional[Path] = None
     ) -> Optional[str]:
         """Run a git command and return output."""
+        import os
+
         try:
             result = subprocess.run(
                 command,
@@ -379,183 +695,16 @@ class ChangeAnalyzer:
 
 
 def main():
-    """Main execution function."""
-    import argparse
+    """Main entry point for command-line usage."""
+    import os
 
-    parser = argparse.ArgumentParser(
-        description="Analyze recent code changes and their patterns"
-    )
-    parser.add_argument(
-        "target_path",
-        nargs="?",
-        default=os.getcwd(),
-        help="Repository path to analyze (default: current directory)",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["json", "console"],
-        default="json",
-        help="Output format (default: json)",
-    )
-
-    args = parser.parse_args()
-    start_time = time.time()
-
-    # Get repository path
-    repo_path = Path(args.target_path)
-
-    # Configuration from environment variables
+    # Get configuration from environment variables
     days_back = int(os.environ.get("DAYS_BACK", "30"))
-    max_commits = int(os.environ.get("MAX_COMMITS", "50"))
+    max_commits = int(os.environ.get("MAX_COMMITS", "100"))
 
-    # Initialize analyzer
-    analyzer = ChangeAnalyzer(days_back=days_back, max_commits=max_commits)
-    result = AnalysisResult(
-        AnalysisType.ARCHITECTURE, "recent_changes.py", str(repo_path)
-    )
-
-    # Check if we're in a git repository
-    if not (repo_path / ".git").exists():
-        finding_obj = Finding(
-            finding_id="no_git_repo",
-            title="No Git Repository",
-            description="Not in a git repository - cannot analyze recent changes",
-            severity=Severity.INFO,
-        )
-        result.add_finding(finding_obj)
-        result.set_execution_time(start_time)
-
-        # Output based on format choice
-        if args.output_format == "console":
-            print(ResultFormatter.format_console_output(result))
-        else:  # json (default)
-            print(result.to_json())
-        return
-
-    # Analyze recent commits
-    commits = analyzer.get_recent_commits(repo_path)
-
-    if not commits:
-        finding_obj = Finding(
-            finding_id="no_recent_commits",
-            title="No Recent Commits",
-            description=f"No commits found in the last {analyzer.days_back} days",
-            severity=Severity.INFO,
-        )
-        result.add_finding(finding_obj)
-    else:
-        # Analyze commit risks
-        risky_commits = analyzer.analyze_change_risk(commits)
-
-        # Analyze timing patterns
-        timing_issues = analyzer.analyze_commit_timing_patterns(commits)
-
-        for i, risk_commit in enumerate(risky_commits):
-            commit = risk_commit["commit"]
-            risks = risk_commit["risks"]
-            risk_level = risk_commit["risk_level"]
-
-            severity_map = {
-                "critical": Severity.CRITICAL,
-                "high": Severity.HIGH,
-                "medium": Severity.MEDIUM,
-                "low": Severity.LOW,
-            }
-
-            finding_obj = Finding(
-                finding_id=f"risky_commit_{i}",
-                title="Risky Commit Detected",
-                description=f"Commit {commit['hash'][:8]} contains risk factors: {', '.join(risks)}",
-                severity=severity_map.get(risk_level, Severity.LOW),
-                evidence={
-                    "commit_hash": commit["hash"],
-                    "author": commit["author"],
-                    "date": commit["date"],
-                    "message": commit["message"],
-                    "risk_factors": risks,
-                    "risk_level": risk_level,
-                },
-            )
-            result.add_finding(finding_obj)
-
-        # Add timing pattern findings
-        for i, timing_issue in enumerate(timing_issues):
-            commit = timing_issue["commit"]
-            concern = timing_issue["timing_concern"]
-            risk_level = timing_issue["risk_level"]
-
-            severity = Severity.HIGH if risk_level == "high" else Severity.MEDIUM
-
-            description = (
-                f"Commit {commit['hash'][:8]} made during {concern.replace('_', ' ')}"
-            )
-            if "time_diff_minutes" in timing_issue:
-                description += f" ({timing_issue['time_diff_minutes']:.1f} minutes after previous commit)"
-
-            finding_obj = Finding(
-                finding_id=f"timing_issue_{i}",
-                title="Suspicious Commit Timing",
-                description=description,
-                severity=severity,
-                evidence={
-                    "commit_hash": commit["hash"],
-                    "author": commit["author"],
-                    "date": commit["date"],
-                    "message": commit["message"],
-                    "timing_concern": concern,
-                    "risk_level": risk_level,
-                    **{
-                        k: v
-                        for k, v in timing_issue.items()
-                        if k not in ["commit", "timing_concern", "risk_level"]
-                    },
-                },
-            )
-            result.add_finding(finding_obj)
-
-    # Analyze changed files
-    changed_files = analyzer.get_changed_files(repo_path)
-    hotspots = analyzer.analyze_file_change_frequency(changed_files)
-
-    for i, hotspot in enumerate(hotspots):
-        finding_obj = Finding(
-            finding_id=f"change_hotspot_{i}",
-            title="File Change Hotspot",
-            description=f"File {hotspot['file_path']} changed {hotspot['change_count']} times recently",
-            severity=(
-                Severity.HIGH if hotspot["risk_level"] == "high" else Severity.MEDIUM
-            ),
-            file_path=hotspot["file_path"],
-            evidence={
-                "change_count": hotspot["change_count"],
-                "change_types": hotspot["change_types"],
-                "recent_commits": hotspot["recent_commits"],
-            },
-        )
-        result.add_finding(finding_obj)
-
-    # Set execution time and add metadata
-    result.set_execution_time(start_time)
-    metadata = {
-        "commits_analyzed": len(commits),
-        "risky_commits": (
-            len([r for r in risky_commits if r["risk_level"] in ["critical", "high"]])
-            if "risky_commits" in locals()
-            else 0
-        ),
-        "files_changed": len(changed_files) if "changed_files" in locals() else 0,
-        "change_hotspots": len(hotspots) if "hotspots" in locals() else 0,
-        "timing_issues": len(timing_issues) if "timing_issues" in locals() else 0,
-        "analysis_period_days": analyzer.days_back,
-        "max_commits_limit": analyzer.max_commits,
-    }
-    result.metadata.update(metadata)
-
-    # Output based on format choice
-    if args.output_format == "console":
-        print(ResultFormatter.format_console_output(result))
-    else:  # json (default)
-        print(result.to_json())
+    analyzer = RecentChangesAnalyzer(days_back=days_back, max_commits=max_commits)
+    exit_code = analyzer.run_cli()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

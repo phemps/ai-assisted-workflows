@@ -16,21 +16,15 @@
 ./claude-code/install.sh              # Install to current directory
 ./claude-code/install.sh ~            # Install globally
 /setup-dev-monitoring                 # Optional: Setup unified dev logging
-/setup-ci-monitoring                  # Optional: Git actions quality checks
+/setup-ci-monitoring                  # Optional: Git actions quality checks (WIP, not ready yet)
 /add-serena-mcp                       # Recommended per project mcp lsp tool
 ```
-
-**Key Features:**
-
-- **8-Agent Orchestration System** - Intelligent workflow coordination with CTO escalation
-- **Dynamic Quality Gates** - Automatic tech stack detection and validation
-- **Contextual Awareness** - Understands your project technologies and patterns
 
 ### Core Features
 
 **🔍 Intelligent Code Analysis**
 
-- Proactive code duplication detection using CodeBERT embeddings
+- Proactive code duplication detection using CodeBERT embeddings (WIP, not ready yet)
 - Semantic pattern matching with Serena MCP integration
 - Confidence-scored similarity analysis with configurable thresholds
 - Multi-language support via Language Server Protocol
@@ -65,7 +59,7 @@ claude /add-code-precommit-checks
 
 ````
 
-### System Status Monitoring (WIP)
+### System Status Monitoring (WIP, not ready yet)
 
 ```bash
 # Quick health check
@@ -105,7 +99,7 @@ $ claude /ci-monitoring-status
 /create-project mobile-task-app --from-todos ./todos/todos.md
 
 # Setup continuous improvement system
-/setup-ci-monitoring --threshold=0.85 --auto-refactor=simple
+/setup-ci-monitoring --threshold=0.85 --auto-refactor=simple \9 (WIP, not ready yet)
 
 # Setup development monitoring
 /setup-dev-monitoring
@@ -139,7 +133,7 @@ $ claude /ci-monitoring-status
 /analyze-security
 
 # Setup continuous improvement for existing project
-/setup-ci-monitoring
+/setup-ci-monitoring (WIP, not ready yet)
 
 # The system will:
 # - Detect your current tech stack automatically
@@ -156,14 +150,12 @@ $ claude /ci-monitoring-status
 **Planning:** `/plan-solution`, `/plan-ux-prd`, `/plan-refactor`
 **Project Setup:** `/create-project` - Initialize with [better-t-stack.dev](https://better-t-stack.dev/new)
 **Implementation:** `/todo-orchestrate`, `/todo-worktree`
-**Fixes:** `/fix-bug`, `/fix-performance`, `/fix-test`
+**Fixes:** `/fix-bug`, `/fix-performance`
 
-### Continuous Improvement Commands (WIP)
+### Continuous Improvement Commands (WIP, not ready yet)
 
 **Setup:** `/setup-ci-monitoring` - Initialize AI-powered code quality system
 **Monitoring:** `/ci-monitoring-status` - Health check and activity overview
-**Quality Gates:** `/add-code-precommit-checks`
-**Development:** `/setup-dev-monitoring` - Live service monitoring dashboard
 
 ### Build Flags
 
@@ -213,64 +205,6 @@ _Real-time service monitoring: Live status for API and Mobile services with heal
   ├── setup/                 # Install, monitoring, environment setup
   └── utils/                 # Cross-platform utilities and helpers
 ```
-
-### Quality Gate Detection
-
-The system automatically detects and integrates with your existing tools:
-
-- **Build Commands**: npm, yarn, cargo, go build, python -m build
-- **Test Commands**: jest, pytest, cargo test, go test, npm test
-- **Lint Commands**: eslint, flake8, clippy, golangci-lint
-- **Type Checking**: tsc, mypy, cargo check
-- **Coverage Tools**: jest --coverage, pytest --cov, cargo tarpaulin
-
-### Intelligent Escalation
-
-1. **Agent Attempts**: First 3 failures handled by specialized agents
-2. **CTO Escalation**: Complex issues escalated to CTO agent (2 attempts)
-3. **Human Intervention**: After 5 total failures, requires human input
-4. **Learning Loop**: System learns from successful resolutions
-
-## 🎯 Success Metrics
-
-### Quantitative Results
-
-- **Code Quality**: 65% reduction in bug introduction rate
-- **Test Coverage**: Improved from 72% to 92% average
-- **Development Velocity**: 40% faster feature implementation
-- **Code Review**: 55% reduction in manual review time
-- **Duplicate Detection**: >90% accuracy with <5% false positives
-
-### Quality Improvements
-
-- **Automated Refactoring**: AI-generated PRs for code improvements
-- **Pattern Recognition**: Learns from your codebase patterns
-- **Proactive Recommendations**: Suggests improvements before problems occur
-- **Cross-Platform Compatibility**: Works on macOS, Linux, Windows WSL
-
-### Monitoring and Metrics
-
-```bash
-# Detailed system status
-claude /ci-monitoring-status --verbose --history-days=30
-
-# Generate comprehensive metrics report
-python shared/ci/metrics/ci_metrics_collector.py report
-
-# View pending recommendations
-python shared/ci/framework/ci_framework.py recommendations
-
-# Manual analysis triggers
-python shared/ci/framework/ci_framework.py extract-symbols
-```
-
-## 📁 WIP Workflows
-
-The `todos/wip-workflows/` directory contains experimental workflow agents being tested:
-
-- `todo-planner` - Programmatic project structure stubbing through Jinja templates
-- `opencode` - Migration of current workflows to Claude Code
-- `platform-agnostic-templating` - Centralized prompts with platform-specific templates
 
 Feel free to explore and adapt these for experimentation.
 

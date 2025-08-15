@@ -35,22 +35,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019, windows-2022]
+        os: [windows-2022, windows-latest]
         powershell: [windows-powershell, powershell-core]
         include:
-          - os: windows-2019
+          - os: windows-2022
             powershell: windows-powershell
             powershell_version: "5.1"
             shell: "powershell"
-          - os: windows-2019
+          - os: windows-2022
             powershell: powershell-core
             powershell_version: "7.x"
             shell: "pwsh"
-          - os: windows-2022
+          - os: windows-latest
             powershell: windows-powershell
             powershell_version: "5.1"
             shell: "powershell"
-          - os: windows-2022
+          - os: windows-latest
             powershell: powershell-core
             powershell_version: "7.x"
             shell: "pwsh"

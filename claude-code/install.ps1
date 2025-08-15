@@ -282,7 +282,22 @@ function Handle-ExistingInstallation {
         Write-Output ""
 
         do {
-            $choice = Read-Host "Enter choice [1-4]"
+            # Check if we have piped input available
+            if (-not [Console]::IsInputRedirected -and -not $env:CI_ENVIRONMENT) {
+                $choice = Read-Host "Enter choice [1-4]"
+            } else {
+                # In CI or with redirected input, try to read from input stream
+                try {
+                    $choice = $input | Select-Object -First 1
+                    if (-not $choice) {
+                        Write-ColorOutput "[INFO] No input provided, defaulting to fresh install mode" -Color $Colors.Yellow
+                        $choice = "1"
+                    }
+                } catch {
+                    Write-ColorOutput "[INFO] Unable to read input, defaulting to fresh install mode" -Color $Colors.Yellow
+                    $choice = "1"
+                }
+            }
         } while ($choice -notin @("1", "2", "3", "4"))
 
         switch ($choice) {
@@ -720,18 +735,35 @@ function Copy-SharedScripts {
     param([string]$ClaudePath)
 
     $sharedDir = Join-Path (Split-Path $SCRIPT_DIR -Parent) "shared"
+    Write-Log "Looking for shared directory at: $sharedDir"
+
     if (Test-Path $sharedDir) {
         $targetScriptsDir = Join-Path $ClaudePath "scripts"
+        Write-Log "Creating scripts directory at: $targetScriptsDir"
         New-Item -ItemType Directory -Path $targetScriptsDir -Force | Out-Null
         Write-Log "Copying scripts from shared/ subdirectories to $targetScriptsDir"
+
+        $copiedCount = 0
         foreach ($subdir in @("analyzers", "generators", "setup", "utils", "tests", "ci", "core")) {
             $sourcePath = Join-Path $sharedDir $subdir
             if (Test-Path $sourcePath) {
                 $targetPath = Join-Path $targetScriptsDir $subdir
                 Copy-Item -Path $sourcePath -Destination $targetPath -Recurse -Force
                 Write-Log "Copied $subdir to scripts directory"
+                $copiedCount++
+            } else {
+                Write-Log "Source directory not found: $sourcePath" -Level "WARNING"
             }
         }
+
+        if ($copiedCount -eq 0) {
+            Write-Log "No subdirectories were copied from shared/" -Level "WARNING"
+        } else {
+            Write-Log "Successfully copied $copiedCount subdirectories to scripts"
+        }
+    } else {
+        Write-Log "Shared directory not found at: $sharedDir" -Level "ERROR"
+        Write-ColorOutput "[WARNING] Shared scripts directory not found: $sharedDir" -Color $Colors.Yellow
     }
 }
 

@@ -1,10 +1,10 @@
-- add python rules
-- add command for adding rules files to appropriate sub folders or root
-- split up some of the rules files to fe/be
-- eval system
-- opencode port
-- port prompts to centralised format with templates per implementation
-- finish scripts migration and testing
-- opus as planning model
 - github action flow around duplication clean up / prompt injection
-- look at registry system beyond prototype duplicatoin
+- add command for adding rules files to appropriate sub folders or root
+- bring in code formatters
+- split up some of the rules files to fe/be
+- make tech specific coding agents + implement jinja templates
+- eval system
+- port prompts to centralised format with templates per implementation
+- opencode port plus install scripts
+- look at registry system beyond prototype duplication
+- roll out claude code rules to vscode

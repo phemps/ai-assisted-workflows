@@ -754,22 +754,39 @@ update_installation_log() {
     local log_file="$INSTALL_DIR/installation-log.txt"
 
     if [[ ! -f "$log_file" ]]; then
+        log_verbose "Installation log file not found, skipping log update for: $item_type - $item_name"
         return 0
     fi
 
     # Add item to appropriate section
     if [[ "$item_type" == "python" ]]; then
-        echo "$item_name" >> "$log_file"
+        if echo "$item_name" >> "$log_file"; then
+            log_verbose "Added to installation log: $item_type - $item_name"
+        else
+            log_verbose "Warning: Failed to add Python package to installation log: $item_name"
+        fi
     elif [[ "$item_type" == "mcp" ]]; then
         # Find the line number of the section and insert after it
         local line_num=$(grep -n "^\[NEWLY_INSTALLED_MCP_SERVERS\]" "$log_file" | cut -d: -f1)
         if [[ -n "$line_num" ]]; then
-            sed -i '' "${line_num}a\\
-$item_name" "$log_file"
+            # Use a more robust approach that works cross-platform
+            local temp_file=$(mktemp)
+            if head -n "$line_num" "$log_file" > "$temp_file" && \
+               echo "$item_name" >> "$temp_file" && \
+               tail -n +$((line_num + 1)) "$log_file" >> "$temp_file" && \
+               mv "$temp_file" "$log_file"; then
+                log_verbose "Added to installation log: $item_type - $item_name"
+            else
+                log_verbose "Warning: Failed to add MCP server to installation log: $item_name"
+                # Clean up temp file if it exists
+                [[ -f "$temp_file" ]] && rm -f "$temp_file"
+            fi
+        else
+            log_verbose "Warning: Could not find NEWLY_INSTALLED_MCP_SERVERS section in log file"
         fi
+    else
+        log_verbose "Warning: Unknown item type for installation log: $item_type"
     fi
-
-    log_verbose "Added to installation log: $item_type - $item_name"
 }
 
 # Python dependency installation
@@ -854,12 +871,27 @@ install_mcp_tools() {
 
     # Install sequential-thinking
     log_verbose "Installing sequential-thinking MCP tool..."
+
     # First check if already installed (with a small delay to ensure claude mcp list is ready)
     sleep 1
-    if claude mcp list 2>&1 | grep -q "^sequential-thinking:"; then
+
+    # Get MCP list once and reuse it for both servers (more efficient and consistent)
+    local mcp_list_output
+    mcp_list_output=$(claude mcp list 2>&1)
+    local mcp_list_status=$?
+
+    if [[ $mcp_list_status -ne 0 ]]; then
+        log_error "Failed to get MCP server list: $mcp_list_output"
+        mcp_failed=true
+        return 1
+    fi
+
+    # Check if sequential-thinking exists (handle grep failure gracefully)
+    if echo "$mcp_list_output" | grep -q "^sequential-thinking:" ; then
         log_verbose "sequential-thinking already installed, skipping"
-        update_installation_log "mcp" "sequential-thinking"
+        update_installation_log "mcp" "sequential-thinking" || log_verbose "Warning: Failed to update installation log for sequential-thinking"
     else
+        log_verbose "sequential-thinking not found, attempting installation..."
         # Try to install, capturing the actual error
         local install_output
         install_output=$(claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking 2>&1)
@@ -868,7 +900,7 @@ install_mcp_tools() {
         if [[ $install_status -eq 0 ]]; then
             log_verbose "sequential-thinking installed successfully"
             update_installation_log "mcp" "sequential-thinking"
-        elif echo "$install_output" | grep -q "already exists"; then
+        elif echo "$install_output" | grep -q "already exists" ; then
             log_verbose "sequential-thinking already exists (detected during install), marking as successful"
             update_installation_log "mcp" "sequential-thinking"
         else
@@ -879,11 +911,13 @@ install_mcp_tools() {
 
     # Install grep
     log_verbose "Installing grep MCP tool..."
-    # Check if already installed
-    if claude mcp list 2>&1 | grep -q "^grep:"; then
+
+    # Check if grep exists (handle grep failure gracefully)
+    if echo "$mcp_list_output" | grep -q "^grep:" ; then
         log_verbose "grep already installed, skipping"
-        update_installation_log "mcp" "grep"
+        update_installation_log "mcp" "grep" || log_verbose "Warning: Failed to update installation log for grep"
     else
+        log_verbose "grep not found, attempting installation..."
         # Try to install, capturing the actual error
         local install_output
         install_output=$(claude mcp add --transport http grep https://mcp.grep.app 2>&1)
@@ -892,7 +926,7 @@ install_mcp_tools() {
         if [[ $install_status -eq 0 ]]; then
             log_verbose "grep installed successfully"
             update_installation_log "mcp" "grep"
-        elif echo "$install_output" | grep -q "already exists"; then
+        elif echo "$install_output" | grep -q "already exists" ; then
             log_verbose "grep already exists (detected during install), marking as successful"
             update_installation_log "mcp" "grep"
         else

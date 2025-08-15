@@ -94,7 +94,8 @@ function Test-InstallerSyntax {
             Complete-Test "Installer Syntax Validation" $false "Syntax errors: $($errorMessages -join '; ')"
         }
     } catch {
-        Complete-Test "Installer Syntax Validation" $false "Failed to validate syntax: $_"
+        $errorMessage = $_.Exception.Message
+        Complete-Test "Installer Syntax Validation" $false "Failed to validate syntax: $errorMessage"
     }
 }
 
@@ -111,7 +112,8 @@ function Test-InstallerHelp {
             Complete-Test "Installer Help Display" $false "Help message not found in output"
         }
     } catch {
-        Complete-Test "Installer Help Display" $false "Failed to display help: $_"
+        $errorMessage = $_.Exception.Message
+        Complete-Test "Installer Help Display" $false "Failed to display help: $errorMessage"
     }
 }
 
@@ -223,7 +225,8 @@ More custom content here.
             Complete-Test "Merge Mode Installation" $false "Custom content or commands lost"
         }
     } catch {
-        Complete-Test "Merge Mode Installation" $false "Merge mode failed: $_"
+        $errorMessage = $_.Exception.Message
+        Complete-Test "Merge Mode Installation" $false "Merge mode failed: $errorMessage"
     }
 }
 
@@ -262,7 +265,8 @@ function Test-UpdateWorkflowsMode {
             Complete-Test "Update Workflows Mode" $false "Custom content lost during update"
         }
     } catch {
-        Complete-Test "Update Workflows Mode" $false "Update workflows failed: $_"
+        $errorMessage = $_.Exception.Message
+        Complete-Test "Update Workflows Mode" $false "Update workflows failed: $errorMessage"
     }
 }
 

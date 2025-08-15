@@ -226,9 +226,8 @@ jobs:
               }
               "# Existing custom rules`nCustom content here" | Out-File -FilePath $existingClaudeFile -Encoding UTF8
 
-              # Run merge installation (simulate user input "2" for merge)
-              $input = "2"
-              $input | & "claude-code/install.ps1" $testDir -SkipMcp -SkipPython -Verbose
+              # Run merge installation using InstallMode parameter
+              & "claude-code/install.ps1" $testDir -InstallMode Merge -SkipMcp -SkipPython -Verbose
 
               # Verify custom content preserved
               $content = Get-Content $existingClaudeFile -Raw -ErrorAction SilentlyContinue

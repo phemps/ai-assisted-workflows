@@ -273,7 +273,6 @@ function Test-UpdateWorkflowsMode {
 function Test-GlobalRulesHandling {
     Start-Test "Global Rules Handling"
 
-    $errorMessage = ""
     try {
         $installerPath = Join-Path $PSScriptRoot "..\..\..\claude-code\install.ps1"
         $testPath = Join-Path $TestDir "global-rules"

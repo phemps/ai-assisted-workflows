@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.7%2B-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-> **Hybrid AI-Automation System with Continuous Improvement Engine**
+> **Hybrid AI-Automation System**
 > Specialized workflow commands + LLM actions + Python analysis scripts + 8-Agent orchestration = comprehensive development automation with intelligent code quality management
 
 ## 📋 TL;DR
@@ -57,36 +57,6 @@ claude /todo-orchestrate implementation-plan.md
 
 claude /add-code-precommit-checks
 
-````
-
-### System Status Monitoring (WIP, not ready yet)
-
-```bash
-# Quick health check
-$ claude /ci-monitoring-status
-🔍 Continuous Improvement Status Report
-
-📊 System Health:
-  CI Framework: ✅ Active
-  Database: ✅ Connected
-  Python Dependencies: ✅ Available
-  Serena MCP: ✅ Connected
-
-📈 Recent Activity (Last 7 days):
-  Metrics Recorded: 42
-  Build Metrics: 12 (avg: 23.4s)
-  Test Metrics: 15 (avg: 8.2s)
-  Quality Metrics: 10
-  Performance Metrics: 5
-
-⚡ Pending Recommendations: 3
-  High Priority: 1
-  Medium Priority: 2
-
-🚀 Next Steps:
-  - Review recommendations: python3 shared/ci/framework/ci_framework.py recommendations
-````
-
 ## 🚀 Workflow Examples
 
 ### Example 1: Complete Project Setup with Continuous Improvement
@@ -97,9 +67,6 @@ $ claude /ci-monitoring-status
 
 # Initialize project with better-t-stack.dev CLI
 /create-project mobile-task-app --from-todos ./todos/todos.md
-
-# Setup continuous improvement system
-/setup-ci-monitoring --threshold=0.85 --auto-refactor=simple \9 (WIP, not ready yet)
 
 # Setup development monitoring
 /setup-dev-monitoring

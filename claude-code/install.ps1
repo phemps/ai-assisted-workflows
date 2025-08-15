@@ -5,6 +5,10 @@ param(
     [Parameter(Position=0)]
     [string]$TargetPath = "",
 
+    [Parameter()]
+    [ValidateSet("Fresh", "Merge", "UpdateWorkflows", "Interactive")]
+    [string]$InstallMode = "Interactive",
+
     [switch]$Help,
     [switch]$DryRun,
     [switch]$SkipMcp,
@@ -269,36 +273,37 @@ function Handle-ExistingInstallation {
         Write-ColorOutput "Backup created: $backupPath" -Color $Colors.Green
         Write-Log "Created backup: $backupPath"
 
-        # Prompt for installation mode
-        Write-Output ""
-        Write-Output "Found existing .claude directory at: $ClaudePath"
-        Write-Output "Automatic backup created at: $backupPath"
-        Write-Output ""
-        Write-Output "Choose an option:"
-        Write-Output "  1) Fresh install (replace existing)"
-        Write-Output "  2) Merge with existing (preserve user customizations)"
-        Write-Output "  3) Update workflows only (overwrite commands & scripts, preserve everything else)"
-        Write-Output "  4) Cancel installation (backup remains)"
-        Write-Output ""
+        # Determine installation mode
+        if ($InstallMode -eq "Interactive") {
+            # Prompt for installation mode
+            Write-Output ""
+            Write-Output "Found existing .claude directory at: $ClaudePath"
+            Write-Output "Automatic backup created at: $backupPath"
+            Write-Output ""
+            Write-Output "Choose an option:"
+            Write-Output "  1) Fresh install (replace existing)"
+            Write-Output "  2) Merge with existing (preserve user customizations)"
+            Write-Output "  3) Update workflows only (overwrite commands & scripts, preserve everything else)"
+            Write-Output "  4) Cancel installation (backup remains)"
+            Write-Output ""
 
-        do {
-            # Check if we have piped input available
-            if (-not [Console]::IsInputRedirected -and -not $env:CI_ENVIRONMENT) {
+            do {
                 $choice = Read-Host "Enter choice [1-4]"
-            } else {
-                # In CI or with redirected input, try to read from input stream
-                try {
-                    $choice = $input | Select-Object -First 1
-                    if (-not $choice) {
-                        Write-ColorOutput "[INFO] No input provided, defaulting to fresh install mode" -Color $Colors.Yellow
-                        $choice = "1"
-                    }
-                } catch {
-                    Write-ColorOutput "[INFO] Unable to read input, defaulting to fresh install mode" -Color $Colors.Yellow
-                    $choice = "1"
-                }
+            } while ($choice -notin @("1", "2", "3", "4"))
+        } else {
+            # Non-interactive mode: use InstallMode parameter
+            Write-Output ""
+            Write-Output "Found existing .claude directory at: $ClaudePath"
+            Write-Output "Automatic backup created at: $backupPath"
+            Write-Output "Non-interactive mode: $InstallMode"
+            Write-Output ""
+            switch ($InstallMode) {
+                "Fresh" { $choice = "1" }
+                "Merge" { $choice = "2" }
+                "UpdateWorkflows" { $choice = "3" }
+                default { $choice = "1" }
             }
-        } while ($choice -notin @("1", "2", "3", "4"))
+        }
 
         switch ($choice) {
             "1" {
@@ -728,6 +733,20 @@ Python Dependencies: $pythonStatus
         Write-ColorOutput "[ERROR] Error copying workflow files: $($_.Exception.Message)" -Color $Colors.Red
         Write-Log "Error copying workflow files: $($_.Exception.Message)" -Level "ERROR"
         exit 1
+    }
+
+    # Ensure required directories exist
+    $commandsDir = Join-Path $ClaudePath "commands"
+    $scriptsDir = Join-Path $ClaudePath "scripts"
+
+    if (-not (Test-Path $commandsDir)) {
+        Write-Log "Creating missing commands directory: $commandsDir"
+        New-Item -ItemType Directory -Path $commandsDir -Force | Out-Null
+    }
+
+    if (-not (Test-Path $scriptsDir)) {
+        Write-Log "Creating missing scripts directory: $scriptsDir"
+        New-Item -ItemType Directory -Path $scriptsDir -Force | Out-Null
     }
 }
 

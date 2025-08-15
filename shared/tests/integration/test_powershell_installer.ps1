@@ -210,9 +210,8 @@ More custom content here.
         }
         "# Custom Test Command`nThis is a custom command." | Out-File -FilePath (Join-Path $commandsDir "test-custom.md") -Encoding UTF8
 
-        # Run merge installation (simulate user input "2")
-        $env:CI_ENVIRONMENT = "github-actions"
-        $output = "2" | & $installerPath $testPath -SkipMcp -SkipPython 2>&1
+        # Run merge installation using InstallMode parameter
+        $output = & $installerPath $testPath -InstallMode Merge -SkipMcp -SkipPython 2>&1
 
         # Verify custom content preserved
         $claudeContent = Get-Content $claudeFile -Raw -ErrorAction SilentlyContinue
@@ -250,9 +249,8 @@ function Test-UpdateWorkflowsMode {
         New-Item -ItemType Directory -Path $commandsDir -Force | Out-Null
         "# Custom Command" | Out-File -FilePath (Join-Path $commandsDir "custom-cmd.md") -Encoding UTF8
 
-        # Run update workflows (simulate user input "3")
-        $env:CI_ENVIRONMENT = "github-actions"
-        $output = "3" | & $installerPath $testPath -SkipMcp -SkipPython 2>&1
+        # Run update workflows using InstallMode parameter
+        $output = & $installerPath $testPath -InstallMode UpdateWorkflows -SkipMcp -SkipPython 2>&1
 
         # Verify custom command preserved and claude.md preserved
         $customCommandExists = Test-Path (Join-Path $commandsDir "custom-cmd.md")

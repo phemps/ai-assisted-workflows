@@ -22,6 +22,7 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import re
 import sys
+import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -93,6 +94,7 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         self._init_anti_patterns()
         self._init_architectural_patterns()
         self._init_language_patterns()
+        self._init_config_file_patterns()
 
     def get_analyzer_metadata(self) -> Dict[str, Any]:
         """Return metadata about this analyzer."""
@@ -137,7 +139,10 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         file_path = Path(target_path)
 
         try:
-            # Debug logging removed
+            # Skip config files that commonly cause false positives
+            if self._should_skip_file(file_path):
+                return all_findings
+
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
@@ -235,7 +240,8 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
             },
             "decorator": {
                 "indicators": [
-                    r"@\w+",  # Python decorators
+                    r"@\w+\s*\n\s*def\s+",  # Python decorators before functions
+                    r"@\w+\s*\n\s*class\s+",  # Python decorators before classes
                     r"class\s+\w*Decorator\w*",  # Decorator class names
                 ],
                 "severity": "low",
@@ -429,121 +435,135 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
 
         return findings
 
+    def _get_lizard_metrics(self, file_path: str) -> Dict[str, Any]:
+        """Get Lizard complexity metrics for the file."""
+        try:
+            result = subprocess.run(
+                ["lizard", "-C", "999", "-L", "999", "-a", "999", file_path],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            if result.returncode == 0:
+                # Parse lizard output for metrics
+                lines = result.stdout.strip().split("\n")
+                metrics = {
+                    "functions": [],
+                    "avg_ccn": 0,
+                    "max_ccn": 0,
+                    "total_functions": 0,
+                }
+
+                for line in lines:
+                    if (
+                        line.strip()
+                        and not line.startswith("=")
+                        and not line.startswith("NLOC")
+                    ):
+                        parts = line.split()
+                        if len(parts) >= 4 and parts[0].isdigit():
+                            try:
+                                ccn = int(parts[0])
+                                nloc = int(parts[1])
+                                function_name = (
+                                    parts[3] if len(parts) > 3 else "unknown"
+                                )
+
+                                metrics["functions"].append(
+                                    {"name": function_name, "ccn": ccn, "nloc": nloc}
+                                )
+                                metrics["max_ccn"] = max(metrics["max_ccn"], ccn)
+                                metrics["total_functions"] += 1
+                            except (ValueError, IndexError):
+                                continue
+
+                if metrics["total_functions"] > 0:
+                    metrics["avg_ccn"] = (
+                        sum(f["ccn"] for f in metrics["functions"])
+                        / metrics["total_functions"]
+                    )
+
+                return metrics
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.SubprocessError,
+            FileNotFoundError,
+        ):
+            pass
+
+        return {"functions": [], "avg_ccn": 0, "max_ccn": 0, "total_functions": 0}
+
     def _check_complexity_patterns(
         self, content: str, lines: List[str], file_path: str, language: str = "unknown"
     ) -> List[Dict[str, Any]]:
-        """Check for complexity-based pattern violations."""
+        """Check for complexity-based pattern violations using Lizard metrics."""
         findings = []
 
-        # Safety check - skip very large files to prevent timeouts
-        if len(content) > 500000:  # Skip files > 500KB
-            return findings
+        # Get Lizard metrics for more accurate analysis
+        lizard_metrics = self._get_lizard_metrics(file_path)
 
-        # Get language-specific patterns
-        lang_patterns = self.language_patterns.get(
-            language, self.language_patterns["python"]
-        )
-        method_pattern = lang_patterns["method_pattern"]
+        # Check for god class (high complexity class with many functions)
+        if lizard_metrics["total_functions"] > 20 and lizard_metrics["avg_ccn"] > 10:
+            findings.append(
+                {
+                    "title": "God Class Anti-pattern",
+                    "description": f"Class has {lizard_metrics['total_functions']} functions with average complexity {lizard_metrics['avg_ccn']:.1f}",
+                    "severity": "high",
+                    "file_path": file_path,
+                    "line_number": 1,
+                    "recommendation": "Break down into smaller, focused classes with single responsibilities.",
+                    "metadata": {
+                        "complexity_type": "god_class",
+                        "function_count": lizard_metrics["total_functions"],
+                        "avg_ccn": lizard_metrics["avg_ccn"],
+                        "language": language,
+                        "confidence": "high",
+                    },
+                }
+            )
 
-        # Check for very long methods (with safety limits)
-        method_matches = list(re.finditer(method_pattern, content))
-        if len(method_matches) > 100:  # Skip files with too many methods
-            return findings
-
-        for match_idx, match in enumerate(method_matches):
-            if match_idx > 50:  # Max 50 methods per file
-                break
-
-            method_start = content[: match.start()].count("\n") + 1
-            method_name = match.group(1) if match.group(1) else "anonymous"
-
-            # Count lines in method (rough approximation) with aggressive limits
-            remaining_content = content[match.end() :]
-            method_lines = 0
-            indent_level = None
-
-            split_lines = remaining_content.split("\n")
-            if len(split_lines) > 1000:  # Skip analysis if too many lines
-                continue
-
-            for line_idx, line in enumerate(split_lines):
-                # Aggressive safety limits
-                if line_idx > 50:  # Max 50 lines per method check
-                    break
-
-                if line.strip():
-                    current_indent = len(line) - len(line.lstrip())
-                    if indent_level is None and current_indent > 0:
-                        indent_level = current_indent
-                    elif (
-                        indent_level is not None
-                        and current_indent <= indent_level
-                        and line.strip()
-                    ):
-                        break
-                method_lines += 1
-                if method_lines > 50:  # Very long method
-                    context = (
-                        lines[method_start - 1].strip()
-                        if method_start <= len(lines)
-                        else ""
-                    )
-                    findings.append(
-                        {
-                            "title": f"Long Method: {method_name}",
-                            "description": f"Very long method detected: {method_name} ({method_lines}+ lines)",
-                            "severity": "medium",
-                            "file_path": file_path,
-                            "line_number": method_start,
-                            "recommendation": "Break method into smaller, focused functions with single responsibilities.",
-                            "metadata": {
-                                "complexity_type": "long_method",
-                                "method_name": method_name,
-                                "line_count": method_lines,
-                                "language": language,
-                                "context": context,
-                                "confidence": "high",
-                            },
-                        }
-                    )
-                    break
-
-        # Check for high parameter count (Python-specific for now)
-        if language == "python":
-            param_pattern = r"def\s+\w+\s*\(([^)]+)\):"
-            for match in re.finditer(param_pattern, content):
-                params = match.group(1)
-                param_count = len(
-                    [
-                        p.strip()
-                        for p in params.split(",")
-                        if p.strip() and p.strip() != "self"
-                    ]
+        # Check for individual complex functions
+        for func in lizard_metrics["functions"]:
+            if func["ccn"] > 15:  # High complexity threshold
+                findings.append(
+                    {
+                        "title": f"Complex Function: {func['name']}",
+                        "description": f"Function '{func['name']}' has cyclomatic complexity of {func['ccn']} (recommended: <15)",
+                        "severity": "medium" if func["ccn"] < 25 else "high",
+                        "file_path": file_path,
+                        "line_number": 1,  # Lizard doesn't provide line numbers in simple output
+                        "recommendation": "Break function into smaller, focused functions with single responsibilities.",
+                        "metadata": {
+                            "complexity_type": "high_ccn",
+                            "function_name": func["name"],
+                            "ccn": func["ccn"],
+                            "nloc": func["nloc"],
+                            "language": language,
+                            "confidence": "high",
+                        },
+                    }
                 )
 
-                if param_count > 6:  # Too many parameters
-                    line_num = content[: match.start()].count("\n") + 1
-                    context = (
-                        lines[line_num - 1].strip() if line_num <= len(lines) else ""
-                    )
-
-                    findings.append(
-                        {
-                            "title": "Too Many Parameters",
-                            "description": f"Method has too many parameters: {param_count}",
-                            "severity": "medium",
-                            "file_path": file_path,
-                            "line_number": line_num,
-                            "recommendation": "Use parameter objects, builder pattern, or keyword arguments to reduce parameter count.",
-                            "metadata": {
-                                "complexity_type": "too_many_parameters",
-                                "parameter_count": param_count,
-                                "language": language,
-                                "context": context,
-                                "confidence": "high",
-                            },
-                        }
-                    )
+            if func["nloc"] > 50:  # Long function threshold
+                findings.append(
+                    {
+                        "title": f"Long Function: {func['name']}",
+                        "description": f"Function '{func['name']}' has {func['nloc']} lines (recommended: <50)",
+                        "severity": "medium",
+                        "file_path": file_path,
+                        "line_number": 1,
+                        "recommendation": "Break function into smaller, focused functions.",
+                        "metadata": {
+                            "complexity_type": "long_function",
+                            "function_name": func["name"],
+                            "nloc": func["nloc"],
+                            "language": language,
+                            "confidence": "high",
+                        },
+                    }
+                )
 
         return findings
 
@@ -594,6 +614,27 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
             ".hpp": "cpp",
         }
         return language_map.get(ext, "unknown")
+
+    def _init_config_file_patterns(self):
+        """Initialize patterns for config files that should be skipped or handled specially."""
+        self.config_file_patterns = [
+            "tailwind.config.js",
+            "next.config.js",
+            "webpack.config.js",
+            "babel.config.js",
+            "rollup.config.js",
+            "vite.config.js",
+            "jest.config.js",
+            "package.json",
+            "tsconfig.json",
+            "eslint.config.js",
+            ".eslintrc.js",
+        ]
+
+    def _should_skip_file(self, file_path: Path) -> bool:
+        """Check if file should be skipped for pattern analysis."""
+        filename = file_path.name.lower()
+        return any(pattern in filename for pattern in self.config_file_patterns)
 
 
 def main():

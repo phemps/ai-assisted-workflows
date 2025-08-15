@@ -22,6 +22,7 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 import re
 import ast
 import sys
+import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -352,8 +353,11 @@ class ScalabilityAnalyzer(BaseAnalyzer):
         pattern_dict: Dict,
         category: str,
     ) -> List[Dict[str, Any]]:
-        """Check for specific scalability patterns in file content."""
+        """Check for specific scalability patterns in file content with context validation."""
         findings = []
+
+        # Get Lizard metrics for context
+        lizard_metrics = self._get_lizard_metrics(file_path)
 
         for pattern_name, pattern_info in pattern_dict.items():
             for indicator in pattern_info["indicators"]:
@@ -364,26 +368,134 @@ class ScalabilityAnalyzer(BaseAnalyzer):
                         lines[line_num - 1].strip() if line_num <= len(lines) else ""
                     )
 
-                    findings.append(
-                        {
-                            "title": f"Scalability Issue: {pattern_name.replace('_', ' ').title()}",
-                            "description": f"{pattern_info['description']} ({pattern_name})",
-                            "severity": pattern_info["severity"],
-                            "file_path": file_path,
-                            "line_number": line_num,
-                            "recommendation": self._get_recommendation(
-                                pattern_name, category
-                            ),
-                            "metadata": {
-                                "scalability_category": category,
-                                "pattern_name": pattern_name,
-                                "context": context,
-                                "confidence": "medium",
-                            },
-                        }
-                    )
+                    # Context validation - only flag if there's real complexity
+                    if self._should_flag_scalability_issue(
+                        pattern_name, context, lizard_metrics, content
+                    ):
+                        confidence = self._calculate_confidence(
+                            pattern_name, context, lizard_metrics
+                        )
+
+                        findings.append(
+                            {
+                                "title": f"Scalability Issue: {pattern_name.replace('_', ' ').title()}",
+                                "description": f"{pattern_info['description']} ({pattern_name})",
+                                "severity": pattern_info["severity"],
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "recommendation": self._get_recommendation(
+                                    pattern_name, category
+                                ),
+                                "metadata": {
+                                    "scalability_category": category,
+                                    "pattern_name": pattern_name,
+                                    "context": context,
+                                    "confidence": confidence,
+                                    "lizard_ccn": lizard_metrics.get("max_ccn", 0),
+                                },
+                            }
+                        )
 
         return findings
+
+    def _get_lizard_metrics(self, file_path: str) -> Dict[str, Any]:
+        """Get Lizard complexity metrics for the file."""
+        try:
+            result = subprocess.run(
+                ["lizard", "-C", "999", "-L", "999", "-a", "999", file_path],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            if result.returncode == 0:
+                # Parse lizard output for metrics
+                lines = result.stdout.strip().split("\n")
+                metrics = {
+                    "functions": [],
+                    "avg_ccn": 0,
+                    "max_ccn": 0,
+                    "total_functions": 0,
+                }
+
+                for line in lines:
+                    if (
+                        line.strip()
+                        and not line.startswith("=")
+                        and not line.startswith("NLOC")
+                    ):
+                        parts = line.split()
+                        if len(parts) >= 4 and parts[0].isdigit():
+                            try:
+                                ccn = int(parts[0])
+                                nloc = int(parts[1])
+
+                                metrics["functions"].append({"ccn": ccn, "nloc": nloc})
+                                metrics["max_ccn"] = max(metrics["max_ccn"], ccn)
+                                metrics["total_functions"] += 1
+                            except (ValueError, IndexError):
+                                continue
+
+                if metrics["total_functions"] > 0:
+                    metrics["avg_ccn"] = (
+                        sum(f["ccn"] for f in metrics["functions"])
+                        / metrics["total_functions"]
+                    )
+
+                return metrics
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.SubprocessError,
+            FileNotFoundError,
+        ):
+            pass
+
+        return {"functions": [], "avg_ccn": 0, "max_ccn": 0, "total_functions": 0}
+
+    def _should_flag_scalability_issue(
+        self, pattern_name: str, context: str, lizard_metrics: Dict, content: str
+    ) -> bool:
+        """Determine if a scalability issue should be flagged based on context."""
+
+        # Only flag database patterns if they're in complex functions
+        if pattern_name in ["n_plus_one", "missing_indexes", "large_result_sets"]:
+            # Only flag if function has high complexity (indicates real logic)
+            return lizard_metrics.get("max_ccn", 0) > 5
+
+        # Only flag synchronous I/O if in complex context
+        if pattern_name == "synchronous_io":
+            # Check if it's in a loop or complex function
+            return (
+                "for " in context
+                or "while " in context
+                or lizard_metrics.get("max_ccn", 0) > 8
+            )
+
+        # Only flag hardcoded config if file has meaningful complexity
+        if pattern_name == "hardcoded_config":
+            return lizard_metrics.get("total_functions", 0) > 1
+
+        # Only flag memory leaks in substantial files
+        if pattern_name == "memory_leaks":
+            return lizard_metrics.get("total_functions", 0) > 3
+
+        # Default: flag if there's any meaningful code
+        return lizard_metrics.get("total_functions", 0) > 0
+
+    def _calculate_confidence(
+        self, pattern_name: str, context: str, lizard_metrics: Dict
+    ) -> str:
+        """Calculate confidence level for the finding."""
+        max_ccn = lizard_metrics.get("max_ccn", 0)
+
+        # High confidence for complex functions with scalability patterns
+        if max_ccn > 15:
+            return "high"
+        elif max_ccn > 8:
+            return "medium"
+        else:
+            return "low"
 
     def _analyze_python_complexity(
         self, content: str, lines: List[str], file_path: str

@@ -373,12 +373,17 @@ class CouplingAnalyzer(BaseAnalyzer):
                     for group_idx in groups:
                         if group_idx <= len(match.groups()) and match.group(group_idx):
                             dep = match.group(group_idx).strip()
-                            # Clean up dependency name
-                            dep = dep.split(".")[0]  # Take first part of dotted imports
-                            dep = dep.split("/")[0]  # Take first part of path imports
-                            if dep and not dep.startswith(
-                                "."
-                            ):  # Skip relative imports for now
+                            # Clean up dependency name - be less aggressive to preserve module identity
+                            # Only filter out external/system dependencies, keep internal project structure
+                            if (
+                                dep
+                                and not dep.startswith(".")
+                                and not self._is_external_dependency(dep)
+                            ):
+                                # For relative path imports, clean up but preserve structure
+                                if "/" in dep:
+                                    # For path-based imports like "./path/to/module"
+                                    dep = dep.replace("./", "").replace("../", "")
                                 dependencies.append(dep)
 
         except Exception:
@@ -387,10 +392,56 @@ class CouplingAnalyzer(BaseAnalyzer):
 
         return list(set(dependencies))  # Remove duplicates
 
+    def _is_external_dependency(self, dep: str) -> bool:
+        """Check if dependency is external (not part of project)."""
+        external_patterns = [
+            # Common external libraries
+            "react",
+            "vue",
+            "angular",
+            "lodash",
+            "axios",
+            "express",
+            "next",
+            # Python libraries
+            "numpy",
+            "pandas",
+            "django",
+            "flask",
+            "requests",
+            "urllib",
+            # System imports
+            "os",
+            "sys",
+            "path",
+            "fs",
+            "http",
+            "https",
+            "util",
+            "crypto",
+            # Node.js built-ins
+            "buffer",
+            "child_process",
+            "cluster",
+            "events",
+            "stream",
+        ]
+
+        dep_lower = dep.lower()
+        return any(pattern in dep_lower for pattern in external_patterns)
+
     def _get_module_name(self, file_path: Path) -> str:
         """Get module name from file path."""
-        # Use relative path from project root as module name
-        return str(file_path.stem)
+        # Use relative path from project root as module name to ensure uniqueness
+        try:
+            # Find project root by looking for common project indicators
+            project_root = self._find_project_root(file_path)
+            relative_path = file_path.relative_to(project_root)
+            # Use the full relative path without extension as unique module identifier
+            return str(relative_path.with_suffix(""))
+        except (ValueError, AttributeError):
+            # Fallback to stem if relative path calculation fails
+            return str(file_path.stem)
 
     def _analyze_coupling_patterns(self) -> List[Dict[str, Any]]:
         """Analyze coupling metrics and find issues."""
@@ -434,13 +485,20 @@ class CouplingAnalyzer(BaseAnalyzer):
 
         # Check for circular dependencies
         circular_deps = self._find_circular_dependencies()
-        for cycle in circular_deps:
+        # Deduplicate circular dependencies by normalizing cycle representation
+        unique_cycles = self._deduplicate_cycles(circular_deps)
+
+        for cycle in unique_cycles:
+            # Get file path for the first module in the cycle
+            first_module = cycle[0] if cycle else ""
+            file_path = self.module_info.get(first_module, {}).get("file_path", "")
+
             findings.append(
                 {
                     "category": "Coupling",
                     "pattern_type": "circular_dependency",
                     "module": " -> ".join(cycle),
-                    "file_path": "",
+                    "file_path": file_path,
                     "severity": "high",
                     "description": f"Circular dependency: {' -> '.join(cycle)}",
                     "cycle": cycle,
@@ -480,6 +538,33 @@ class CouplingAnalyzer(BaseAnalyzer):
                 dfs(module, [])
 
         return cycles
+
+    def _deduplicate_cycles(self, cycles: List[List[str]]) -> List[List[str]]:
+        """Deduplicate circular dependencies by normalizing representations."""
+        unique_cycles = []
+        seen_cycles = set()
+
+        for cycle in cycles:
+            if len(cycle) < 2:  # Skip invalid cycles
+                continue
+
+            # Normalize cycle by starting from the lexicographically smallest module
+            # and ensuring consistent direction
+            min_idx = cycle.index(min(cycle))
+            normalized_cycle = cycle[min_idx:] + cycle[:min_idx]
+
+            # Create a string representation for deduplication
+            cycle_str = " -> ".join(normalized_cycle)
+            reverse_cycle_str = " -> ".join(reversed(normalized_cycle))
+
+            # Use the lexicographically smaller representation
+            canonical_str = min(cycle_str, reverse_cycle_str)
+
+            if canonical_str not in seen_cycles:
+                seen_cycles.add(canonical_str)
+                unique_cycles.append(normalized_cycle)
+
+        return unique_cycles
 
     def _get_recommendation(self, pattern_type: str) -> str:
         """Get recommendation for specific pattern type."""

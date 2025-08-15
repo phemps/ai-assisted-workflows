@@ -441,5 +441,5 @@ function Test-PowerShellCompatibility {
     return $results
 }
 
-# Export functions that should be available to test scripts
-Export-ModuleMember -Function *
+# Note: Functions are automatically available when dot-sourced
+# Export-ModuleMember only works when this file is imported as a module

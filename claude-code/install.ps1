@@ -6,7 +6,6 @@ param(
     [string]$TargetPath = "",
 
     [switch]$Help,
-    [switch]$Verbose,
     [switch]$DryRun,
     [switch]$SkipMcp,
     [switch]$SkipPython
@@ -47,7 +46,7 @@ function Write-Log {
     $logEntry = "[$timestamp] [$Level] $Message"
     Add-Content -Path $LOG_FILE -Value $logEntry
 
-    if ($Verbose) {
+    if ($VerbosePreference -eq 'Continue') {
         Write-ColorOutput "$logEntry" -Color $Colors.Cyan
     }
 }
@@ -68,7 +67,7 @@ function Show-Usage {
     Write-Output ""
     Write-Output "OPTIONS:"
     Write-Output "    -Help           Show this help message"
-    Write-Output "    -Verbose        Enable verbose output"
+    Write-Output "    -Verbose        Enable verbose output (PowerShell built-in parameter)"
     Write-Output "    -DryRun         Show what would be done without making changes"
     Write-Output "    -SkipMcp        Skip MCP tools installation"
     Write-Output "    -SkipPython     Skip Python dependencies installation"

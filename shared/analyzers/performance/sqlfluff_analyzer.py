@@ -144,6 +144,10 @@ class SQLFluffAnalyzer(BaseAnalyzer):
             "HINT": "low",
         }
 
+        # Cache for batch SQLFluff results
+        self._sqlfluff_results_cache = {}
+        self._sqlfluff_config_path = None
+
     def _is_testing_environment(self) -> bool:
         """Detect if we're running in a testing environment."""
         import os
@@ -271,10 +275,8 @@ class SQLFluffAnalyzer(BaseAnalyzer):
             subprocess.CalledProcessError,
             json.JSONDecodeError,
         ) as e:
-            if self.verbose:
-                print(
-                    f"SQLFluff analysis failed for {target_path}: {e}", file=sys.stderr
-                )
+            # Log SQLFluff analysis failures
+            print(f"SQLFluff analysis failed for {target_path}: {e}", file=sys.stderr)
         finally:
             # Clean up temp files
             try:
@@ -316,8 +318,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
             }
 
         except Exception as e:
-            if self.verbose:
-                print(f"Failed to process SQLFluff finding: {e}", file=sys.stderr)
+            print(f"Failed to process SQLFluff finding: {e}", file=sys.stderr)
             return None
 
     def _map_rule_to_severity(self, rule_code: str) -> str:
@@ -377,39 +378,342 @@ class SQLFluffAnalyzer(BaseAnalyzer):
             rule_code, "Review SQL query for performance optimization opportunities"
         )
 
-    def _extract_sql_from_code(self, content: str, file_path: str) -> List[str]:
-        """Extract SQL queries from code files."""
-        sql_queries = []
+    def _has_sql_indicators(self, content: str, file_path: str) -> bool:
+        """Quick check if file likely contains SQL before expensive regex extraction."""
+        # Skip frontend-only files
+        if any(
+            pattern in file_path.lower()
+            for pattern in [
+                "component",
+                "react",
+                "vue",
+                "svelte",
+                "tailwind",
+                "next.config",
+                "postcss",
+            ]
+        ):
+            return False
 
-        # Common SQL query patterns in code
-        sql_patterns = [
-            r'(?:SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|DROP|ALTER)[\s\S]+?(?:["\'];|$)',
-            r'"""[\s\S]*?(?:SELECT|INSERT|UPDATE|DELETE)[\s\S]*?"""',
-            r"'''[\s\S]*?(?:SELECT|INSERT|UPDATE|DELETE)[\s\S]*?'''",
-            r"`[\s\S]*?(?:SELECT|INSERT|UPDATE|DELETE)[\s\S]*?`",
+        # Quick check for SQL patterns with context
+        import re
+
+        sql_indicators = [
+            r"\bSELECT\s+\w+\s+FROM\b",
+            r"\bINSERT\s+INTO\s+\w+\b",
+            r"\bUPDATE\s+\w+\s+SET\b",
+            r"\bDELETE\s+FROM\s+\w+\b",
+            r"\bCREATE\s+TABLE\b",
+            r"\bALTER\s+TABLE\b",
+            r'\.sql[\'"`]',
+            r'query[\'"`]\s*:',
+            r'sql[\'"`]\s*:',
+            r"database|db\.query|execute\(",
         ]
 
+        content_upper = content.upper()
+        return any(re.search(pattern, content_upper) for pattern in sql_indicators)
+
+    def _extract_sql_from_code(self, content: str, file_path: str) -> List[str]:
+        """Extract SQL queries from code files with improved accuracy."""
+        # Quick exit if no SQL indicators
+        if not self._has_sql_indicators(content, file_path):
+            return []
+
+        sql_queries = []
         import re
+
+        # More precise SQL patterns with context
+        sql_patterns = [
+            # Multi-line strings with SQL keywords followed by SQL syntax
+            r'"""[\s\S]*?\b(?:SELECT\s+[\w\s,*]+\s+FROM|INSERT\s+INTO\s+\w+|UPDATE\s+\w+\s+SET|DELETE\s+FROM\s+\w+)[\s\S]*?"""',
+            r"'''[\s\S]*?\b(?:SELECT\s+[\w\s,*]+\s+FROM|INSERT\s+INTO\s+\w+|UPDATE\s+\w+\s+SET|DELETE\s+FROM\s+\w+)[\s\S]*?'''",
+            # Template literals with SQL
+            r"`[\s\S]*?\b(?:SELECT\s+[\w\s,*]+\s+FROM|INSERT\s+INTO\s+\w+|UPDATE\s+\w+\s+SET|DELETE\s+FROM\s+\w+)[\s\S]*?`",
+            # Quoted strings with SQL (single/double quotes)
+            r'["\'][\s\S]*?\b(?:SELECT\s+[\w\s,*]+\s+FROM|INSERT\s+INTO\s+\w+|UPDATE\s+\w+\s+SET|DELETE\s+FROM\s+\w+)[\s\S]*?["\']',
+        ]
 
         for pattern in sql_patterns:
             matches = re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE)
             for match in matches:
                 query = match.group(0).strip()
-                # Clean up query
+
+                # Clean up query delimiters
                 query = re.sub(r'^["\']|["\']$|^`|`$', "", query)
                 query = re.sub(r'^"""|"""$', "", query)
                 query = re.sub(r"^'''|'''$", "", query)
-                if len(query) > 20 and any(
-                    keyword in query.upper()
-                    for keyword in ["SELECT", "INSERT", "UPDATE", "DELETE"]
-                ):
+
+                # Filter out false positives
+                if self._is_valid_sql_query(query):
                     sql_queries.append(query)
 
         return sql_queries
 
+    def _is_valid_sql_query(self, query: str) -> bool:
+        """Validate if extracted text is actually a SQL query."""
+        query_upper = query.upper().strip()
+
+        # Minimum length check
+        if len(query) < 20:
+            return False
+
+        # Must contain SQL keywords with proper context
+        sql_contexts = [
+            r"\bSELECT\s+[\w\s,*]+\s+FROM\s+\w+",
+            r"\bINSERT\s+INTO\s+\w+",
+            r"\bUPDATE\s+\w+\s+SET\s+\w+",
+            r"\bDELETE\s+FROM\s+\w+",
+            r"\bCREATE\s+TABLE\s+\w+",
+            r"\bALTER\s+TABLE\s+\w+",
+        ]
+
+        import re
+
+        has_sql_context = any(
+            re.search(pattern, query_upper) for pattern in sql_contexts
+        )
+        if not has_sql_context:
+            return False
+
+        # Exclude common false positives
+        false_positive_patterns = [
+            r"\b(?:UPDATE_OPERATORS|DIFF_DELETE|DIFF_INSERT|SELECT_ALL)\b",
+            r"\.(?:UPDATE|DELETE|INSERT|SELECT)\s*\(",  # Method calls
+            r"const\s+(?:UPDATE|DELETE|INSERT|SELECT)",  # Constants
+            r"function\s+(?:update|delete|insert|select)",  # Function names
+            r"import.*(?:update|delete|insert|select)",  # Imports
+            r"export.*(?:update|delete|insert|select)",  # Exports
+        ]
+
+        for fp_pattern in false_positive_patterns:
+            if re.search(fp_pattern, query_upper):
+                return False
+
+        return True
+
+    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+        """
+        Override BaseAnalyzer batch processing to run SQLFluff once per batch.
+        This dramatically improves performance vs per-query SQLFluff calls.
+        """
+        # Skip analysis if SQLFluff is not available
+        if not self.sqlfluff_available:
+            return []
+
+        # First collect all SQL queries from all files
+        all_sql_queries = []
+        file_to_queries = {}  # Map queries back to files
+
+        print(f"Analyzing {len(batch)} files for SQL queries...", file=sys.stderr)
+
+        for file_path in batch:
+            try:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+
+                # Extract SQL queries from this file
+                if str(file_path).endswith(
+                    (".sql", ".ddl", ".dml", ".psql", ".mysql", ".sqlite")
+                ):
+                    # Pure SQL file - use content directly
+                    file_to_queries[str(file_path)] = [content]
+                    all_sql_queries.append((content, str(file_path)))
+                else:
+                    # Code file - extract SQL queries
+                    sql_queries = self._extract_sql_from_code(content, str(file_path))
+                    if sql_queries:
+                        file_to_queries[str(file_path)] = sql_queries
+                        for query in sql_queries:
+                            all_sql_queries.append((query, str(file_path)))
+
+            except Exception as e:
+                self.logger.warning(f"Error reading {file_path}: {e}")
+
+        if not all_sql_queries:
+            print(
+                f"No SQL queries found in batch of {len(batch)} files", file=sys.stderr
+            )
+            return []
+
+        print(
+            f"Found {len(all_sql_queries)} SQL queries, running batch SQLFluff analysis...",
+            file=sys.stderr,
+        )
+
+        # Run SQLFluff on all queries in batch
+        self._run_batch_sqlfluff_analysis(all_sql_queries)
+
+        # Now process individual files with cached results
+        batch_findings = []
+        for file_path in batch:
+            try:
+                file_findings = self._get_cached_findings(str(file_path))
+                batch_findings.extend(file_findings)
+                self.files_processed += 1
+            except Exception as e:
+                self.processing_errors += 1
+                self.logger.warning(f"Error processing {file_path}: {e}")
+
+        print(
+            f"Completed batch: {len(batch)} files, {len(batch_findings)} findings",
+            file=sys.stderr,
+        )
+        return batch_findings
+
+    def _run_batch_sqlfluff_analysis(self, sql_queries: List[tuple]) -> None:
+        """Run SQLFluff on a batch of SQL queries and cache results."""
+        if not sql_queries:
+            return
+
+        # Create SQLFluff config once
+        if self._sqlfluff_config_path is None:
+            self._create_sqlfluff_config()
+
+        try:
+            # Create a temporary file with all SQL queries
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".sql", delete=False
+            ) as sql_file:
+                query_positions = []  # Track where each query starts
+                current_line = 1
+
+                for i, (query, file_path) in enumerate(sql_queries):
+                    # Add header comment to track source
+                    header = f"-- Query {i+1} from {file_path}\n"
+                    sql_file.write(header)
+                    sql_file.write(query)
+                    sql_file.write("\n\n")
+
+                    query_positions.append(
+                        {
+                            "file_path": file_path,
+                            "start_line": current_line + 1,  # +1 for header
+                            "query_index": i,
+                        }
+                    )
+                    current_line += query.count("\n") + 3  # +3 for header and spacing
+
+                temp_sql_path = sql_file.name
+
+            # Run SQLFluff on the batch file
+            cmd = [
+                "sqlfluff",
+                "lint",
+                "--format",
+                "json",
+                "--config",
+                self._sqlfluff_config_path,
+                "--disable-progress-bar",
+                temp_sql_path,
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+            # Parse and cache results
+            if result.stdout:
+                sqlfluff_output = json.loads(result.stdout)
+                self._map_batch_results_to_files(
+                    sqlfluff_output, query_positions, sql_queries
+                )
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+        ) as e:
+            print(f"Batch SQLFluff analysis failed: {e}", file=sys.stderr)
+        finally:
+            # Clean up temp file
+            try:
+                if "temp_sql_path" in locals():
+                    Path(temp_sql_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    def _create_sqlfluff_config(self) -> None:
+        """Create temporary SQLFluff config file."""
+        import tempfile
+
+        config_content = f"""[sqlfluff]
+dialect = {self.sqlfluff_config['dialect']}
+max_line_length = 120
+exclude_rules = L003,L010
+"""
+
+        try:
+            config_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".cfg", delete=False
+            )
+            config_file.write(config_content)
+            config_file.close()
+            self._sqlfluff_config_path = config_file.name
+        except Exception as e:
+            print(f"Failed to create SQLFluff config: {e}", file=sys.stderr)
+
+    def _map_batch_results_to_files(
+        self,
+        sqlfluff_output: List[Dict],
+        query_positions: List[Dict],
+        sql_queries: List[tuple],
+    ) -> None:
+        """Map batch SQLFluff results back to original files."""
+        for file_result in sqlfluff_output:
+            for violation in file_result.get("violations", []):
+                violation_line = violation.get("line_no", 0)
+
+                # Find which query this violation belongs to
+                for pos in query_positions:
+                    if violation_line >= pos["start_line"]:
+                        query_info = pos
+                    else:
+                        break
+
+                # Adjust line number to be relative to original file
+                adjusted_line = violation_line - query_info["start_line"] + 1
+                violation["line_no"] = max(1, adjusted_line)
+
+                # Cache the finding for the original file
+                file_path = query_info["file_path"]
+                if file_path not in self._sqlfluff_results_cache:
+                    self._sqlfluff_results_cache[file_path] = []
+
+                self._sqlfluff_results_cache[file_path].append(violation)
+
+    def _get_cached_findings(self, file_path: str) -> List[Dict[str, Any]]:
+        """Get SQLFluff findings from cache and convert to standardized format."""
+        findings = []
+        cached_violations = self._sqlfluff_results_cache.get(file_path, [])
+
+        for violation in cached_violations:
+            processed_finding = self._process_sqlfluff_finding(violation, file_path)
+            if processed_finding:
+                # Convert to standardized format
+                standardized = {
+                    "title": f"{processed_finding['description']} ({processed_finding['perf_type']})",
+                    "description": f"SQLFluff detected: {processed_finding['description']}. Category: {processed_finding['category']}. This SQL performance issue should be reviewed and optimized.",
+                    "severity": processed_finding["severity"],
+                    "file_path": processed_finding["file_path"],
+                    "line_number": processed_finding["line_number"],
+                    "recommendation": processed_finding["recommendation"],
+                    "metadata": {
+                        "tool": "sqlfluff",
+                        "rule_code": processed_finding["perf_type"],
+                        "category": processed_finding["category"],
+                        "confidence": processed_finding["confidence"],
+                    },
+                }
+                findings.append(standardized)
+
+        return findings
+
     def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
         Analyze target using SQLFluff for SQL performance analysis.
+        Note: Heavy lifting is done in _process_batch() for performance.
+        This method handles fallback for single-file analysis.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
@@ -417,66 +721,74 @@ class SQLFluffAnalyzer(BaseAnalyzer):
         Returns:
             List of SQL performance findings with standardized structure
         """
-        # Skip analysis if SQLFluff is not available (degraded mode)
+        # When called via batch processing, findings are already in cache
+        cached_findings = self._get_cached_findings(target_path)
+        if cached_findings:
+            return cached_findings
+
+        # Fallback for single-file analysis (not via batch)
+        # Skip analysis if SQLFluff is not available
         if not self.sqlfluff_available:
-            if self.verbose:
-                print(
-                    f"Skipping SQLFluff analysis for {target_path} - tool not available",
-                    file=sys.stderr,
-                )
             return []
 
-        all_findings = []
+        # For single file analysis, use legacy method
+        return self._analyze_single_file(target_path)
+
+    def _analyze_single_file(self, target_path: str) -> List[Dict[str, Any]]:
+        """Analyze a single file (fallback when not using batch processing)."""
         file_path = Path(target_path)
 
         try:
-            # Read file content
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
-            # If it's a pure SQL file, analyze directly
-            if file_path.suffix.lower() in [
-                ".sql",
-                ".ddl",
-                ".dml",
-                ".psql",
-                ".mysql",
-                ".sqlite",
-            ]:
-                findings = self._run_sqlfluff_analysis(target_path)
+            # Extract SQL queries
+            sql_queries = []
+            if str(file_path).endswith(
+                (".sql", ".ddl", ".dml", ".psql", ".mysql", ".sqlite")
+            ):
+                sql_queries = [content]
             else:
-                # Extract SQL from code files
                 sql_queries = self._extract_sql_from_code(content, str(file_path))
-                for sql_query in sql_queries:
-                    findings = self._run_sqlfluff_analysis(str(file_path), sql_query)
-                    all_findings.extend(findings)
-                return all_findings
+
+            if not sql_queries:
+                return []
+
+            # Run SQLFluff on each query (legacy single-file mode)
+            all_findings = []
+            for sql_query in sql_queries:
+                findings = self._run_sqlfluff_analysis(target_path, sql_query)
+                for finding in findings:
+                    # Convert to standardized format with title field
+                    standardized = {
+                        "title": f"{finding['description']} ({finding['perf_type']})",
+                        "description": f"SQLFluff detected: {finding['description']}. Category: {finding['category']}. This SQL performance issue should be reviewed and optimized.",
+                        "severity": finding["severity"],
+                        "file_path": finding["file_path"],
+                        "line_number": finding["line_number"],
+                        "recommendation": finding["recommendation"],
+                        "metadata": {
+                            "tool": "sqlfluff",
+                            "rule_code": finding["perf_type"],
+                            "category": finding["category"],
+                            "confidence": finding["confidence"],
+                        },
+                    }
+                    all_findings.append(standardized)
+
+            return all_findings
 
         except Exception as e:
-            if self.verbose:
-                print(f"Error analyzing {target_path}: {e}", file=sys.stderr)
+            self.logger.warning(f"Error analyzing {target_path}: {e}")
             return []
 
-        # Convert to our standardized format for BaseAnalyzer
-        standardized_findings = []
-        for finding in all_findings:
-            standardized = {
-                "title": f"{finding['description']} ({finding['perf_type']})",
-                "description": f"SQLFluff detected: {finding['description']}. Category: {finding['category']}. This SQL performance issue should be reviewed and optimized.",
-                "severity": finding["severity"],
-                "file_path": finding["file_path"],
-                "line_number": finding["line_number"],
-                "recommendation": finding["recommendation"],
-                "metadata": {
-                    "tool": "sqlfluff",
-                    "rule_code": finding["perf_type"],
-                    "category": finding["category"],
-                    "confidence": finding["confidence"],
-                },
-            }
-            standardized_findings.append(standardized)
-
-        return standardized_findings
+    def __del__(self):
+        """Clean up temporary SQLFluff config file."""
+        if self._sqlfluff_config_path:
+            try:
+                Path(self._sqlfluff_config_path).unlink(missing_ok=True)
+            except Exception:
+                pass
 
     def get_analyzer_metadata(self) -> Dict[str, Any]:
         """Return metadata about this analyzer."""

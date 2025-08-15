@@ -46,10 +46,7 @@ class AnalysisRunner:
             "architecture_patterns": "architecture/pattern_evaluation.py",
             "architecture_scalability": "architecture/scalability_check.py",
             "architecture_coupling": "architecture/coupling_analysis.py",
-            # Root cause analysis
-            "root_cause_errors": "root_cause/error_patterns.py",
-            "root_cause_changes": "root_cause/recent_changes.py",
-            "root_cause_execution": "root_cause/trace_execution.py",
+            # Note: Root cause analyzers removed - they require --error parameter and are not suitable for general testing
         }
 
     def run_script(

@@ -45,6 +45,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         config: Optional[AnalyzerConfig] = None,
         days_back: int = 30,
         max_commits: int = 100,
+        error_info: str = "",
     ):
         # Create recent changes specific configuration
         # Git analysis doesn't use file extensions - we analyze repos directly
@@ -59,6 +60,9 @@ class RecentChangesAnalyzer(BaseAnalyzer):
             },  # Dummy extensions for BaseAnalyzer
             skip_patterns=set(),  # Don't skip anything for git analysis
         )
+
+        # Store error information for targeted analysis
+        self.error_info = error_info
 
         # Initialize base analyzer
         super().__init__("root_cause", changes_config)
@@ -153,10 +157,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
     def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
-        Analyze git repository for recent changes and potential root causes.
-
-        Note: This analyzer works on the git repository level, not individual files.
-        The target_path should be a directory path containing a git repository.
+        Analyze git repository for recent changes related to a specific error.
 
         Args:
             target_path: Path to git repository to analyze
@@ -164,8 +165,28 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         Returns:
             List of findings with standardized structure
         """
+        # REQUIRED: Must have error information to investigate
+        if not self.error_info:
+            return [
+                {
+                    "title": "Error Information Required",
+                    "description": "Root cause analysis requires an error message or issue to investigate. Please provide: error message, stack trace, or specific issue description.",
+                    "severity": "critical",
+                    "file_path": target_path,
+                    "line_number": 0,
+                    "recommendation": "Run with --error parameter: python recent_changes.py --error 'your error message here'",
+                    "metadata": {
+                        "error_type": "missing_error_context",
+                        "confidence": "high",
+                    },
+                }
+            ]
+
         all_findings = []
         repo_path = Path(target_path)
+
+        # Parse the error to understand what files we should focus on
+        error_context = self.parse_error(self.error_info)
 
         # Check if we're in a git repository
         if not (repo_path / ".git").exists() and not self._find_git_root(repo_path):
@@ -186,20 +207,30 @@ class RecentChangesAnalyzer(BaseAnalyzer):
             # Use git root for analysis
             git_root = self._find_git_root(repo_path) or repo_path
 
-            # Analyze recent commits
-            commits = self.get_recent_commits(git_root)
+            # Analyze recent commits related to the error
+            if error_context.get("file"):
+                # Focus on commits that changed the error file
+                commits = self.get_recent_commits_for_file(
+                    git_root, error_context["file"]
+                )
+            else:
+                # No specific file, analyze all recent commits
+                commits = self.get_recent_commits(git_root)
+
             if not commits:
                 all_findings.append(
                     {
-                        "title": "No Recent Commits",
-                        "description": f"No commits found in the last {self.days_back} days",
+                        "title": "No Recent Commits Found",
+                        "description": f"No relevant commits found in the last {self.days_back} days for the error investigation",
                         "severity": "low",
                         "file_path": str(git_root),
                         "line_number": 0,
                         "recommendation": "Check git history or increase analysis period",
                         "metadata": {
                             "analysis_period": self.days_back,
-                            "confidence": "high",
+                            "investigated_error": self.error_info,
+                            "error_context": error_context,
+                            "confidence": "medium",
                         },
                     }
                 )
@@ -693,18 +724,178 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
         return timing_issues
 
+    def parse_error(self, error_info: str) -> Dict[str, Any]:
+        """Parse error information to extract actionable context."""
+        if not error_info:
+            return {}
+
+        error_context = {
+            "error_type": "unknown",
+            "message": error_info,
+            "file": None,
+            "line": None,
+        }
+
+        # JavaScript/TypeScript error patterns
+        js_error_pattern = r"(\w+Error): (.+?) at (.+?):(\d+)"
+        js_match = re.search(js_error_pattern, error_info)
+        if js_match:
+            error_context.update(
+                {
+                    "error_type": js_match.group(1),
+                    "message": js_match.group(2),
+                    "file": js_match.group(3),
+                    "line": int(js_match.group(4)),
+                }
+            )
+
+        # Python error patterns
+        python_error_pattern = r'File "(.+?)", line (\d+).+\n\s*(.+)'
+        python_match = re.search(python_error_pattern, error_info, re.MULTILINE)
+        if python_match:
+            error_context.update(
+                {
+                    "file": python_match.group(1),
+                    "line": int(python_match.group(2)),
+                    "message": python_match.group(3),
+                }
+            )
+
+        # General file:line pattern
+        general_pattern = r"([a-zA-Z_./\\]+\.\w+):?(\d+)?"
+        general_match = re.search(general_pattern, error_info)
+        if general_match and not error_context["file"]:
+            error_context["file"] = general_match.group(1)
+            if general_match.group(2):
+                error_context["line"] = int(general_match.group(2))
+
+        return error_context
+
+    def get_recent_commits_for_file(
+        self, git_root: Path, target_file: str
+    ) -> List[Dict[str, Any]]:
+        """Get recent commits that modified a specific file."""
+        try:
+            # Git command to get commits for specific file
+            result = self.run_git_command(
+                [
+                    "git",
+                    "log",
+                    "--oneline",
+                    "--since",
+                    f"{self.days_back} days ago",
+                    "--",
+                    target_file,
+                ],
+                git_root,
+            )
+
+            if result.returncode != 0:
+                return []
+
+            commits = []
+            for line in result.stdout.strip().split("\n"):
+                if not line.strip():
+                    continue
+
+                parts = line.split(" ", 1)
+                if len(parts) >= 2:
+                    commit_hash = parts[0]
+                    commit_message = parts[1]
+
+                    # Get detailed commit info
+                    detail_result = self.run_git_command(
+                        ["git", "show", "--stat", "--format=%ct|%an|%ae", commit_hash],
+                        git_root,
+                    )
+
+                    if detail_result.returncode == 0:
+                        detail_lines = detail_result.stdout.strip().split("\n")
+                        if detail_lines:
+                            info_parts = detail_lines[0].split("|")
+                            if len(info_parts) >= 3:
+                                commits.append(
+                                    {
+                                        "hash": commit_hash,
+                                        "message": commit_message,
+                                        "timestamp": int(info_parts[0]),
+                                        "author": info_parts[1],
+                                        "email": info_parts[2],
+                                        "target_file": target_file,
+                                    }
+                                )
+
+            return commits[: self.max_commits]
+
+        except Exception:
+            return []
+
 
 def main():
     """Main entry point for command-line usage."""
+    import argparse
     import os
 
-    # Get configuration from environment variables
-    days_back = int(os.environ.get("DAYS_BACK", "30"))
-    max_commits = int(os.environ.get("MAX_COMMITS", "100"))
+    # Parse arguments first to get error info
+    parser = argparse.ArgumentParser(
+        description="Root cause analysis through recent git changes"
+    )
+    parser.add_argument("target_path", help="Path to git repository to analyze")
+    parser.add_argument(
+        "--error",
+        required=True,
+        help="Error message, stack trace, or issue description to investigate",
+    )
+    parser.add_argument(
+        "--output-format",
+        choices=["json", "console"],
+        default="json",
+        help="Output format",
+    )
+    parser.add_argument(
+        "--days-back",
+        type=int,
+        default=int(os.environ.get("DAYS_BACK", "30")),
+        help="Number of days back to analyze commits",
+    )
+    parser.add_argument(
+        "--max-commits",
+        type=int,
+        default=int(os.environ.get("MAX_COMMITS", "100")),
+        help="Maximum commits to analyze",
+    )
 
-    analyzer = RecentChangesAnalyzer(days_back=days_back, max_commits=max_commits)
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
+    args = parser.parse_args()
+
+    # Create analyzer with error info
+    analyzer = RecentChangesAnalyzer(
+        days_back=args.days_back, max_commits=args.max_commits, error_info=args.error
+    )
+
+    # Set up basic config
+    analyzer.config.target_path = args.target_path
+    analyzer.config.output_format = args.output_format
+
+    # Run analysis
+    try:
+        result = analyzer.analyze()
+
+        if args.output_format == "console":
+            print(f"Recent Changes Analysis for: {args.error}")
+            print("=" * 60)
+            for finding in result.findings:
+                print(f"\n{finding.title}")
+                print(f"Severity: {finding.severity}")
+                print(f"Description: {finding.description}")
+                print(f"Recommendation: {finding.recommendation}")
+        else:
+            print(result.to_json(indent=2))
+
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"Error during analysis: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

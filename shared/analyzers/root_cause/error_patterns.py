@@ -38,7 +38,10 @@ except ImportError as e:
 class ErrorPatternAnalyzer(BaseAnalyzer):
     """Analyze code for known error patterns and failure modes to assist with root cause analysis."""
 
-    def __init__(self, config: Optional[AnalyzerConfig] = None):
+    def __init__(self, config: Optional[AnalyzerConfig] = None, error_info: str = ""):
+        # Store error information for targeted analysis
+        self.error_info = error_info
+
         # Create error pattern specific configuration
         error_config = config or AnalyzerConfig(
             code_extensions={
@@ -278,7 +281,7 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
 
     def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
         """
-        Analyze a single file for error patterns.
+        Analyze a single file for error patterns related to a specific error.
 
         Args:
             target_path: Path to file to analyze
@@ -286,25 +289,67 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         Returns:
             List of findings with standardized structure
         """
-        all_findings = []
+        # REQUIRED: Must have error information to investigate
+        if not self.error_info:
+            return [
+                {
+                    "title": "Error Information Required",
+                    "description": "Root cause analysis requires an error message or issue to investigate. Please provide: error message, stack trace, or specific issue description.",
+                    "severity": "critical",
+                    "file_path": target_path,
+                    "line_number": 0,
+                    "recommendation": "Run with --error parameter: python error_patterns.py --error 'your error message here'",
+                    "metadata": {
+                        "error_type": "missing_error_context",
+                        "confidence": "high",
+                    },
+                }
+            ]
+
+        # Parse the error to understand what we're investigating
+        error_context = self.parse_error(self.error_info)
+
+        # Only analyze files related to the error
         file_path = Path(target_path)
+        normalized_target = str(file_path).replace("\\", "/")
+
+        # Skip files not related to the error
+        if error_context.get("file"):
+            error_file = error_context["file"].replace("\\", "/")
+            # Allow exact match or if error file is contained in target path
+            if error_file not in normalized_target and not any(
+                part in normalized_target for part in error_file.split("/")
+            ):
+                return []  # Skip unrelated files
+
+        all_findings = []
 
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
-            # Check general error patterns
-            findings = self._check_error_patterns(content, lines, str(file_path))
+            # Get patterns relevant to this error type
+            relevant_patterns = self.get_patterns_for_error_type(
+                error_context.get("error_type", "unknown")
+            )
+
+            # Check only relevant error patterns
+            findings = self._check_targeted_error_patterns(
+                content, lines, str(file_path), relevant_patterns, error_context
+            )
             all_findings.extend(findings)
 
-            # Check language-specific patterns
-            findings = self._check_language_patterns(content, lines, str(file_path))
-            all_findings.extend(findings)
-
-            # Check for error keywords in comments
-            findings = self._check_error_keywords(lines, str(file_path))
-            all_findings.extend(findings)
+            # Check for error keywords around the error line if known
+            if error_context.get("line"):
+                findings = self._check_error_keywords_targeted(
+                    lines, str(file_path), error_context["line"]
+                )
+                all_findings.extend(findings)
+            else:
+                # Check all error keywords if no specific line
+                findings = self._check_error_keywords(lines, str(file_path))
+                all_findings.extend(findings)
 
         except Exception as e:
             all_findings.append(
@@ -319,7 +364,152 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
                 }
             )
 
+        # Add error context to all findings
+        for finding in all_findings:
+            finding["metadata"]["investigated_error"] = self.error_info
+            finding["metadata"]["error_context"] = error_context
+
         return all_findings
+
+    def _check_targeted_error_patterns(
+        self,
+        content: str,
+        lines: List[str],
+        file_path: str,
+        relevant_patterns: List[str],
+        error_context: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Check only patterns relevant to the error being investigated."""
+        findings = []
+
+        for pattern_name in relevant_patterns:
+            if pattern_name not in self.error_patterns:
+                continue
+
+            pattern_info = self.error_patterns[pattern_name]
+
+            for regex_pattern in pattern_info["patterns"]:
+                try:
+                    matches = list(
+                        re.finditer(
+                            regex_pattern, content, re.MULTILINE | re.IGNORECASE
+                        )
+                    )
+
+                    for match in matches:
+                        line_num = content[: match.start()].count("\n") + 1
+                        context = (
+                            lines[line_num - 1].strip()
+                            if line_num <= len(lines)
+                            else ""
+                        )
+
+                        # If we have a specific error line, prioritize findings near it
+                        proximity_weight = "medium"
+                        if error_context.get("line"):
+                            distance = abs(line_num - error_context["line"])
+                            if distance <= 3:
+                                proximity_weight = "high"
+                            elif distance <= 10:
+                                proximity_weight = "medium"
+                            else:
+                                proximity_weight = "low"
+
+                        findings.append(
+                            {
+                                "title": f"Error Pattern: {pattern_name.replace('_', ' ').title()}",
+                                "description": f"{pattern_info['description']} - Pattern: {pattern_name}",
+                                "severity": pattern_info["severity"],
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "recommendation": self._get_targeted_recommendation(
+                                    pattern_name, error_context
+                                ),
+                                "metadata": {
+                                    "error_category": pattern_info["category"],
+                                    "pattern_name": pattern_name,
+                                    "matched_text": match.group(0),
+                                    "context": context,
+                                    "proximity_to_error": proximity_weight,
+                                    "confidence": "high"
+                                    if proximity_weight == "high"
+                                    else "medium",
+                                },
+                            }
+                        )
+
+                except re.error:
+                    continue
+
+        return findings
+
+    def _check_error_keywords_targeted(
+        self, lines: List[str], file_path: str, error_line: int
+    ) -> List[Dict[str, Any]]:
+        """Check for error keywords near the specific error line."""
+        findings = []
+
+        # Check lines around the error (±5 lines)
+        start_line = max(1, error_line - 5)
+        end_line = min(len(lines), error_line + 5)
+
+        for line_num in range(start_line, end_line + 1):
+            if line_num > len(lines):
+                break
+
+            line = lines[line_num - 1]
+            line_lower = line.lower()
+
+            for keyword in self.error_keywords:
+                if keyword in line_lower:
+                    # Skip if keyword is part of a longer word
+                    if re.search(rf"\b{re.escape(keyword)}\b", line_lower):
+                        findings.append(
+                            {
+                                "title": f"Error Keyword Found: {keyword.upper()}",
+                                "description": f"Found error-related keyword '{keyword}' near error location",
+                                "severity": "medium",
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "recommendation": f"Review context around '{keyword}' for debugging clues",
+                                "metadata": {
+                                    "keyword": keyword,
+                                    "context": line.strip(),
+                                    "distance_from_error": abs(line_num - error_line),
+                                    "confidence": "high",
+                                },
+                            }
+                        )
+
+        return findings
+
+    def _get_targeted_recommendation(
+        self, pattern_name: str, error_context: Dict[str, Any]
+    ) -> str:
+        """Get targeted recommendation based on pattern and error context."""
+        base_recommendations = {
+            "null_pointer": "Add null/undefined checks before accessing object properties",
+            "memory_leak": "Ensure proper cleanup of resources and event listeners",
+            "race_condition": "Add proper synchronization or use async/await correctly",
+            "injection_vulnerability": "Sanitize and validate all user input",
+            "poor_error_handling": "Implement proper error handling and logging",
+            "performance_issue": "Optimize algorithms and reduce nested iterations",
+            "state_mutation": "Use immutable updates or proper state management patterns",
+            "auth_bypass": "Implement proper authentication and authorization checks",
+            "data_corruption": "Add input validation and bounds checking for data operations",
+        }
+
+        base_rec = base_recommendations.get(
+            pattern_name, "Review and fix the identified issue"
+        )
+
+        # Add context-specific advice
+        if error_context.get("line"):
+            return f"{base_rec}. Focus on line {error_context['line']} and surrounding code."
+        elif error_context.get("file"):
+            return f"{base_rec}. Pay special attention to this file as it's mentioned in the error."
+
+        return base_rec
 
     def _check_error_patterns(
         self, content: str, lines: List[str], file_path: str
@@ -522,12 +712,149 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
 
         return clusters
 
+    def parse_error(self, error_info: str) -> Dict[str, Any]:
+        """Parse error information to extract actionable context."""
+        if not error_info:
+            return {}
+
+        error_context = {
+            "error_type": "unknown",
+            "message": error_info,
+            "file": None,
+            "line": None,
+            "stack_files": [],
+        }
+
+        # JavaScript/TypeScript error patterns
+        js_error_pattern = r"(\w+Error): (.+?) at (.+?):(\d+)"
+        js_match = re.search(js_error_pattern, error_info)
+        if js_match:
+            error_context.update(
+                {
+                    "error_type": js_match.group(1),
+                    "message": js_match.group(2),
+                    "file": js_match.group(3),
+                    "line": int(js_match.group(4)),
+                }
+            )
+
+        # Python error patterns
+        python_error_pattern = r'File "(.+?)", line (\d+).+\n\s*(.+)'
+        python_match = re.search(python_error_pattern, error_info, re.MULTILINE)
+        if python_match:
+            error_context.update(
+                {
+                    "file": python_match.group(1),
+                    "line": int(python_match.group(2)),
+                    "message": python_match.group(3),
+                }
+            )
+
+        # General file:line pattern
+        general_pattern = r"([a-zA-Z_./\\]+\.\w+):?(\d+)?"
+        general_match = re.search(general_pattern, error_info)
+        if general_match and not error_context["file"]:
+            error_context["file"] = general_match.group(1)
+            if general_match.group(2):
+                error_context["line"] = int(general_match.group(2))
+
+        # Extract error type from message if not found
+        if error_context["error_type"] == "unknown":
+            type_patterns = [
+                "TypeError",
+                "ReferenceError",
+                "SyntaxError",
+                "Error",
+                "Exception",
+            ]
+            for error_type in type_patterns:
+                if error_type.lower() in error_info.lower():
+                    error_context["error_type"] = error_type
+                    break
+
+        return error_context
+
+    def get_patterns_for_error_type(self, error_type: str) -> List[str]:
+        """Get relevant patterns based on error type."""
+        error_type_patterns = {
+            "TypeError": ["null_pointer", "data_corruption"],
+            "ReferenceError": ["null_pointer"],
+            "NullPointerException": ["null_pointer"],
+            "SyntaxError": ["poor_error_handling"],
+            "MemoryError": ["memory_leak", "performance_issue"],
+            "TimeoutError": ["performance_issue", "race_condition"],
+            "SecurityError": ["injection_vulnerability", "auth_bypass"],
+            "PermissionError": ["auth_bypass"],
+            "ValidationError": ["injection_vulnerability"],
+            "unknown": list(self.error_patterns.keys()),  # All patterns if type unknown
+        }
+
+        return error_type_patterns.get(
+            error_type, ["null_pointer", "poor_error_handling"]
+        )
+
 
 def main():
     """Main entry point for command-line usage."""
-    analyzer = ErrorPatternAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
+    import argparse
+
+    # Parse arguments first to get error info
+    parser = argparse.ArgumentParser(
+        description="Root cause analysis through error pattern detection"
+    )
+    parser.add_argument("target_path", help="Path to analyze")
+    parser.add_argument(
+        "--error",
+        required=True,
+        help="Error message, stack trace, or issue description to investigate",
+    )
+    parser.add_argument(
+        "--output-format",
+        choices=["json", "console"],
+        default="json",
+        help="Output format",
+    )
+    parser.add_argument("--max-files", type=int, help="Maximum files to analyze")
+    parser.add_argument(
+        "--min-severity",
+        choices=["critical", "high", "medium", "low"],
+        default="low",
+        help="Minimum severity level",
+    )
+
+    args = parser.parse_args()
+
+    # Create analyzer with error info
+    analyzer = ErrorPatternAnalyzer(error_info=args.error)
+
+    # Set up basic config
+    analyzer.config.target_path = args.target_path
+    analyzer.config.output_format = args.output_format
+    if args.max_files:
+        analyzer.config.max_files = args.max_files
+    analyzer.config.min_severity = args.min_severity
+
+    # Run analysis
+    try:
+        result = analyzer.analyze()
+
+        if args.output_format == "console":
+            print(f"Root Cause Analysis Results for: {args.error}")
+            print("=" * 60)
+            for finding in result.findings:
+                print(f"\n{finding.title}")
+                print(f"Severity: {finding.severity}")
+                print(f"File: {finding.file_path}:{finding.line_number}")
+                print(f"Description: {finding.description}")
+                print(f"Recommendation: {finding.recommendation}")
+        else:
+            print(result.to_json(indent=2))
+
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"Error during analysis: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

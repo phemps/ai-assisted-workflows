@@ -39,16 +39,21 @@ Comprehensive root cause analysis combining automated investigation tools with s
 - **Performance Monitoring**: Resource usage tracking and bottleneck identification
 - **Event Correlation**: Event timeline and causal relationship analysis
 
+## Required Input
+
+**CRITICAL**: You MUST have an error message, stack trace, or specific issue to investigate.
+If no error is provided, respond: "Please provide the error message or issue you want me to investigate."
+
 ## Script Integration
 
 Execute root cause analysis scripts via Bash tool for systematic investigation:
 
 **FIRST - Resolve SCRIPT_PATH:**
 
-1. **Try project-level .opencode folder**:
+1. **Try project-level shared/analyzers/root_cause folder**:
 
    ```bash
-   Glob: ".opencode/scripts/analyze/root_cause/*.py"
+   Glob: "shared/analyzers/root_cause/*.py"
    ```
 
 2. **Try user-level .config/opencode folder**:
@@ -58,18 +63,19 @@ Execute root cause analysis scripts via Bash tool for systematic investigation:
    ```
 
 3. **Interactive fallback if not found**:
-   - List searched locations: `.opencode/scripts/analyze/root_cause/` and `$HOME/.config/opencode/scripts/analyze/root_cause/`
+   - List searched locations: `shared/analyzers/root_cause/` and `$HOME/.config/opencode/scripts/analyze/root_cause/`
    - Ask user: "Could not locate root cause analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py, simple_trace.py)
+   - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py)
    - Set SCRIPT_PATH to user-provided location
 
-**THEN - Execute with resolved SCRIPT_PATH:**
+**THEN - Execute with resolved SCRIPT_PATH and ERROR_INFO:**
 
 ```bash
-python [SCRIPT_PATH]/trace_execution.py . --output-format json
-python [SCRIPT_PATH]/recent_changes.py . --output-format json
-python [SCRIPT_PATH]/error_patterns.py . --output-format json
-python [SCRIPT_PATH]/simple_trace.py . --output-format json
+ERROR_INFO="$ARGUMENTS"  # The error/issue to investigate
+
+python [SCRIPT_PATH]/error_patterns.py . --error "$ERROR_INFO" --output-format json
+python [SCRIPT_PATH]/recent_changes.py . --error "$ERROR_INFO" --output-format json
+python [SCRIPT_PATH]/trace_execution.py . --error "$ERROR_INFO" --output-format json
 ```
 
 ## Optional Flags

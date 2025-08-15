@@ -167,7 +167,7 @@ $ claude /ci-monitoring-status
 
 ### Build Flags
 
-**Mode Flags:** `--prototype` (rapid POC), `--tdd` (test-driven), `--seq` (complex breakdown)
+**Mode Flags:** `--prototype` (rapid POC), `--tdd` (test-driven)
 
 ## 📊 Development Monitoring System
 

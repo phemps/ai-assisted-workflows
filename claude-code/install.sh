@@ -423,42 +423,48 @@ setup_install_dir() {
     fi
 }
 
-# Handle claude.md merging or copying
-handle_claude_md() {
+# Handle global rules merging or copying
+handle_global_rules() {
     local source_dir="$1"
-    local source_claude_md="$source_dir/claude.md"
+    local source_rules_md="$source_dir/rules/global.claude.rules.md"
     local target_claude_md="$INSTALL_DIR/claude.md"
 
-    # Check if our source claude.md exists
-    if [[ ! -f "$source_claude_md" ]]; then
-        log_verbose "No claude.md found in source, skipping"
-        return 0
+    # Check if our source global.claude.rules.md exists
+    if [[ ! -f "$source_rules_md" ]]; then
+        log_error "Global rules file not found: $source_rules_md"
+        exit 1
     fi
 
     if [[ -f "$target_claude_md" ]]; then
         # Target claude.md exists, append our content as a new section
         log_verbose "Existing claude.md found, appending Claude Code Workflows section..."
 
-        # Check if our section already exists
-        if grep -q "Build Approach Flags for claude enhanced workflows" "$target_claude_md" 2>/dev/null; then
+        # Check if our section already exists (search for our header comment)
+        if grep -q "# Claude Code Workflows v" "$target_claude_md" 2>/dev/null; then
             log_verbose "Claude Code Workflows section already exists, skipping merge"
             return 0
         fi
 
-        # Append our content as a new section
+        # Append our content as a new section with header
         {
             echo ""
             echo "---"
             echo ""
-            cat "$source_claude_md"
+            echo "# Claude Code Workflows v$SCRIPT_VERSION - Auto-generated, do not edit"
+            echo ""
+            cat "$source_rules_md"
         } >> "$target_claude_md"
 
         log "Appended Claude Code Workflows section to existing claude.md"
     else
-        # No existing claude.md, copy ours
-        log_verbose "No existing claude.md found, copying ours..."
-        cp "$source_claude_md" "$target_claude_md"
-        log "Copied claude.md to installation directory"
+        # No existing claude.md, copy ours with header
+        log_verbose "No existing claude.md found, creating new one with global rules..."
+        {
+            echo "# Claude Code Workflows v$SCRIPT_VERSION - Auto-generated, do not edit"
+            echo ""
+            cat "$source_rules_md"
+        } > "$target_claude_md"
+        log "Created claude.md with global rules in installation directory"
     fi
 }
 
@@ -656,17 +662,14 @@ copy_files() {
         done
     fi
 
-    # Copy CLAUDE.md if it exists in root, otherwise copy claude.md as CLAUDE.md
+    # Copy CLAUDE.md if it exists in source directory
     if [[ -f "$source_dir/CLAUDE.md" ]]; then
         log_verbose "Copying CLAUDE.md..."
         cp "$source_dir/CLAUDE.md" "$INSTALL_DIR/"
-    elif [[ -f "$source_dir/claude.md" ]]; then
-        log_verbose "Copying claude.md as CLAUDE.md..."
-        cp "$source_dir/claude.md" "$INSTALL_DIR/CLAUDE.md"
     fi
 
-    # Handle claude.md merging or copying
-    handle_claude_md "$source_dir"
+    # Handle global rules merging or copying
+    handle_global_rules "$source_dir"
 
     # Set proper permissions
     find "$INSTALL_DIR" -name "*.py" -exec chmod +x {} \;

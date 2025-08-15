@@ -196,7 +196,8 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
                 }
             )
 
-        return all_findings
+        # Deduplicate findings to prevent duplicate reports
+        return self._deduplicate_findings(all_findings)
 
     def _init_design_patterns(self):
         """Initialize design pattern definitions."""
@@ -261,11 +262,11 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
             },
             "feature_envy": {
                 "indicators": [
-                    r"\w+\.\w+\.\w+\.\w+",  # Deep method chaining
-                    r"other\w*\.\w+",  # Accessing other object's methods frequently
+                    r"\w+_\w+\.\w+_\w+\.\w+_\w+\.\w+",  # Very deep chaining with underscores (real coupling)
+                    r"other\w*\.\w+\.\w+\.\w+",  # Accessing other object's nested methods frequently
                 ],
                 "severity": "medium",
-                "description": "Feature Envy anti-pattern detected",
+                "description": "Feature Envy anti-pattern detected - excessive coupling to external objects",
             },
             "data_class": {
                 "indicators": [
@@ -368,7 +369,7 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
             raise TimeoutError("Pattern analysis timeout")
 
         signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(5)  # 5 second timeout
+        signal.alarm(10)  # 10 second timeout (increased from 5)
 
         try:
             for pattern_idx, (pattern_name, pattern_info) in enumerate(
@@ -455,11 +456,18 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
                     "total_functions": 0,
                 }
 
+                # Track function names for deduplication
+                seen_functions = set()
+
                 for line in lines:
                     if (
                         line.strip()
                         and not line.startswith("=")
                         and not line.startswith("NLOC")
+                        and not line.startswith("-")
+                        and "file analyzed" not in line
+                        and "Total nloc" not in line
+                        and "No thresholds exceeded" not in line
                     ):
                         parts = line.split()
                         if len(parts) >= 4 and parts[0].isdigit():
@@ -469,6 +477,32 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
                                 function_name = (
                                     parts[3] if len(parts) > 3 else "unknown"
                                 )
+
+                                # Skip invalid function names from parsing errors
+                                if function_name in [
+                                    "0",
+                                    "1",
+                                    "2",
+                                    "3",
+                                    "4",
+                                    "5",
+                                    "6",
+                                    "7",
+                                    "8",
+                                    "9",
+                                    "unknown",
+                                ]:
+                                    continue
+
+                                # Skip if NLOC is 0 or 1 (likely parsing error)
+                                if nloc <= 1:
+                                    continue
+
+                                # Create unique function identifier
+                                func_id = f"{function_name}:{ccn}:{nloc}"
+                                if func_id in seen_functions:
+                                    continue
+                                seen_functions.add(func_id)
 
                                 metrics["functions"].append(
                                     {"name": function_name, "ccn": ccn, "nloc": nloc}
@@ -635,6 +669,34 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         """Check if file should be skipped for pattern analysis."""
         filename = file_path.name.lower()
         return any(pattern in filename for pattern in self.config_file_patterns)
+
+    def _deduplicate_findings(
+        self, findings: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Remove duplicate findings based on key characteristics."""
+        seen = set()
+        unique_findings = []
+
+        for finding in findings:
+            # Create unique key based on file, line, type, and pattern
+            title = finding.get("title", "")
+            file_path = finding.get("file_path", "")
+            line_number = finding.get("line_number", 0)
+            severity = finding.get("severity", "")
+
+            # For complexity findings, include function name to avoid duplicates
+            metadata = finding.get("metadata", {})
+            function_name = metadata.get("function_name", "")
+            pattern_name = metadata.get("pattern_name", "")
+
+            # Create unique identifier
+            unique_key = f"{file_path}:{line_number}:{title}:{severity}:{function_name}:{pattern_name}"
+
+            if unique_key not in seen:
+                seen.add(unique_key)
+                unique_findings.append(finding)
+
+        return unique_findings
 
 
 def main():

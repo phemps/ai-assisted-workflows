@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cross-platform utilities for Claude Code Workflows scriptable workflows.
+Cross-platform utilities for AI-Assisted Workflows scriptable workflows.
 Provides platform detection, path handling, and command execution.
 """
 

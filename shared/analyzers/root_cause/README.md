@@ -1,6 +1,6 @@
 # Root Cause Analysis Scripts
 
-Production-ready scripts for the Claude Code Workflows root cause analysis workflow.
+Production-ready scripts for the AI-Assisted Workflows root cause analysis workflow.
 
 ## 📋 Scripts Overview
 
@@ -207,7 +207,7 @@ All scripts use standardized JSON output via `ResultFormatter`:
 - **Scalability**: 50 commits max, configurable period
 - **Features**: Timing analysis and change correlation
 
-## 🔄 Integration with Claude Code Workflows
+## 🔄 Integration with AI-Assisted Workflows
 
 ### Workflow Integration
 

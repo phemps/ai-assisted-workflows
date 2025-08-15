@@ -1,4 +1,4 @@
-# Claude Code Workflows - Detailed Documentation
+# AI-Assisted Workflows - Detailed Documentation
 
 ## Python Libraries and Dependencies
 
@@ -104,7 +104,7 @@ The installer automatically detects existing `.claude` directories and the inter
 
 ## Uninstalling
 
-To safely remove Claude Code Workflows components while preserving your .claude directory:
+To safely remove AI-Assisted Workflows components while preserving your .claude directory:
 
 ```bash
 # Preview what would be removed (recommended first step)
@@ -130,7 +130,7 @@ To safely remove Claude Code Workflows components while preserving your .claude 
 
 The uninstaller will interactively prompt for each Python package and MCP server removal, showing whether each item was:
 
-- **🔧 Newly installed** by Claude Code Workflows (safer to remove)
+- **🔧 Newly installed** by AI-Assisted Workflows (safer to remove)
 - **⚠️ Pre-existing** before installation (likely used by other projects - caution advised)
 
 ## Security Analysis Details

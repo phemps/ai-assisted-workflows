@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Continuous Improvement Framework Core
-Part of Claude Code Workflows - integrates with 8-agent orchestration system.
+Part of AI-Assisted Workflows - integrates with 8-agent orchestration system.
 """
 
 import json

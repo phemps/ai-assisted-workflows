@@ -190,7 +190,7 @@ jobs:
             - Analysis report and metrics are available in the workflow artifacts
             - Monitoring results contain detailed quality assessment
 
-            **This issue was automatically created by the Claude Code Workflows continuous improvement system.**
+            **This issue was automatically created by the AI-Assisted Workflows continuous improvement system.**
             `;
 
             // Check if similar issue already exists

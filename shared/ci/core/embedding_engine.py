@@ -3,7 +3,7 @@
 CodeBERT Embedding Engine for Continuous Improvement Framework
 
 Provides local CodeBERT embeddings using transformers library.
-Part of Claude Code Workflows - integrates with 8-agent orchestration system.
+Part of AI-Assisted Workflows - integrates with 8-agent orchestration system.
 
 Requires transformers and torch libraries - exits with error if unavailable.
 """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Analysis Report Generator - Planning Script
-Part of the Claude Code Workflows system.
+Part of the AI-Assisted Workflows system.
 
 Placeholder implementation for generating comprehensive analysis reports.
 Integrates with the GitHub Actions workflow monitoring system.

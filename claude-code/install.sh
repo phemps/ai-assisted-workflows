@@ -1,5 +1,5 @@
 #!/bin/bash
-# ai assisted workflows Installation Script
+# AI-Assisted Workflows Installation Script
 # Installs the complete workflow system with commands, scripts, and dependencies
 
 set -euo pipefail
@@ -7,12 +7,12 @@ set -euo pipefail
 # Script configuration
 SCRIPT_VERSION="1.0.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_FILE="/tmp/claude-workflows-install.log"
+LOG_FILE="/tmp/ai-workflows-install.log"
 
 # Usage and help
 show_usage() {
     cat << 'EOF'
-Claude Code Workflows Installer
+AI-Assisted Workflows Installer
 
 USAGE:
     ./install.sh [TARGET_PATH] [OPTIONS]
@@ -62,6 +62,49 @@ VERBOSE=false
 DRY_RUN=false
 SKIP_MCP=false
 SKIP_PYTHON=false
+
+# Performance optimization: cache pip list
+PIP_LIST_CACHE=""
+
+# Loading spinner function
+spinner() {
+    local pid=$1
+    local desc=$2
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local charwidth=3
+    local i=0
+    local start_time=$(date +%s)
+
+    while kill -0 $pid 2>/dev/null; do
+        local elapsed=$(($(date +%s) - start_time))
+        printf "\r%s %s [%02d:%02d]" "${spin:i%10*charwidth:charwidth}" "$desc" $((elapsed/60)) $((elapsed%60))
+        i=$((i+charwidth))
+        sleep 0.1
+    done
+    wait $pid
+    local exit_code=$?
+    printf "\r%-60s\r" " "  # Clear line
+    return $exit_code
+}
+
+# Installation phase display
+show_phase() {
+    local phase=$1
+    local total=$2
+    local desc=$3
+    echo ""
+    echo "[$phase/$total] $desc"
+    echo "----------------------------------------"
+}
+
+# Show installation header
+show_header() {
+    echo ""
+    echo "┌─────────────────────────────────────┐"
+    echo "│  AI-Assisted Workflows Installer    │"
+    echo "│  Version $SCRIPT_VERSION            │"
+    echo "└─────────────────────────────────────┘"
+}
 
 # Parse command line arguments
 parse_args() {
@@ -174,6 +217,10 @@ check_python() {
         echo "Please install pip3 and try again"
         exit 1
     fi
+
+    # Cache pip list for faster package checks later
+    log_verbose "Caching package list for performance..."
+    PIP_LIST_CACHE=$(pip3 list --format=freeze 2>/dev/null || echo "")
 }
 
 check_node() {
@@ -281,7 +328,7 @@ install_eslint_packages() {
 {
   "name": "claude-code-workflows",
   "version": "1.0.0",
-  "description": "Frontend analysis dependencies for Claude Code Workflows",
+  "description": "Frontend analysis dependencies for AI-Assisted Workflows",
   "private": true,
   "devDependencies": {}
 }
@@ -290,7 +337,7 @@ EOF
 
     # Install ESLint and required plugins
     log_verbose "Installing ESLint packages..."
-    if npm install --save-dev \
+    ( npm install --save-dev \
         eslint@latest \
         @typescript-eslint/parser@latest \
         @typescript-eslint/eslint-plugin@latest \
@@ -298,7 +345,8 @@ EOF
         eslint-plugin-react-hooks@latest \
         eslint-plugin-import@latest \
         eslint-plugin-vue@latest \
-        eslint-plugin-svelte@latest; then
+        eslint-plugin-svelte@latest > /tmp/npm_install.log 2>&1 ) &
+    if spinner $! "Installing ESLint packages"; then
         log "ESLint packages installed successfully"
     else
         log_error "Failed to install ESLint packages"
@@ -346,7 +394,8 @@ setup_install_dir() {
             log "Would create directory: $TARGET_PATH"
         else
             log_verbose "Creating target directory: $TARGET_PATH"
-            mkdir -p "$TARGET_PATH"
+            ( mkdir -p "$TARGET_PATH" ) &
+            spinner $! "Creating target directory"
         fi
     fi
 
@@ -374,7 +423,8 @@ setup_install_dir() {
             # Always create a backup first
             local backup_dir="${INSTALL_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
             log "Creating automatic backup of existing installation to: $backup_dir"
-            cp -r "$INSTALL_DIR" "$backup_dir"
+            ( cp -r "$INSTALL_DIR" "$backup_dir" 2>/dev/null ) &
+            spinner $! "Creating backup"
 
             echo ""
             echo "Found existing .claude directory at: $INSTALL_DIR"
@@ -437,11 +487,11 @@ handle_global_rules() {
 
     if [[ -f "$target_claude_md" ]]; then
         # Target claude.md exists, append our content as a new section
-        log_verbose "Existing claude.md found, appending Claude Code Workflows section..."
+        log_verbose "Existing claude.md found, appending AI-Assisted Workflows section..."
 
         # Check if our section already exists (search for our header comment)
-        if grep -q "# Claude Code Workflows v" "$target_claude_md" 2>/dev/null; then
-            log_verbose "Claude Code Workflows section already exists, skipping merge"
+        if grep -q "# AI-Assisted Workflows v" "$target_claude_md" 2>/dev/null; then
+            log_verbose "AI-Assisted Workflows section already exists, skipping merge"
             return 0
         fi
 
@@ -450,17 +500,17 @@ handle_global_rules() {
             echo ""
             echo "---"
             echo ""
-            echo "# Claude Code Workflows v$SCRIPT_VERSION - Auto-generated, do not edit"
+            echo "# AI-Assisted Workflows v$SCRIPT_VERSION - Auto-generated, do not edit"
             echo ""
             cat "$source_rules_md"
         } >> "$target_claude_md"
 
-        log "Appended Claude Code Workflows section to existing claude.md"
+        log "Appended AI-Assisted Workflows section to existing claude.md"
     else
         # No existing claude.md, copy ours with header
         log_verbose "No existing claude.md found, creating new one with global rules..."
         {
-            echo "# Claude Code Workflows v$SCRIPT_VERSION - Auto-generated, do not edit"
+            echo "# AI-Assisted Workflows v$SCRIPT_VERSION - Auto-generated, do not edit"
             echo ""
             cat "$source_rules_md"
         } > "$target_claude_md"
@@ -512,7 +562,8 @@ copy_files() {
         fi
 
         # Copy with no-clobber, excluding docs directory
-        find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -rn {} "$INSTALL_DIR/" \; 2>/dev/null || true
+        ( find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -rn {} "$INSTALL_DIR/" \; 2>/dev/null || true ) &
+        spinner $! "Copying workflow files"
 
         # Copy scripts from shared/ subdirectories if they don't exist
         local shared_dir="$(dirname "$source_dir")/shared"
@@ -520,7 +571,8 @@ copy_files() {
             mkdir -p "$INSTALL_DIR/scripts"
             for subdir in analyzers generators setup utils tests ci core; do
                 if [[ -d "$shared_dir/$subdir" ]]; then
-                    cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir"
+                    ( cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir" ) &
+                    spinner $! "Copying $subdir scripts"
                 fi
             done
         fi
@@ -650,14 +702,16 @@ copy_files() {
         echo "  Workflow update complete. Built-in commands, scripts, agents, templates, and rules updated, custom commands and other files preserved."
     else
         # Fresh install: copy everything except docs and install scripts
-        find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -r {} "$INSTALL_DIR/" \;
+        ( find "$source_dir" -mindepth 1 -maxdepth 1 -not -name "docs" -not -name "install.sh" -not -name "install.ps1" -exec cp -r {} "$INSTALL_DIR/" \; ) &
+        spinner $! "Copying workflow files"
 
         # Copy scripts from shared/ subdirectories
         local shared_dir="$(dirname "$source_dir")/shared"
         mkdir -p "$INSTALL_DIR/scripts"
         for subdir in analyzers generators setup utils tests ci core; do
             if [[ -d "$shared_dir/$subdir" ]]; then
-                cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir"
+                ( cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir" ) &
+                spinner $! "Copying $subdir scripts"
             fi
         done
     fi
@@ -671,9 +725,9 @@ copy_files() {
     # Handle global rules merging or copying
     handle_global_rules "$source_dir"
 
-    # Set proper permissions
-    find "$INSTALL_DIR" -name "*.py" -exec chmod +x {} \;
-    find "$INSTALL_DIR" -name "*.sh" -exec chmod +x {} \;
+    # Set proper permissions (combined for efficiency)
+    ( find "$INSTALL_DIR" \( -name "*.py" -o -name "*.sh" \) -exec chmod +x {} + ) &
+    spinner $! "Setting file permissions"
 
     log "Files copied successfully"
 }
@@ -692,7 +746,7 @@ create_installation_log() {
 
     # Create log file with header
     cat > "$log_file" << EOF
-# Claude Code Workflows Installation Log
+# AI-Assisted Workflows Installation Log
 # DO NOT DELETE - Used by uninstall script to determine safe removal
 # Generated on: $(date)
 # Installation directory: $INSTALL_DIR
@@ -707,7 +761,7 @@ EOF
             [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
             # Extract package name (everything before ==, >=, etc.)
             local pkg=$(echo "$line" | sed 's/[>=<].*//' | tr -d ' ')
-            if [[ -n "$pkg" ]] && python3 -m pip show "$pkg" &>/dev/null; then
+            if [[ -n "$pkg" ]] && echo "$PIP_LIST_CACHE" | grep -q "^${pkg}=="; then
                 echo "$pkg" >> "$log_file"
                 log_verbose "Pre-existing Python package: $pkg"
             fi
@@ -828,7 +882,8 @@ install_python_deps() {
     cd "$INSTALL_DIR"
 
     # Run Python dependency installation with automatic 'yes' response
-    if echo "y" | python3 "$setup_script"; then
+    ( echo "y" | python3 "$setup_script" > /tmp/pip_install.log 2>&1 ) &
+    if spinner $! "Installing Python packages"; then
         log "Python dependencies installed successfully"
 
         # Check which packages are now installed and update log for newly installed ones
@@ -894,8 +949,14 @@ install_mcp_tools() {
         log_verbose "sequential-thinking not found, attempting installation..."
         # Try to install, capturing the actual error
         local install_output
-        install_output=$(claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking 2>&1)
-        local install_status=$?
+        ( claude mcp add sequential-thinking -s user -- npx -y @modelcontextprotocol/server-sequential-thinking > /tmp/mcp_seq_install.log 2>&1 ) &
+        if spinner $! "Installing MCP tool: sequential-thinking"; then
+            install_output="Installation successful"
+            install_status=0
+        else
+            install_status=$?
+            install_output=$(cat /tmp/mcp_seq_install.log 2>/dev/null || echo "Installation failed")
+        fi
 
         if [[ $install_status -eq 0 ]]; then
             log_verbose "sequential-thinking installed successfully"
@@ -920,8 +981,14 @@ install_mcp_tools() {
         log_verbose "grep not found, attempting installation..."
         # Try to install, capturing the actual error
         local install_output
-        install_output=$(claude mcp add --transport http grep https://mcp.grep.app 2>&1)
-        local install_status=$?
+        ( claude mcp add --transport http grep https://mcp.grep.app > /tmp/mcp_grep_install.log 2>&1 ) &
+        if spinner $! "Installing MCP tool: grep"; then
+            install_output="Installation successful"
+            install_status=0
+        else
+            install_status=$?
+            install_output=$(cat /tmp/mcp_grep_install.log 2>/dev/null || echo "Installation failed")
+        fi
 
         if [[ $install_status -eq 0 ]]; then
             log_verbose "grep installed successfully"
@@ -1020,7 +1087,7 @@ verify_installation() {
 # Display post-installation information
 show_completion() {
     echo ""
-    echo "🎉 Claude Code Workflows installation completed successfully!"
+    echo "🎉 AI-Assisted Workflows installation completed successfully!"
     echo ""
     echo "Installation location: $INSTALL_DIR"
     echo ""
@@ -1075,29 +1142,50 @@ main() {
     trap cleanup EXIT
 
     # Initialize log file
-    echo "Claude Code Workflows Installation Log" > "$LOG_FILE"
+    echo "AI-Assisted Workflows Installation Log" > "$LOG_FILE"
     echo "Started: $(date)" >> "$LOG_FILE"
     echo "Arguments: $*" >> "$LOG_FILE"
     echo "" >> "$LOG_FILE"
 
-    log "Starting Claude Code Workflows installation (v$SCRIPT_VERSION)"
+    log "Starting AI-Assisted Workflows installation (v$SCRIPT_VERSION)"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log "DRY RUN MODE - no changes will be made"
     fi
 
-    # Run installation steps
+    # Show installation header
+    if [[ "$DRY_RUN" != "true" ]]; then
+        show_header
+    fi
+
+    # Run installation steps with progress display
+    show_phase 1 8 "Checking system requirements"
     detect_platform
-    check_python
-    check_node
-    check_claude_cli
+    check_python &
+    check_node &
+    check_claude_cli &
+    wait
+
+    show_phase 2 8 "Checking analysis tools"
     check_security_tools
+
+    show_phase 3 8 "Setting up directories"
     setup_install_dir
+
+    show_phase 4 8 "Copying workflow files"
     copy_files
+
+    show_phase 5 8 "Creating installation tracking"
     create_installation_log
+
+    show_phase 6 8 "Installing dependencies"
     install_python_deps
     check_eslint
+
+    show_phase 7 8 "Installing MCP tools"
     install_mcp_tools
+
+    show_phase 8 8 "Verifying installation"
     verify_installation
 
     if [[ "$DRY_RUN" != "true" ]]; then

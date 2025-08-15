@@ -3,7 +3,7 @@
 Registry Manager for Continuous Improvement Framework (REFACTORED)
 
 This is a refactored version demonstrating the use of new base utilities
-to eliminate code duplication patterns. Part of Claude Code Workflows.
+to eliminate code duplication patterns. Part of AI-Assisted Workflows.
 """
 
 import json

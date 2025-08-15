@@ -8,7 +8,7 @@ Provides comprehensive code analysis capabilities including:
 - Security scanning
 - Root cause analysis
 
-Part of the Claude Code Workflows system.
+Part of the AI-Assisted Workflows system.
 """
 
 __version__ = "1.0.0"

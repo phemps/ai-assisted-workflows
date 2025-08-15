@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Serena MCP Client for Continuous Improvement Framework
-Provides MCP integration for Claude Code Workflows - requires MCP connection.
-Part of Claude Code Workflows - integrates with 8-agent orchestration system.
+Provides MCP integration for AI-Assisted Workflows - requires MCP connection.
+Part of AI-Assisted Workflows - integrates with 8-agent orchestration system.
 """
 
 import sys

@@ -1,4 +1,4 @@
-# ai assisted workflows Installation Script for Windows
+# AI-Assisted Workflows Installation Script for Windows
 # Installs the complete workflow system with commands, scripts, and dependencies
 
 param(
@@ -15,7 +15,7 @@ param(
 # Script configuration
 $VERSION = "1.0.0"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$LOG_FILE = "$env:TEMP\claude-workflows-install.log"
+$LOG_FILE = "$env:TEMP\ai-workflows-install.log"
 
 # Colors for output
 $Colors = @{
@@ -53,7 +53,7 @@ function Write-Log {
 }
 
 function Show-Usage {
-    Write-ColorOutput "Claude Code Workflows Installer v$VERSION" -Color $Colors.Green
+    Write-ColorOutput "AI-Assisted Workflows Installer v$VERSION" -Color $Colors.Green
     Write-Output ""
     Write-Output "USAGE:"
     Write-Output "    .\install.ps1 [TARGET_PATH] [OPTIONS]"
@@ -695,7 +695,7 @@ function Copy-WorkflowFiles {
         $mcpStatus = if ($SkipMcp) { "Skipped" } else { "Installed" }
         $pythonStatus = if ($SkipPython) { "Skipped" } else { "Installed" }
         @"
-Claude Code Workflows Installation Log
+AI-Assisted Workflows Installation Log
 =====================================
 Installation Date: $timestamp
 Installer Version: $VERSION
@@ -807,7 +807,7 @@ function Show-CompletionMessage {
     Write-ColorOutput "==================================" -Color $Colors.Green
     Write-Output ""
 
-    Write-ColorOutput "Claude Code Workflows v$VERSION installed to:" -Color $Colors.Yellow
+    Write-ColorOutput "AI-Assisted Workflows v$VERSION installed to:" -Color $Colors.Yellow
     Write-Output "  $ClaudePath"
     Write-Output ""
 
@@ -858,12 +858,12 @@ if ($Help) {
 }
 
 # Initialize logging
-Write-Log "Starting Claude Code Workflows installation v$VERSION"
+Write-Log "Starting AI-Assisted Workflows installation v$VERSION"
 Write-Log "Command line: $($MyInvocation.Line)"
 
 # Main installation process
 try {
-    Write-ColorOutput "Claude Code Workflows Installer v$VERSION" -Color $Colors.Green
+    Write-ColorOutput "AI-Assisted Workflows Installer v$VERSION" -Color $Colors.Green
     Write-ColorOutput "===========================================" -Color $Colors.Green
     Write-Output ""
 

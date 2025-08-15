@@ -2,7 +2,7 @@
 """
 Duplication Detection System Metrics Collection and Analysis
 Tracks performance metrics for the duplication detection system components.
-Part of Claude Code Workflows.
+Part of AI-Assisted Workflows.
 """
 
 import json

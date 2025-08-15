@@ -7,7 +7,7 @@ This module provides comprehensive code quality analysis tools including:
 - Pattern classification
 - Quality metrics calculation
 
-Part of the Claude Code Workflows Analysis Engine (Phase 2).
+Part of the AI-Assisted Workflows Analysis Engine (Phase 2).
 """
 
 from .code_duplication_analyzer import (

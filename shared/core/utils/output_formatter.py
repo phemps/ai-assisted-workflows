@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Output formatting utilities for Claude Code Workflows scriptable workflows.
+Output formatting utilities for AI-Assisted Workflows scriptable workflows.
 Provides standardized JSON output format for all analysis scripts.
 """
 

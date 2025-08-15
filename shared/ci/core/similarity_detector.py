@@ -4,7 +4,7 @@ Faiss Vector Similarity Detector for Continuous Improvement Framework
 
 Provides efficient vector similarity search using Faiss only.
 No fallback mechanisms.
-Requires faiss-cpu to be installed. Part of Claude Code Workflows - integrates
+Requires faiss-cpu to be installed. Part of AI-Assisted Workflows - integrates
 with 8-agent orchestration system.
 """
 

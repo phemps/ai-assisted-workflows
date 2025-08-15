@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Continuous Improvement Framework Initialization
-Part of Claude Code Workflows - PHASE1-002 Implementation.
+Part of AI-Assisted Workflows - PHASE1-002 Implementation.
 
 This module provides the foundational continuous improvement framework
 that integrates with the existing 8-agent orchestration system.
@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
 
 # Version and metadata
 __version__ = "1.0.0"
-__author__ = "Claude Code Workflows"
+__author__ = "AI-Assisted Workflows"
 __description__ = (
     "Continuous Improvement Framework integrated " "with 8-agent orchestration"
 )

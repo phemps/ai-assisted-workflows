@@ -1,13 +1,13 @@
 #!/bin/bash
-# Claude Code Workflows Uninstall Script
-# Removes Claude Code Workflows components while preserving .claude directory structure
+# AI-Assisted Workflows Uninstall Script
+# Removes AI-Assisted Workflows components while preserving .claude directory structure
 
 set -euo pipefail
 
 # Script configuration
 SCRIPT_VERSION="1.0.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_FILE="/tmp/claude-workflows-uninstall.log"
+LOG_FILE="/tmp/ai-workflows-uninstall.log"
 
 # Default settings
 DRY_RUN="false"
@@ -23,7 +23,7 @@ NEWLY_INSTALLED_MCP=()
 # Usage and help
 show_usage() {
     cat << 'EOF'
-Claude Code Workflows Uninstaller
+AI-Assisted Workflows Uninstaller
 
 USAGE:
     ./uninstall.sh [TARGET_PATH] [OPTIONS]
@@ -52,7 +52,7 @@ EXAMPLES:
     ./uninstall.sh --dry-run
 
 DESCRIPTION:
-    This script removes Claude Code Workflows components while preserving
+    This script removes AI-Assisted Workflows components while preserving
     the .claude directory structure and any user-added files:
 
     - Removes workflow command files
@@ -69,7 +69,7 @@ EOF
 # Initialize log file
 init_log() {
     echo "" > "$LOG_FILE"
-    log "Claude Code Workflows Uninstaller (v$SCRIPT_VERSION) started"
+    log "AI-Assisted Workflows Uninstaller (v$SCRIPT_VERSION) started"
     log "Current directory: $(pwd)"
     log "Script directory: $SCRIPT_DIR"
     log "Command line: $0 $*"
@@ -128,7 +128,7 @@ find_claude_installation() {
         log_verbose "Looking for .claude in target path"
     fi
 
-    log "Checking for Claude Code Workflows installation at: $CLAUDE_DIR"
+    log "Checking for AI-Assisted Workflows installation at: $CLAUDE_DIR"
 
     if [[ ! -d "$CLAUDE_DIR" ]]; then
         log_error "No .claude directory found at: $CLAUDE_DIR"
@@ -155,12 +155,12 @@ find_claude_installation() {
     fi
 
     if [[ $our_files_found -eq 0 ]]; then
-        log_error "No Claude Code Workflows components found at: $CLAUDE_DIR"
-        echo "This doesn't appear to be a Claude Code Workflows installation"
+        log_error "No AI-Assisted Workflows components found at: $CLAUDE_DIR"
+        echo "This doesn't appear to be a AI-Assisted Workflows installation"
         exit 1
     fi
 
-    log "Found Claude Code Workflows installation ($our_files_found components detected)"
+    log "Found AI-Assisted Workflows installation ($our_files_found components detected)"
 }
 
 # Remove workflow command files
@@ -393,12 +393,12 @@ remove_claude_md_sections() {
 
     # Check if our "Build Approach Flags" section exists
     if ! grep -q "## Build Approach Flags for claude enhanced workflows" "$CLAUDE_DIR/claude.md"; then
-        log "No Claude Code Workflows sections found in claude.md"
+        log "No AI-Assisted Workflows sections found in claude.md"
         return 0
     fi
 
     echo ""
-    echo "Found Claude Code Workflows sections in claude.md:"
+    echo "Found AI-Assisted Workflows sections in claude.md:"
     echo "  - Build Approach Flags section"
     echo ""
 
@@ -426,7 +426,7 @@ remove_claude_md_sections() {
         # Clean up sed backup file
         rm -f "$CLAUDE_DIR/claude.md.tmp"
 
-        log "Removed Claude Code Workflows sections from claude.md"
+        log "Removed AI-Assisted Workflows sections from claude.md"
         echo "Backup saved as: $(basename "$backup_file")"
     else
         log "Skipped removing claude.md sections"
@@ -575,7 +575,7 @@ remove_python_packages() {
     # Show packages with appropriate warnings
     if [[ ${#newly_installed[@]} -gt 0 ]]; then
         echo ""
-        echo "📦 Newly installed by Claude Code Workflows (safer to remove):"
+        echo "📦 Newly installed by AI-Assisted Workflows (safer to remove):"
         for pkg in "${newly_installed[@]}"; do
             echo "  - $pkg"
         done
@@ -599,7 +599,7 @@ remove_python_packages() {
 
     echo ""
     echo "⚠️  WARNING: Only remove packages you're certain aren't needed by other projects!"
-    echo "    Pre-existing packages were already installed before Claude Code Workflows."
+    echo "    Pre-existing packages were already installed before AI-Assisted Workflows."
     echo ""
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -665,12 +665,12 @@ remove_mcp_servers() {
     done
 
     if [[ ${#installed_servers[@]} -eq 0 ]]; then
-        log "No Claude Code Workflows MCP servers found to remove"
+        log "No AI-Assisted Workflows MCP servers found to remove"
         return 0
     fi
 
     echo ""
-    echo "Found ${#installed_servers[@]} MCP servers that were installed by Claude Code Workflows:"
+    echo "Found ${#installed_servers[@]} MCP servers that were installed by AI-Assisted Workflows:"
 
     # Categorize servers based on installation log
     local pre_existing_servers=()
@@ -690,7 +690,7 @@ remove_mcp_servers() {
     # Show servers with appropriate warnings
     if [[ ${#newly_installed_servers[@]} -gt 0 ]]; then
         echo ""
-        echo "🔧 Newly installed by Claude Code Workflows (safer to remove):"
+        echo "🔧 Newly installed by AI-Assisted Workflows (safer to remove):"
         for server in "${newly_installed_servers[@]}"; do
             echo "  - $server"
         done
@@ -714,7 +714,7 @@ remove_mcp_servers() {
 
     echo ""
     echo "⚠️  WARNING: These MCP servers may be used by other projects or workflows!"
-    echo "    Pre-existing servers were already installed before Claude Code Workflows."
+    echo "    Pre-existing servers were already installed before AI-Assisted Workflows."
     echo ""
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -792,7 +792,7 @@ parse_arguments() {
 # Show uninstall summary
 show_summary() {
     echo ""
-    echo "🧹 Claude Code Workflows uninstall completed!"
+    echo "🧹 AI-Assisted Workflows uninstall completed!"
     echo ""
     echo "Installation location: $CLAUDE_DIR"
     echo ""
@@ -815,7 +815,7 @@ main() {
     parse_arguments "$@"
     detect_platform
 
-    log "Starting Claude Code Workflows uninstall (v$SCRIPT_VERSION)"
+    log "Starting AI-Assisted Workflows uninstall (v$SCRIPT_VERSION)"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "🔍 DRY RUN MODE - No changes will be made"
@@ -832,10 +832,10 @@ main() {
     backup_mcp_config
 
     echo ""
-    echo "🧹 Claude Code Workflows Uninstaller"
+    echo "🧹 AI-Assisted Workflows Uninstaller"
     echo "===================================="
     echo ""
-    echo "This will selectively remove Claude Code Workflows components from:"
+    echo "This will selectively remove AI-Assisted Workflows components from:"
     echo "  $CLAUDE_DIR"
     echo ""
     echo "The .claude directory and any user-added files will be preserved."

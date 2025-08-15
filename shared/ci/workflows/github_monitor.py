@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 GitHub Actions Workflow Monitor for Continuous Improvement
-Part of the Claude Code Workflows system - Phase 3 implementation.
+Part of the AI-Assisted Workflows system - Phase 3 implementation.
 
 Monitors GitHub workflow executions, collects metrics, and coordinates
 with the CTO orchestrator for continuous improvement cycles.

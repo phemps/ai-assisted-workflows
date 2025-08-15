@@ -2,7 +2,7 @@
 """
 Symbol Extractor for Continuous Improvement Framework
 Hybrid approach using Serena MCP with robust AST fallback.
-Part of Claude Code Workflows - integrates with 8-agent orchestration system.
+Part of AI-Assisted Workflows - integrates with 8-agent orchestration system.
 """
 
 import ast

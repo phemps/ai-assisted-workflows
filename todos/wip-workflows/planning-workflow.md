@@ -1,4 +1,4 @@
-Project: Claude Code Workflows
+Project: AI-Assisted Workflows
 
 A hybrid AI-automation system that provides specialized workflow commands, LLM actions, and Python analysis scripts for multi-function,
 just-in-time development automation. The system installs into .claude/ directories and provides custom slash commands, 8-agent orchestration, and
@@ -311,7 +311,7 @@ PRP File → Load Context → Implementation Plan → Progressive Build → Vali
 ↓ ↓ ↓ ↓ ↓ ↓ ↓
 Runner → Parse Template → TodoWrite Breakdown → Follow Patterns → 4-Level Testing → Deliverable → Move to Completed/
 
-Comparison with Existing Claude Code Workflows
+Comparison with Existing AI-Assisted Workflows
 
 vs. plan-ux-prd.md
 

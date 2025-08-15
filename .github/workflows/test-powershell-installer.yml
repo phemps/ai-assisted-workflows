@@ -1,0 +1,330 @@
+name: Windows PowerShell Installer Testing
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "claude-code/install.ps1"
+      - "claude-code/**"
+      - "shared/tests/integration/test_powershell_installer.ps1"
+      - ".github/workflows/test-powershell-installer.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "claude-code/install.ps1"
+      - "claude-code/**"
+      - "shared/tests/integration/test_powershell_installer.ps1"
+      - ".github/workflows/test-powershell-installer.yml"
+  workflow_dispatch:
+    inputs:
+      test_scenario:
+        description: "Test scenario to run"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - fresh-install
+          - merge-mode
+          - update-workflows
+          - error-handling
+          - performance
+
+jobs:
+  test-powershell-installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2019, windows-2022]
+        powershell: [windows-powershell, powershell-core]
+        include:
+          - os: windows-2019
+            powershell: windows-powershell
+            powershell_version: "5.1"
+            shell: "powershell"
+          - os: windows-2019
+            powershell: powershell-core
+            powershell_version: "7.x"
+            shell: "pwsh"
+          - os: windows-2022
+            powershell: windows-powershell
+            powershell_version: "5.1"
+            shell: "powershell"
+          - os: windows-2022
+            powershell: powershell-core
+            powershell_version: "7.x"
+            shell: "pwsh"
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for testing
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install Claude CLI (mock for testing)
+        shell: powershell
+        run: |
+          # Create a mock claude command for testing
+          $claudeDir = "$env:USERPROFILE\.claude-cli"
+          $claudeBin = "$claudeDir\claude.exe"
+          New-Item -ItemType Directory -Path $claudeDir -Force | Out-Null
+
+          # Create a simple batch file that mimics claude cli
+          @"
+          @echo off
+          if "%1"=="--version" (
+              echo claude-cli 1.0.0
+              exit /b 0
+          )
+          if "%1"=="mcp" (
+              if "%2"=="list" (
+                  echo No MCP servers configured
+                  exit /b 0
+              )
+              if "%2"=="add" (
+                  echo MCP server %4 added successfully
+                  exit /b 0
+              )
+          )
+          echo Unknown command: %*
+          exit /b 1
+          "@ | Out-File -FilePath "$claudeDir\claude.bat" -Encoding ASCII
+
+          # Add to PATH for this session
+          $env:PATH = "$claudeDir;$env:PATH"
+          [Environment]::SetEnvironmentVariable("PATH", "$claudeDir;$env:PATH", "Process")
+
+          # Verify mock installation
+          claude --version
+
+      - name: Install test dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pyyaml requests
+
+          # Install npm packages for testing
+          npm install -g eslint @typescript-eslint/parser
+
+      - name: Display environment info
+        run: |
+          Write-Output "PowerShell Version: $($PSVersionTable.PSVersion)"
+          Write-Output "OS: $env:OS"
+          Write-Output "Architecture: $env:PROCESSOR_ARCHITECTURE"
+          Write-Output "Python: $(python --version)"
+          Write-Output "Node.js: $(node --version)"
+          Write-Output "npm: $(npm --version)"
+
+          # Test claude mock
+          try {
+              $claudeVersion = claude --version
+              Write-Output "Claude CLI (mock): $claudeVersion"
+          } catch {
+              Write-Output "Claude CLI: Not available"
+          }
+
+      - name: Run PowerShell Installer Tests
+        env:
+          TEST_SCENARIO: ${{ github.event.inputs.test_scenario || 'all' }}
+          CI_ENVIRONMENT: "github-actions"
+          MATRIX_OS: ${{ matrix.os }}
+          MATRIX_POWERSHELL: ${{ matrix.powershell }}
+        run: |
+          # Set execution policy for testing
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+
+          # Run the test suite
+          $testScript = "shared/tests/integration/test_powershell_installer.ps1"
+          if (Test-Path $testScript) {
+              Write-Output "Running PowerShell installer tests..."
+              & $testScript -TestScenario $env:TEST_SCENARIO -Verbose
+          } else {
+              Write-Output "Test script not found: $testScript"
+              Write-Output "Available files in shared/tests/integration/:"
+              Get-ChildItem "shared/tests/integration/" -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $($_.Name)" }
+
+              Write-Output "Running basic installer validation instead..."
+
+              # Basic validation of install.ps1
+              $installerScript = "claude-code/install.ps1"
+              if (Test-Path $installerScript) {
+                  Write-Output "Testing installer help:"
+                  & $installerScript -Help
+
+                  Write-Output "Testing installer dry run:"
+                  & $installerScript -DryRun -Verbose
+              } else {
+                  Write-Error "Installer script not found: $installerScript"
+                  exit 1
+              }
+          }
+
+      - name: Test Installation Scenarios
+        if: success() || failure() # Run even if previous step failed
+        run: |
+          $testDir = "$env:TEMP\powershell-installer-test"
+
+          Write-Output "Testing installation scenarios in: $testDir"
+
+          # Test 1: Dry Run
+          Write-Output "=== Test 1: Dry Run ==="
+          try {
+              & "claude-code/install.ps1" $testDir -DryRun -Verbose
+              Write-Output "✓ Dry run test passed"
+          } catch {
+              Write-Error "✗ Dry run test failed: $_"
+          }
+
+          # Test 2: Fresh Installation (with skip flags to avoid dependency issues)
+          Write-Output "=== Test 2: Fresh Installation (minimal) ==="
+          try {
+              & "claude-code/install.ps1" $testDir -SkipMcp -SkipPython -Verbose
+
+              # Verify installation
+              if (Test-Path "$testDir\.claude") {
+                  Write-Output "✓ Fresh installation test passed - .claude directory created"
+
+                  # Check for key files
+                  $keyFiles = @("CLAUDE.md", "commands", "scripts")
+                  foreach ($file in $keyFiles) {
+                      $filePath = Join-Path "$testDir\.claude" $file
+                      if (Test-Path $filePath) {
+                          Write-Output "  ✓ Found: $file"
+                      } else {
+                          Write-Output "  ✗ Missing: $file"
+                      }
+                  }
+              } else {
+                  Write-Error "✗ Fresh installation failed - .claude directory not created"
+              }
+          } catch {
+              Write-Error "✗ Fresh installation test failed: $_"
+          }
+
+          # Test 3: Merge Mode (simulate existing installation)
+          Write-Output "=== Test 3: Merge Mode ==="
+          try {
+              # Create existing claude.md with custom content
+              $existingClaudeFile = "$testDir\.claude\claude.md"
+              if (-not (Test-Path (Split-Path $existingClaudeFile))) {
+                  New-Item -ItemType Directory -Path (Split-Path $existingClaudeFile) -Force | Out-Null
+              }
+              "# Existing custom rules`nCustom content here" | Out-File -FilePath $existingClaudeFile -Encoding UTF8
+
+              # Run merge installation (simulate user input "2" for merge)
+              $input = "2"
+              $input | & "claude-code/install.ps1" $testDir -SkipMcp -SkipPython -Verbose
+
+              # Verify custom content preserved
+              $content = Get-Content $existingClaudeFile -Raw -ErrorAction SilentlyContinue
+              if ($content -and $content.Contains("Custom content here")) {
+                  Write-Output "✓ Merge mode test passed - custom content preserved"
+              } else {
+                  Write-Error "✗ Merge mode test failed - custom content lost"
+              }
+          } catch {
+              Write-Error "✗ Merge mode test failed: $_"
+          }
+
+          # Cleanup
+          Write-Output "=== Cleanup ==="
+          try {
+              if (Test-Path $testDir) {
+                  Remove-Item -Path $testDir -Recurse -Force
+                  Write-Output "✓ Test directory cleaned up"
+              }
+          } catch {
+              Write-Warning "Could not clean up test directory: $_"
+          }
+
+      - name: Performance Benchmark
+        if: success()
+        run: |
+          Write-Output "=== Performance Benchmark ==="
+
+          $testDir = "$env:TEMP\perf-test"
+          $iterations = 3
+          $times = @()
+
+          for ($i = 1; $i -le $iterations; $i++) {
+              Write-Output "Performance test iteration $i/$iterations"
+
+              # Clean up from previous iteration
+              if (Test-Path $testDir) {
+                  Remove-Item -Path $testDir -Recurse -Force
+              }
+
+              # Measure installation time
+              $startTime = Get-Date
+              try {
+                  & "claude-code/install.ps1" $testDir -SkipMcp -SkipPython -ErrorAction Stop | Out-Null
+                  $endTime = Get-Date
+                  $duration = ($endTime - $startTime).TotalSeconds
+                  $times += $duration
+                  Write-Output "  Iteration $i: $([math]::Round($duration, 2)) seconds"
+              } catch {
+                  Write-Warning "  Iteration $i failed: $_"
+              }
+          }
+
+          if ($times.Count -gt 0) {
+              $avgTime = ($times | Measure-Object -Average).Average
+              $minTime = ($times | Measure-Object -Minimum).Minimum
+              $maxTime = ($times | Measure-Object -Maximum).Maximum
+
+              Write-Output "Performance Results:"
+              Write-Output "  Average: $([math]::Round($avgTime, 2)) seconds"
+              Write-Output "  Min: $([math]::Round($minTime, 2)) seconds"
+              Write-Output "  Max: $([math]::Round($maxTime, 2)) seconds"
+              Write-Output "  Iterations: $($times.Count)"
+          }
+
+          # Cleanup
+          if (Test-Path $testDir) {
+              Remove-Item -Path $testDir -Recurse -Force
+          }
+
+      - name: Collect diagnostic information
+        if: failure()
+        run: |
+          Write-Output "=== Diagnostic Information ==="
+          Write-Output "PowerShell Version: $($PSVersionTable.PSVersion)"
+          Write-Output "Execution Policy: $(Get-ExecutionPolicy)"
+          Write-Output "Current Directory: $(Get-Location)"
+          Write-Output "Available Modules:"
+          Get-Module -ListAvailable | Select-Object Name, Version | Format-Table
+
+          Write-Output "Environment Variables:"
+          Get-ChildItem env: | Where-Object { $_.Name -match "(PATH|TEMP|USER)" } | Format-Table
+
+          # Check for log files
+          $logFile = "$env:TEMP\ai-workflows-install.log"
+          if (Test-Path $logFile) {
+              Write-Output "Installation Log Content:"
+              Get-Content $logFile | Write-Output
+          }
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.powershell }}
+          path: |
+            ${{ runner.temp }}/ai-workflows-install.log
+            ${{ runner.temp }}/powershell-installer-test/
+          retention-days: 7

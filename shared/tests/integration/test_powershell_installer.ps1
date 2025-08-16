@@ -292,15 +292,14 @@ function Test-GlobalRulesHandling {
             if ($content -match "# AI-Assisted Workflows v.*Auto-generated") {
                 Complete-Test "Global Rules Handling" $true "Global rules properly handled with version header"
             } else {
-                # For now, this might fail if Handle-GlobalRules isn't implemented yet
                 Complete-Test "Global Rules Handling" $false "Global rules handling needs implementation (expected for current version)"
             }
         } else {
             Complete-Test "Global Rules Handling" $false "claude.md not created"
         }
     } catch {
-        $errorMessage = $_.Exception.Message
-        Complete-Test "Global Rules Handling" $false "Global rules test failed: $errorMessage"
+        $errMsg = $_.Exception.Message
+        Complete-Test "Global Rules Handling" $false "Global rules test failed: $errMsg"
     }
 }
 

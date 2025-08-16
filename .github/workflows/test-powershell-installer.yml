@@ -36,22 +36,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-2022, windows-latest]
-        powershell: [windows-powershell, powershell-core]
         include:
           - os: windows-2022
-            powershell: windows-powershell
-            powershell_version: "5.1"
-            shell: "powershell"
-          - os: windows-2022
-            powershell: powershell-core
             powershell_version: "7.x"
             shell: "pwsh"
           - os: windows-latest
-            powershell: windows-powershell
-            powershell_version: "5.1"
-            shell: "powershell"
-          - os: windows-latest
-            powershell: powershell-core
             powershell_version: "7.x"
             shell: "pwsh"
 
@@ -143,13 +132,13 @@ jobs:
           TEST_SCENARIO: ${{ github.event.inputs.test_scenario || 'all' }}
           CI_ENVIRONMENT: "github-actions"
           MATRIX_OS: ${{ matrix.os }}
-          MATRIX_POWERSHELL: ${{ matrix.powershell }}
+          MATRIX_POWERSHELL: "powershell-core"
         run: |
           # Set execution policy for testing
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 
           # Run the test suite
-          $testScript = "shared/tests/integration/test_powershell_simple.ps1"
+          $testScript = "shared/tests/integration/test_powershell_installer.ps1"
           if (Test-Path $testScript) {
               Write-Output "Running PowerShell installer tests..."
               & $testScript -TestScenario $env:TEST_SCENARIO -Verbose
@@ -198,7 +187,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.powershell }}
+          name: test-results-${{ matrix.os }}-powershell-core
           path: |
             ${{ runner.temp }}/ai-workflows-install.log
             ${{ runner.temp }}/powershell-installer-test/

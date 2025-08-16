@@ -287,17 +287,16 @@ function Test-GlobalRulesHandling {
         $output = & $installerPath $testPath -SkipMcp -SkipPython 2>&1
 
         # Check if claude.md was created and contains global rules
-        if (-not (Test-Path $claudeFile)) {
-            Complete-Test "Global Rules Handling" $false "claude.md not created"
-            return
-        }
-
-        $content = Get-Content $claudeFile -Raw
-        if ($content -match "# AI-Assisted Workflows v.*Auto-generated") {
-            Complete-Test "Global Rules Handling" $true "Global rules properly handled with version header"
+        if (Test-Path $claudeFile) {
+            $content = Get-Content $claudeFile -Raw
+            if ($content -match "# AI-Assisted Workflows v.*Auto-generated") {
+                Complete-Test "Global Rules Handling" $true "Global rules properly handled with version header"
+            } else {
+                # For now, this might fail if Handle-GlobalRules isn't implemented yet
+                Complete-Test "Global Rules Handling" $false "Global rules handling needs implementation (expected for current version)"
+            }
         } else {
-            # For now, this might fail if Handle-GlobalRules isn't implemented yet
-            Complete-Test "Global Rules Handling" $false "Global rules handling needs implementation (expected for current version)"
+            Complete-Test "Global Rules Handling" $false "claude.md not created"
         }
     } catch {
         $errorMessage = $_.Exception.Message

@@ -1,10 +1,12 @@
 name: Comprehensive Code Analysis
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  # Temporarily disabled - uncomment to re-enable
+  # push:
+  #   branches: [main, develop]
+  # pull_request:
+  #   branches: [main, develop]
+  workflow_dispatch: # Manual trigger only
   schedule:
     # Weekly continuous improvement cycle (Mondays at 2 AM UTC)
     - cron: "0 2 * * 1"

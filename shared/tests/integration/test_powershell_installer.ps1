@@ -7,14 +7,7 @@ param(
     [string]$TestDir = "$env:TEMP\powershell-installer-tests"
 )
 
-# Import test helpers
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$helpersScript = Join-Path $scriptDir "powershell-test-helpers.ps1"
-if (Test-Path $helpersScript) {
-    . $helpersScript
-} else {
-    Write-Warning "Test helpers not found: $helpersScript"
-}
+# Test helpers were removed as they were not being used
 
 # Test configuration
 $script:TestResults = @()

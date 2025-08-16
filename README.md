@@ -25,18 +25,19 @@
 Due to the programmatic analysis scripts, theres quite a lot of dependencies installed
 full list of libraries used and languages supported found here [analysis script details](https://github.com/adam-versed/ai-assisted-workflows/docs/analysis-scripts.md)
 
-**Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin
+**Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin, SQL, and more
 
-| Language                      | Test Coverage                | Performance Baseline          | Import Analysis         | Bottleneck Detection    |
-| ----------------------------- | ---------------------------- | ----------------------------- | ----------------------- | ----------------------- |
-| **Python**                    | ✅ pytest, coverage          | ✅ cProfile, memory-profiler  | ✅ import patterns      | ✅ AST analysis         |
-| **JavaScript**                | ✅ jest, nyc, c8             | ✅ npm scripts, profiling     | ✅ import/require       | ✅ performance patterns |
-| **TypeScript**                | ✅ jest, nyc, c8             | ✅ npm scripts, profiling     | ✅ import patterns      | ✅ performance patterns |
-| **Java**                      | ✅ junit, jacoco             | ✅ maven/gradle, JFR          | ✅ import statements    | ✅ performance patterns |
-| **Go**                        | ✅ go test, coverage         | ✅ go build, benchmarks       | ✅ import patterns      | ✅ performance patterns |
-| **Rust**                      | ✅ cargo test, tarpaulin     | ✅ cargo bench, flamegraph    | ✅ use statements       | ✅ performance patterns |
-| **C#**                        | ✅ dotnet test, coverlet     | ✅ dotnet build, profiling    | ✅ using statements     | ✅ performance patterns |
-| **PHP/Ruby/C++/Swift/Kotlin** | ✅ Basic framework detection | ✅ Language-specific patterns | ✅ Full import analysis | ✅ performance patterns |
+| Language            | Test Coverage            | Performance Baseline          | Import Analysis         | Bottleneck Detection    |
+| ------------------- | ------------------------ | ----------------------------- | ----------------------- | ----------------------- |
+| **Python**          | ✅ pytest, coverage      | ✅ cProfile, memory-profiler  | ✅ import patterns      | ✅ AST analysis         |
+| **JavaScript**      | ✅ jest, nyc, c8         | ✅ npm scripts, profiling     | ✅ import/require       | ✅ performance patterns |
+| **TypeScript**      | ✅ jest, nyc, c8         | ✅ npm scripts, profiling     | ✅ import patterns      | ✅ performance patterns |
+| **Java**            | ✅ junit, jacoco         | ✅ maven/gradle, JFR          | ✅ import statements    | ✅ performance patterns |
+| **Go**              | ✅ go test, coverage     | ✅ go build, benchmarks       | ✅ import patterns      | ✅ performance patterns |
+| **Rust**            | ✅ cargo test, tarpaulin | ✅ cargo bench, flamegraph    | ✅ use statements       | ✅ performance patterns |
+| **C#**              | ✅ dotnet test, coverlet | ✅ dotnet build, profiling    | ✅ using statements     | ✅ performance patterns |
+| **SQL**             | ✅ SQLFluff integration  | ✅ Query performance analysis | ✅ Schema dependencies  | ✅ Query optimization   |
+| **Other Languages** | ✅ Framework detection   | ✅ Language-specific patterns | ✅ Full import analysis | ✅ Performance patterns |
 
 ## Core Principles
 

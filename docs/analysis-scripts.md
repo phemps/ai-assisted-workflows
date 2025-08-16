@@ -2,72 +2,94 @@
 
 ## Python Libraries and Dependencies
 
+### Core Dependencies
+
+- `python-dotenv>=0.19.0` - Environment variable management
+- `requests>=2.25.0` - HTTP requests for external API integrations
+- `pathlib2>=2.3.5` - Backport for older Python versions
+
 ### Security Analysis
 
-- `bandit` - Security linting and vulnerability detection
-- `safety` - Known vulnerability scanning against CVE database
-- `semgrep` - Static analysis security scanner
+- `bandit>=1.7.0` - Python security linting
+- `safety>=2.0.0` - Vulnerability scanning against CVE database
+- `semgrep>=1.45.0` - Semantic static analysis security scanner (replacing bespoke patterns)
+- `detect-secrets>=1.4.0` - Hardcoded secrets detection (replacing regex patterns)
+- `sqlfluff>=2.3.0` - SQL linting and security analysis
 
 ### Performance Analysis
 
-- `psutil` - System and process monitoring utilities
-- `memory-profiler` - Memory usage profiling and tracking
-- `py-spy` - Python profiler for performance analysis (Unix only)
+- `psutil>=5.8.0` - System and process monitoring utilities
+- `memory-profiler>=0.60.0` - Memory usage profiling and tracking
+- `py-spy>=0.3.0` - Python profiler for performance analysis (Unix only)
+- `perflint>=0.7.0` - Performance anti-pattern detection (PERF error codes)
+- `flake8-comprehensions>=3.10.0` - List/dict comprehension performance rules
+- `flake8-bugbear>=23.3.0` - Bug and performance issue detection
 
 ### Code Quality Analysis
 
-- `flake8` - Python style guide enforcement (PEP 8)
-- `pylint` - Comprehensive code analysis and linting
-- `radon` - Code complexity metrics (cyclomatic, halstead)
-- `lizard` - Advanced complexity analysis for multiple languages
-- `vulture` - Dead code detection and cleanup
-- `mccabe` - Complexity checker for functions
+- `flake8>=4.0.0` - Python style guide enforcement (PEP 8)
+- `pylint>=2.12.0` - Comprehensive code analysis and linting
+- `radon>=5.1.0` - Code complexity metrics (cyclomatic, halstead)
+- `lizard>=1.17.0` - Advanced complexity analysis for multiple languages
+- `vulture>=2.3` - Dead code detection and cleanup
+- `mccabe>=0.6.0` - Complexity checker for functions
 
 ### Architecture Analysis
 
-- `pydeps` - Dependency analysis and visualization
-- `networkx` - Graph analysis for architectural patterns
+- `pydeps>=1.10.0` - Dependency analysis and visualization
+- `networkx>=2.6.0` - Graph analysis for architectural patterns
 
-### Multi-Language Testing Framework Detection
+### Development and Testing
 
-- `pytest` - Python testing framework and coverage analysis
-- `pytest-cov` - Python test coverage measurement
-- `jest` - JavaScript/TypeScript testing framework and coverage
-- `nyc` - JavaScript/TypeScript code coverage tool
-- `c8` - JavaScript/TypeScript native V8 coverage
-- `jacoco` - Java code coverage library
-- `cobertura` - Java/C# XML-based coverage reporting
-- `go test` - Go built-in testing and coverage
-- `tarpaulin` - Rust code coverage tool
-- `grcov` - Rust coverage data collection
-- `coverlet` - .NET Core coverage framework
-- `dotcover` - JetBrains .NET coverage tool
-- `simplecov` - Ruby code coverage analysis
-- `phpunit` - PHP testing framework with coverage
-- `xdebug` - PHP debugger and coverage tool
-- `gcov` - GNU coverage testing tool (C/C++)
-- `lcov` - Linux Test Project coverage visualization
-- `llvm-cov` - LLVM coverage mapping tool
-- `swift test` - Swift package manager testing
-- `xccov` - Xcode command-line coverage tool
-- `kover` - Kotlin code coverage engine
+- `pytest>=6.2.0` - Python testing framework
+- `pytest-cov>=3.0.0` - Python test coverage measurement
+- `black>=22.0.0` - Opinionated code formatting
+- `isort>=5.10.0` - Import statement organization
 
-### Development Tools
+### Foundation Layer - Agent Orchestration
 
-- `black` - Opinionated code formatting
-- `isort` - Import statement organization
+- `pyyaml>=6.0` - YAML configuration parsing
+- `jinja2>=3.0.0` - Template rendering for dynamic commands
+- `click>=8.0.0` - CLI framework for command processing
+- `rich>=12.0.0` - Rich terminal output and progress bars
+- `typing-extensions>=4.0.0` - Enhanced type hints for Python <3.9
 
-### Core Dependencies
+### Foundation Layer - Cross-Platform Support
 
-- `requests` - HTTP requests for external API integrations
-- `python-dotenv` - Environment variable management
+- `platformdirs>=2.5.0` - Cross-platform directory detection
+- `shutil-backports>=1.0.0` - Enhanced file operations (Python <3.8)
+- `subprocess32>=3.5.4` - Backport subprocess improvements (Python <3.2)
 
-## MCP Tools Integration
+### Foundation Layer - State Management
 
-### Available MCP Tools
+- `filelock>=3.8.0` - File-based locking for task coordination
+- `watchdog>=2.1.0` - File system monitoring for dynamic updates
 
-- **`sequential-thinking`** - Multi-step reasoning and analysis breakdown (enables `--seq` flag)
-- **`grep`** - Searches git repositories for matching code (enables `--gitgrep` flag)
+### Continuous Improvement Framework
+
+- `faiss-cpu>=1.7.0` - Vector similarity search for semantic duplicate detection
+- `transformers>=4.21.0` - Pre-trained models for code analysis
+- `torch>=1.12.0` - Deep learning framework for embeddings
+- `sentence-transformers>=2.2.0` - Sentence embeddings for code similarity
+- `tokenizers>=0.13.0` - Fast tokenization for code analysis
+- `numpy>=1.21.0` - Scientific computing and array operations
+- `scipy>=1.7.0` - Advanced scientific computing
+- `scikit-learn>=1.0.0` - Machine learning algorithms
+- `datasets>=2.0.0` - Dataset management and processing
+- `uvx>=0.0.1` - Python package executor for MCP integration
+- `dataclasses>=0.6` - Backport for older Python versions
+
+### Frontend Analysis (Required - Node.js)
+
+These dependencies are automatically installed by the installer via npm:
+- `eslint@latest` - JavaScript/TypeScript linting
+- `@typescript-eslint/parser@latest` - TypeScript parsing for ESLint
+- `@typescript-eslint/eslint-plugin@latest` - TypeScript-specific linting rules
+- `eslint-plugin-react@latest` - React-specific linting rules
+- `eslint-plugin-react-hooks@latest` - React Hooks linting rules
+- `eslint-plugin-import@latest` - Import/export syntax checking
+- `eslint-plugin-vue@latest` - Vue.js-specific linting rules
+- `eslint-plugin-svelte@latest` - Svelte-specific linting rules
 
 ## Installation Details
 
@@ -75,29 +97,47 @@
 
 ```bash
 # Current directory (uses ./.claude/)
-./install.sh
+./claude-code/install.sh
 
 # User global (uses ~/.claude/)
-./install.sh ~
+./claude-code/install.sh ~
 
 # Custom location
-./install.sh /my/project/path
+./claude-code/install.sh /my/project/path
 
 # Advanced options
-./install.sh --dry-run       # Preview changes without making modifications
-./install.sh --verbose      # Enable detailed debug output
-./install.sh --skip-mcp     # Skip MCP tools installation (Python scripts only)
-./install.sh --skip-python  # Skip Python dependencies installation
-./install.sh --help         # Show detailed help and usage information
+./claude-code/install.sh --dry-run       # Preview changes without making modifications
+./claude-code/install.sh --verbose      # Enable detailed debug output
+./claude-code/install.sh --skip-mcp     # Skip MCP tools installation (Python scripts only)
+./claude-code/install.sh --skip-python  # Skip Python dependencies installation
+./claude-code/install.sh --help         # Show detailed help and usage information
 ```
+
+### Dependencies Installation
+
+The installer automatically handles all dependencies:
+
+**Python Dependencies:**
+- Runs `shared/setup/install_dependencies.py` to install packages from `shared/setup/requirements.txt`
+- Optionally installs CI framework dependencies from `shared/setup/ci/requirements.txt`
+- Validates Python 3.7+ compatibility
+
+**Node.js Dependencies:**
+- Automatically installs ESLint and plugins via npm if not present
+- Creates a `package.json` in the installation directory
+- Installs comprehensive frontend analysis tools (ESLint, TypeScript, React, Vue, Svelte plugins)
+
+**Installation Tracking:**
+- Creates an installation log for clean uninstallation tracking
+- Tracks which packages were pre-existing vs newly installed
 
 ### Handling Existing .Claude Installations
 
 **Automatic Backup:** All installation options automatically create a timestamped backup of your existing installation before making any changes.
 
-The installer automatically detects existing `.claude` directories and the interactive terminal install will offer four options:
+The installer automatically detects existing `.claude` directories and offers four options:
 
-1. **Fresh Install:** install fresh (complete replacement)
+1. **Fresh Install:** Complete replacement of existing installation
 2. **Merge:** Preserve user customizations while adding new features (no overwrites)
 3. **Update Workflows Only:** Update built-in commands and scripts while preserving custom commands and all other files (recommended for updates)
 4. **Cancel:** Exit without changes
@@ -123,7 +163,7 @@ To safely remove AI-Assisted Workflows components while preserving your .claude 
 **Smart Uninstall Features:**
 
 - **📦 Safe Removal**: Only removes workflow components, preserves .claude structure and user files
-- **⚠️ Dependency Tracking**: Distinguishes pre-existing vs newly installed Python packages/MCP servers
+- **⚠️ Dependency Tracking**: Distinguishes pre-existing vs newly installed Python packages/MCP servers using installation-log.txt
 - **💾 Automatic Backups**: Creates backups of MCP configuration and claude.md before changes
 - **🧹 Thorough Cleanup**: Removes **pycache** folders and empty directories
 - **📝 Installation Log**: Uses installation-log.txt to provide intelligent removal warnings
@@ -133,11 +173,194 @@ The uninstaller will interactively prompt for each Python package and MCP server
 - **🔧 Newly installed** by AI-Assisted Workflows (safer to remove)
 - **⚠️ Pre-existing** before installation (likely used by other projects - caution advised)
 
+## BaseAnalyzer Framework
+
+### Shared Infrastructure
+
+All analysis tools extend the `BaseAnalyzer` class (`shared/core/base/analyzer_base.py`) which provides:
+
+- **File Scanning**: Intelligent file discovery with gitignore support and configurable filters
+- **CLI Interface**: Consistent command-line arguments (--verbose, --output-format, --max-files, etc.)
+- **Result Formatting**: JSON, table, and report output formats
+- **Error Handling**: Robust error handling with detailed logging
+- **Validation**: Strict input validation with no placeholder logic
+- **Performance**: Built-in timing and progress tracking
+
+### Design Principles
+
+- **No Placeholder Logic**: All analyzers produce real, actionable findings
+- **Established Tools**: Leverages proven tools (Semgrep, Lizard, detect-secrets) over bespoke implementations
+- **Consistent Interface**: All analyzers share the same CLI patterns and output formats
+- **Extensible**: Easy to add new analyzers by extending BaseAnalyzer
+
+## Analysis Scripts Architecture
+
+The analysis system is organized under `shared/` with the following structure:
+
+```
+shared/
+├── analyzers/               # 19 Analysis Tools by Category
+│   ├── security/           # Security vulnerability detection
+│   │   ├── semgrep_analyzer.py
+│   │   └── detect_secrets_analyzer.py
+│   ├── performance/        # Performance analysis and optimization
+│   │   ├── profile_code.py
+│   │   ├── performance_baseline.py
+│   │   ├── analyze_frontend.py
+│   │   ├── flake8_performance_analyzer.py
+│   │   └── sqlfluff_analyzer.py
+│   ├── architecture/       # Design and architectural analysis
+│   │   ├── dependency_analysis.py
+│   │   ├── coupling_analysis.py
+│   │   ├── scalability_check.py
+│   │   └── pattern_evaluation.py
+│   ├── quality/           # Code quality and complexity metrics
+│   │   ├── complexity_lizard.py
+│   │   ├── code_duplication_analyzer.py
+│   │   ├── coverage_analysis.py
+│   │   ├── pattern_classifier.py
+│   │   └── analysis_engine.py
+│   └── root_cause/        # Debugging and error analysis
+│       ├── error_patterns.py
+│       ├── recent_changes.py
+│       └── trace_execution.py
+├── core/base/             # BaseAnalyzer framework
+├── ci/                    # Continuous improvement framework
+├── setup/                 # Installation and dependency management
+├── generators/            # Code generation utilities
+├── tests/                 # Integration tests
+└── utils/                 # Shared utilities
+```
+
+### Security Analysis (2 Analyzers)
+
+**`semgrep_analyzer.py`** - Semantic Static Analysis Security Scanner
+- OWASP Top 10 vulnerability detection using Semgrep's semantic analysis
+- Multi-language support with native language parsers
+- Real-time rule updates from security community
+- Replaces bespoke regex patterns with established semantic analysis
+
+**`detect_secrets_analyzer.py`** - Hardcoded Secrets Detection
+- Identifies API keys, passwords, tokens in source code
+- Uses entropy-based detection and known patterns
+- Supports multiple secret types and custom patterns
+- Replaces manual regex-based secret scanning
+
+### Performance Analysis (5 Analyzers)
+
+**`profile_code.py`** - Code Profiling and Bottleneck Detection
+- Performance profiling using cProfile and memory-profiler
+- Identifies CPU and memory bottlenecks
+- Generates performance reports with hotspot analysis
+- Cross-platform profiling support
+
+**`performance_baseline.py`** - Performance Baseline Establishment
+- Establishes performance baselines for critical code paths
+- Tracks performance regression over time
+- Supports custom performance metrics and thresholds
+- Integration with CI/CD pipelines
+
+**`analyze_frontend.py`** - Frontend Performance Analysis
+- JavaScript/TypeScript performance analysis
+- Bundle size analysis and optimization suggestions
+- React/Vue/Angular specific performance patterns
+- Integration with ESLint performance plugins
+
+**`flake8_performance_analyzer.py`** - Python Performance Anti-patterns
+- Uses flake8-bugbear and perflint for performance issue detection
+- Identifies inefficient list comprehensions and loops
+- Detects memory leaks and resource management issues
+- PERF error codes for systematic performance improvements
+
+**`sqlfluff_analyzer.py`** - SQL Performance and Security Analysis
+- SQL query performance analysis using SQLFluff
+- Identifies inefficient queries and missing indexes
+- SQL security vulnerability detection
+- Multi-dialect SQL support
+
+### Architecture Analysis (4 Analyzers)
+
+**`dependency_analysis.py`** - Dependency Graph Analysis
+- Analyzes import dependencies and circular references
+- Generates dependency graphs using NetworkX
+- Identifies architectural violations and tight coupling
+- Supports multiple languages and module systems
+
+**`coupling_analysis.py`** - Module Coupling Metrics
+- Measures coupling between modules and classes
+- Identifies high coupling that affects maintainability
+- Provides refactoring suggestions for decoupling
+- Generates coupling heat maps and reports
+
+**`scalability_check.py`** - Scalability Assessment
+- Analyzes code patterns for scalability issues
+- Identifies performance bottlenecks under load
+- Database query analysis for scalability
+- Concurrent programming pattern analysis
+
+**`pattern_evaluation.py`** - Architecture Pattern Evaluation
+- Evaluates adherence to architectural patterns (MVC, DDD, etc.)
+- Identifies anti-patterns and code smells
+- Suggests architectural improvements
+- Pattern compliance scoring and reporting
+
+### Quality Analysis (5 Analyzers)
+
+**`complexity_lizard.py`** - Code Complexity Analysis
+- Uses Lizard for multi-language complexity analysis
+- Cyclomatic complexity, Halstead metrics, and NLOC
+- Identifies overly complex functions and classes
+- Supports Python, JavaScript, Java, C++, and more
+
+**`code_duplication_analyzer.py`** - Duplicate Code Detection
+- Identifies code duplication across files and projects
+- Semantic similarity analysis using embeddings
+- Refactoring suggestions for duplicate code elimination
+- Configurable similarity thresholds
+
+**`coverage_analysis.py`** - Test Coverage Analysis
+- Multi-language test coverage analysis
+- Integration with pytest, jest, junit, and other frameworks
+- Coverage gap identification and recommendations
+- Historical coverage trend analysis
+
+**`pattern_classifier.py`** - Code Pattern Classification
+- Classifies code patterns and architectural elements
+- Identifies design patterns in use
+- Anti-pattern detection and remediation suggestions
+- Machine learning-based pattern recognition
+
+**`analysis_engine.py`** - Unified Quality Analysis Engine
+- Orchestrates multiple quality analyzers
+- Aggregates results and provides unified scoring
+- Quality gate enforcement for CI/CD pipelines
+- Customizable quality rules and thresholds
+
+### Root Cause Analysis (3 Analyzers)
+
+**`error_patterns.py`** - Error Pattern Analysis
+- Analyzes error logs and stack traces for patterns
+- Identifies common failure modes and root causes
+- Correlation analysis between errors and code changes
+- Automated error categorization and prioritization
+
+**`recent_changes.py`** - Recent Change Impact Analysis
+- Analyzes git history for potential error causes
+- Correlates recent changes with system failures
+- Identifies high-risk changes and contributors
+- Change impact assessment and blast radius analysis
+
+**`trace_execution.py`** - Execution Trace Analysis
+- Analyzes execution traces for performance and correctness
+- Identifies execution paths leading to errors
+- Performance bottleneck identification in traces
+- Distributed tracing support for microservices
+
 ## Security Analysis Details
 
 ### OWASP Top 10 Coverage
 
-The security analysis provides comprehensive OWASP testing criteria coverage through automated vulnerability detection.
+The security analysis provides comprehensive OWASP testing criteria coverage through automated vulnerability detection using Semgrep's semantic analysis engine.
 
 **Example with included test_codebase:**
 
@@ -147,43 +370,44 @@ The security analysis provides comprehensive OWASP testing criteria coverage thr
 
 **Detected Issues:**
 
-- **A01: Injection** → SQL injection in authentication
-- **A02: Cryptographic Failures** → Hardcoded JWT secrets
-- **A03: Injection** → Command injection via eval()
-- **A07: Identity Failures** → Weak authentication patterns
-
-## Analysis Scripts Architecture
-
-**25 Analysis Scripts Organized by Category:**
-
-```
-claude/scripts/analyze/
-├── security/        # OWASP Top 10 vulnerability detection
-├── performance/     # Bottleneck detection, baseline establishment
-├── architecture/    # Design analysis, coupling detection
-├── code_quality/    # Complexity metrics, test coverage analysis
-└── root_cause/      # Debugging and error pattern analysis
-```
+- **A01: Injection** → SQL injection in authentication (detected by Semgrep semantic analysis)
+- **A02: Cryptographic Failures** → Hardcoded JWT secrets (detected by detect-secrets)
+- **A03: Injection** → Command injection via eval() (detected by Semgrep patterns)
+- **A07: Identity Failures** → Weak authentication patterns (detected by Semgrep rules)
 
 ## Programming Language Support
 
 ### Universal Analysis (All Languages)
 
-**Security:** Vulnerability scanning, secret detection, authentication analysis
+**Security:** Vulnerability scanning via Semgrep, secret detection, authentication analysis
 **Architecture:** Dependency analysis, coupling detection, scalability assessment
-**Code Quality:** Complexity metrics (via Lizard), dead code detection
+**Code Quality:** Complexity metrics via Lizard, dead code detection
+
+### Established Tools Integration
+
+The analysis system leverages proven, established tools rather than bespoke implementations:
+
+| Category | Tool | Languages Supported | Analysis Type |
+|----------|------|-------------------|---------------|
+| **Security** | Semgrep | 30+ languages | Semantic vulnerability detection |
+| **Security** | detect-secrets | All text files | Hardcoded secrets detection |
+| **Quality** | Lizard | 20+ languages | Complexity analysis |
+| **Performance** | Language-specific profilers | Python, JS/TS, Java, Go, Rust | Performance profiling |
+| **SQL** | SQLFluff | All SQL dialects | SQL quality and security |
+| **Frontend** | ESLint ecosystem | JavaScript, TypeScript | Performance and quality |
 
 ### Language-Specific Analysis
 
-**Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin
+**Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin, SQL, and more
 
-| Language                      | Test Coverage                | Performance Baseline          | Import Analysis         | Bottleneck Detection    |
-| ----------------------------- | ---------------------------- | ----------------------------- | ----------------------- | ----------------------- |
-| **Python**                    | ✅ pytest, coverage          | ✅ cProfile, memory-profiler  | ✅ import patterns      | ✅ AST analysis         |
-| **JavaScript**                | ✅ jest, nyc, c8             | ✅ npm scripts, profiling     | ✅ import/require       | ✅ performance patterns |
-| **TypeScript**                | ✅ jest, nyc, c8             | ✅ npm scripts, profiling     | ✅ import patterns      | ✅ performance patterns |
-| **Java**                      | ✅ junit, jacoco             | ✅ maven/gradle, JFR          | ✅ import statements    | ✅ performance patterns |
-| **Go**                        | ✅ go test, coverage         | ✅ go build, benchmarks       | ✅ import patterns      | ✅ performance patterns |
-| **Rust**                      | ✅ cargo test, tarpaulin     | ✅ cargo bench, flamegraph    | ✅ use statements       | ✅ performance patterns |
-| **C#**                        | ✅ dotnet test, coverlet     | ✅ dotnet build, profiling    | ✅ using statements     | ✅ performance patterns |
-| **PHP/Ruby/C++/Swift/Kotlin** | ✅ Basic framework detection | ✅ Language-specific patterns | ✅ Full import analysis | ✅ performance patterns |
+| Language | Test Coverage | Performance Baseline | Import Analysis | Bottleneck Detection |
+|----------|--------------|---------------------|-----------------|---------------------|
+| **Python** | ✅ pytest, coverage | ✅ cProfile, memory-profiler | ✅ import patterns | ✅ AST analysis |
+| **JavaScript** | ✅ jest, nyc, c8 | ✅ npm scripts, profiling | ✅ import/require | ✅ performance patterns |
+| **TypeScript** | ✅ jest, nyc, c8 | ✅ npm scripts, profiling | ✅ import patterns | ✅ performance patterns |
+| **Java** | ✅ junit, jacoco | ✅ maven/gradle, JFR | ✅ import statements | ✅ performance patterns |
+| **Go** | ✅ go test, coverage | ✅ go build, benchmarks | ✅ import patterns | ✅ performance patterns |
+| **Rust** | ✅ cargo test, tarpaulin | ✅ cargo bench, flamegraph | ✅ use statements | ✅ performance patterns |
+| **C#** | ✅ dotnet test, coverlet | ✅ dotnet build, profiling | ✅ using statements | ✅ performance patterns |
+| **SQL** | ✅ SQLFluff integration | ✅ Query performance analysis | ✅ Schema dependencies | ✅ Query optimization |
+| **Other Languages** | ✅ Framework detection | ✅ Language-specific patterns | ✅ Full import analysis | ✅ Performance patterns |

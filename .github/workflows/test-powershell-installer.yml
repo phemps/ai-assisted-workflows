@@ -149,7 +149,7 @@ jobs:
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 
           # Run the test suite
-          $testScript = "shared/tests/integration/test_powershell_installer.ps1"
+          $testScript = "shared/tests/integration/test_powershell_simple.ps1"
           if (Test-Path $testScript) {
               Write-Output "Running PowerShell installer tests..."
               & $testScript -TestScenario $env:TEST_SCENARIO -Verbose

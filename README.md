@@ -20,7 +20,38 @@
 /add-serena-mcp                       # Recommended per project mcp lsp tool
 ```
 
+**Dependencies:**
+
+Due to the programmatic analysis scripts, theres quite a lot of dependencies installed
+full list of libraries used and languages supported found here [analysis script details](https://github.com/adam-versed/ai-assisted-workflows/docs/analysis-scripts.md)
+
+**Supported Languages:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin
+
+| Language                      | Test Coverage                | Performance Baseline          | Import Analysis         | Bottleneck Detection    |
+| ----------------------------- | ---------------------------- | ----------------------------- | ----------------------- | ----------------------- |
+| **Python**                    | ✅ pytest, coverage          | ✅ cProfile, memory-profiler  | ✅ import patterns      | ✅ AST analysis         |
+| **JavaScript**                | ✅ jest, nyc, c8             | ✅ npm scripts, profiling     | ✅ import/require       | ✅ performance patterns |
+| **TypeScript**                | ✅ jest, nyc, c8             | ✅ npm scripts, profiling     | ✅ import patterns      | ✅ performance patterns |
+| **Java**                      | ✅ junit, jacoco             | ✅ maven/gradle, JFR          | ✅ import statements    | ✅ performance patterns |
+| **Go**                        | ✅ go test, coverage         | ✅ go build, benchmarks       | ✅ import patterns      | ✅ performance patterns |
+| **Rust**                      | ✅ cargo test, tarpaulin     | ✅ cargo bench, flamegraph    | ✅ use statements       | ✅ performance patterns |
+| **C#**                        | ✅ dotnet test, coverlet     | ✅ dotnet build, profiling    | ✅ using statements     | ✅ performance patterns |
+| **PHP/Ruby/C++/Swift/Kotlin** | ✅ Basic framework detection | ✅ Language-specific patterns | ✅ Full import analysis | ✅ performance patterns |
+
+## Core Principles
+
+- Minmise token usage
+  - what can be offloaded to programmatic scripts is
+  - just in time i.e. on loaded when needed, unless it impacts system accuracy
+- Hybrid approach - Combines LLM intelligence with programmatic scripts for accuracy and repeatability
+- Platform agnostic - not achieved yet, but once main prompts have stabilised going to use a templating system to allow people to roll out commands to any supported platform, starting with claude code, opencode will be next.
+- Focus on LLM strengths, mitigate its weaknessess
+  - good at scale, in the moment contextual flexibility, pattern matching
+  - bad at repeatability and predictability
+
 ### Core Features
+
+Implemented either by slash commands, agents, rules/user modes, programmatic scripts and git actions - the idea is to create a useful, flexible tool kit that involves the developer at the heart, not to abstract them away.
 
 **🔍 Intelligent Code Analysis**
 
@@ -42,20 +73,76 @@
 
 **⚡ Dynamic Quality Gates**
 
+`/add-code-precommit-checks`
+
 - Automatic detection of build, test, and lint commands
 - Tech stack-aware validation (Node.js, Python, Rust, Go, etc.)
 - Configurable quality thresholds per project
 - Integration with existing CI/CD pipelines
 
-### Quick Start
+## 📊 Development Monitoring System
 
-# Trigger comprehensive workflow orchestration
+**What you see after `/setup-dev-monitoring`:**
+
+![Stack Detection](images/stack-detection-analysis.png)
+_Smart stack detection: Auto-identifies React Native + Expo, tRPC + TypeScript, and sets up optimal monitoring_
+
+![Unified Logs](images/dev-logs-unified.png)
+_Timestamped unified logging: All services stream to `/dev.log` - Claude can query logs directly_
+
+![Service Status](images/service-status-dashboard.png)
+_Real-time service monitoring: Live status for API and Mobile services with health indicators_
+
+**Key Monitoring Features:**
+
+- 🚀 **Live service status**: Real-time health indicators for all services
+- 📊 **Unified logging**: All logs stream to `/dev.log` with timestamps
+- 🔍 **Smart analysis**: Auto-detects tech stack and configures monitoring
+- ⚡ **Hot reload tracking**: File watching and change detection
+- 🛠️ **Available commands**: `make dev`, `make status`, `make logs`
+
+## Build Flags
+
+Global user modes existing which make certain rules apply when their argument is included within
+a user request:
+
+**Mode Flags:** `--prototype` (rapid POC), `--tdd` (test-driven)
+
+## WIP
+
+- eval system for testing key KPI's so we can iterate system effectively
+- Github action continous improvement, monitoring code quality (placeholder usage, code duplication) with automated issue raise and address
+- more agent templates, mainly focusing on specific tech i.e. typescript agent etc
+- code templating system using jinja
+- new pair programming paradigm
+
+## Slash commands
+
+Various slash commands to support developers in commont tasks, from programmatic code analysis for consistent results (non deterministic) to context aware project setup and solution planning
+
+### Trigger workflow orchestration
 
 claude /todo-orchestrate implementation-plan.md
 
-# Add quality gates to your project
+### Add quality gates to your project
 
 claude /add-code-precommit-checks
+
+### Perform analysis on your codebase
+
+claude /analyze-security
+
+### Find root cause of an error
+
+claude /analyze-root-cause "Exception: TypeError: Cannot read property 'foo' of undefined"
+
+### explore tech solution options
+
+claude /plan-solution whats the cheapest approach for a self hosted stt system
+
+### create a base project using better t stack
+
+claude /create-project [project-name] --from-todos [todos-file-path]
 
 ## 🚀 Workflow Examples
 
@@ -108,48 +195,6 @@ claude /add-code-precommit-checks
 # - Set up quality gates matching your build tools
 # - Begin monitoring for code quality improvements
 ```
-
-## 🛠️ Available Commands
-
-### Core Workflow Commands
-
-**Analysis:** `/analyze-security`, `/analyze-architecture`, `/analyze-performance`, `/analyze-code-quality`
-**Planning:** `/plan-solution`, `/plan-ux-prd`, `/plan-refactor`
-**Project Setup:** `/create-project` - Initialize with [better-t-stack.dev](https://better-t-stack.dev/new)
-**Implementation:** `/todo-orchestrate`, `/todo-worktree`
-**Fixes:** `/fix-bug`, `/fix-performance`
-
-### Continuous Improvement Commands (WIP, not ready yet)
-
-**Setup:** `/setup-ci-monitoring` - Initialize AI-powered code quality system
-**Monitoring:** `/ci-monitoring-status` - Health check and activity overview
-
-### Build Flags
-
-**Mode Flags:** `--prototype` (rapid POC), `--tdd` (test-driven)
-
-## 📊 Development Monitoring System
-
-**What you see after `/setup-dev-monitoring`:**
-
-![Stack Detection](images/stack-detection-analysis.png)
-_Smart stack detection: Auto-identifies React Native + Expo, tRPC + TypeScript, and sets up optimal monitoring_
-
-![Unified Logs](images/dev-logs-unified.png)
-_Timestamped unified logging: All services stream to `/dev.log` - Claude can query logs directly_
-
-![Service Status](images/service-status-dashboard.png)
-_Real-time service monitoring: Live status for API and Mobile services with health indicators_
-
-**Key Monitoring Features:**
-
-- 🚀 **Live service status**: Real-time health indicators for all services
-- 📊 **Unified logging**: All logs stream to `/dev.log` with timestamps
-- 🔍 **Smart analysis**: Auto-detects tech stack and configures monitoring
-- ⚡ **Hot reload tracking**: File watching and change detection
-- 🛠️ **Available commands**: `make dev`, `make status`, `make logs`
-
-## 🏗️ Architecture Overview
 
 ### Directory Structure
 

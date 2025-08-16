@@ -47,7 +47,7 @@ function Test-SimpleExample {
         }
     } catch {
         $errMsg = $_.Exception.Message
-        Complete-Test "Simple Example" $false "Test failed: $errMsg"
+        Complete-Test "Simple Example" $false ("Test failed: " + $errMsg)
     }
 }
 
@@ -76,6 +76,6 @@ try {
 
 } catch {
     $errorMsg = $_.Exception.Message
-    Write-Output "Test suite failed: $errorMsg"
+    Write-Output ("Test suite failed: " + $errorMsg)
     exit 1
 }

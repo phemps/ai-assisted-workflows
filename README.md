@@ -31,7 +31,7 @@
 ### 🔧 Dependencies
 
 Due to the programmatic analysis scripts, there's quite a lot of dependencies installed.
-Full list of libraries used and languages supported found here: [analysis script details](https://github.com/adam-versed/ai-assisted-workflows/docs/analysis-scripts.md)
+Full list of libraries used and languages supported found here: [analysis script details](docs/analysis-scripts.md)
 
 ### 🌐 Supported Languages
 

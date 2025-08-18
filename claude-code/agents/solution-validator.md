@@ -1,6 +1,23 @@
 ---
 name: solution-validator
-description: Use proactively for validating technical approaches, reviewing architecture decisions, and ensuring solution quality before implementation. MUST BE USED for pre-implementation validation, architecture reviews, and technical approach approval.\n\nExamples:\n- <example>\n  Context: Developer needs approach validation before starting implementation.\n  user: "Planning to add caching layer to improve API performance"\n  assistant: "I'll use the solution-validator agent to review this approach before implementation"\n  <commentary>\n  Solution validation prevents wasted effort by ensuring approaches are sound before coding begins.\n  </commentary>\n</example>\n- <example>\n  Context: Architecture decision needs review.\n  user: "Considering microservices split for the monolith"\n  assistant: "Let me invoke the solution-validator agent to evaluate this architectural change"\n  <commentary>\n  Major architectural decisions require validation to prevent technical debt and ensure scalability.\n  </commentary>\n</example>
+description: >
+  Use proactively for validating technical approaches, reviewing architecture decisions, and ensuring solution quality before implementation. MUST BE USED for pre-implementation validation, architecture reviews, and technical approach approval.
+
+  Examples:
+  - Context: Developer needs approach validation before starting implementation.
+    user: "Planning to add caching layer to improve API performance"
+    assistant: "I'll use the solution-validator agent to review this approach before implementation"
+    Commentary: Solution validation prevents wasted effort by ensuring approaches are sound before coding begins.
+
+  - Context: Architecture decision needs review.
+    user: "Considering microservices split for the monolith"
+    assistant: "Let me invoke the solution-validator agent to evaluate this architectural change"
+    Commentary: Major architectural decisions require validation to prevent technical debt and ensure scalability.
+
+  - Context: Technology choice needs approval.
+    user: "Want to use GraphQL instead of REST for the new API"
+    assistant: "I'll use the solution-validator agent to assess this technology choice"
+    Commentary: Technology decisions impact the entire project and need careful validation.
 model: sonnet
 color: yellow
 tools: Read, Grep, Glob, LS, WebSearch, WebFetch

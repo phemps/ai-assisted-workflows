@@ -47,8 +47,8 @@
 
 ## Phase 4: System Dependencies Check and Install
 
-1. **Try project level first**: Use Glob tool to locate installer script: `**/scripts/setup/dev-monitoring/install_monitoring_dependencies.py`
-2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/setup/dev-monitoring/install_monitoring_dependencies.py`
+1. **Try project level first**: Use Glob tool to locate installer script: `**/scripts/setup/monitoring/install_monitoring_dependencies.py`
+2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/setup/monitoring/install_monitoring_dependencies.py`
 3. Execute dependency check and installation (script includes integrated prerequisite checking):
 
 ```bash
@@ -92,8 +92,8 @@ python [resolved_path]/install_monitoring_dependencies.py
 
 ## Phase 6: Makefile Generation
 
-1. Use Glob tool to locate Makefile generation script: `**/scripts/utils/generate_makefile.py`
-2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/utils/generate_makefile.py`
+1. Use Glob tool to locate Makefile generation script: `**/scripts/generators/makefile.py`
+2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/generators/makefile.py`
 3. Execute Makefile generation using component analysis from Phases 1-3:
 
 ```bash
@@ -125,8 +125,8 @@ python [resolved_path]/generate_makefile.py \
 
 ## Phase 7: Procfile Generation
 
-1. Use Glob tool to locate Procfile generation script: `**/scripts/utils/generate_procfile.py`
-2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/utils/generate_procfile.py`
+1. Use Glob tool to locate Procfile generation script: `**/scripts/generators/procfile.py`
+2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/generators/procfile.py`
 3. Execute Procfile generation using same component analysis from Phases 1-3:
 
 ```bash
@@ -160,8 +160,8 @@ python [resolved_path]/generate_procfile.py \
 
 ## Phase 8: Project CLAUDE.md Integration
 
-1. Use Glob tool to locate CLAUDE.md update script: `~/.claude/scripts/setup/dev-monitoring/update_claude_md.py`
-2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/setup/dev-monitoring/update_claude_md.py`
+1. Use Glob tool to locate CLAUDE.md update script: `~/.claude/scripts/setup/monitoring/update_claude_md.py`
+2. **If not found, try user level**: Use Bash tool to get home directory and construct path: `$HOME/.claude/scripts/setup/monitoring/update_claude_md.py`
 3. Execute CLAUDE.md update to add development workflow commands:
 
 ```bash

@@ -27,7 +27,7 @@ Execute architecture analysis scripts via Bash tool for measurable design metric
 3. **Interactive fallback if not found**:
    - List searched locations: `.claude/scripts/analyzers/architecture/` and `$HOME/.claude/scripts/analyzers/architecture/`
    - Ask user: "Could not locate architecture analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py)
+   - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py, dependency_analysis.py)
    - Set SCRIPT_PATH to user-provided location
 
 **THEN - Execute with resolved SCRIPT_PATH:**
@@ -36,6 +36,7 @@ Execute architecture analysis scripts via Bash tool for measurable design metric
 python [SCRIPT_PATH]/pattern_evaluation.py . --output-format json
 python [SCRIPT_PATH]/scalability_check.py . --output-format json
 python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
+python [SCRIPT_PATH]/dependency_analysis.py . --output-format json
 ```
 
 ### Architecture Assessment Areas

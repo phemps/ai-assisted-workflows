@@ -1,6 +1,23 @@
 ---
 name: quality-monitor
-description: Use proactively for independent quality verification after implementation. MUST BE USED for validating quality gates, verifying test results, and ensuring code meets all standards before approval.\n\nExamples:\n- <example>\n  Context: Developer has completed implementation and self-checks.\n  user: "Implementation complete, ready for quality review"\n  assistant: "I'll use the quality-monitor agent to independently verify all quality gates"\n  <commentary>\n  Independent quality verification prevents self-validation bias and ensures objective standards.\n  </commentary>\n</example>\n- <example>\n  Context: Quality gate failures need investigation.\n  user: "Tests are failing but developer says code is correct"\n  assistant: "I'll use the quality-monitor agent to investigate and provide objective assessment"\n  <commentary>\n  Quality monitor provides unbiased evaluation when there are disputes about code quality.\n  </commentary>\n</example>
+description: >
+  Use proactively for independent quality verification after implementation. MUST BE USED for validating quality gates, verifying test results, and ensuring code meets all standards before approval.
+
+  Examples:
+  - Context: Developer has completed implementation and self-checks.
+    user: "Implementation complete, ready for quality review"
+    assistant: "I'll use the quality-monitor agent to independently verify all quality gates"
+    Commentary: Independent quality verification prevents self-validation bias and ensures objective standards.
+
+  - Context: Pre-commit quality check needed.
+    user: "About to commit changes, need final quality verification"
+    assistant: "Let me invoke the quality-monitor agent to validate before commit"
+    Commentary: Final quality check before commits ensures only quality code enters the repository.
+
+  - Context: Quality gate failures need investigation.
+    user: "Tests are failing but developer says code is correct"
+    assistant: "I'll use the quality-monitor agent to investigate and provide objective assessment"
+    Commentary: Quality monitor provides unbiased evaluation when there are disputes about code quality.
 model: sonnet
 color: orange
 tools: Read, Bash, Grep, Glob, LS

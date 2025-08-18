@@ -1,6 +1,23 @@
 ---
 name: fullstack-developer
-description: Use proactively for implementing features across web and mobile platforms. MUST BE USED for coding tasks, API development, UI implementation, and cross-platform compatibility.\n\nExamples:\n- <example>\n  Context: Need to implement a new feature across platforms.\n  user: "Add real-time notifications to both web and mobile apps"\n  assistant: "I'll use the fullstack-developer agent to implement this feature across all platforms"\n  <commentary>\n  Fullstack developer handles both web and mobile implementation ensuring consistency.\n  </commentary>\n</example>\n- <example>\n  Context: Bug fix required across multiple codebases.\n  user: "Fix the authentication timeout issue affecting all clients"\n  assistant: "I'll use the fullstack-developer agent to fix this across web and mobile"\n  <commentary>\n  Coordinated fixes across platforms ensure consistent behavior.\n  </commentary>\n</example>
+description: >
+  Use proactively for implementing features across web and mobile platforms. MUST BE USED for coding tasks, API development, UI implementation, and cross-platform compatibility.
+
+  Examples:
+  - Context: Need to implement a new feature across platforms.
+    user: "Add real-time notifications to both web and mobile apps"
+    assistant: "I'll use the fullstack-developer agent to implement this feature across all platforms"
+    Commentary: Fullstack developer handles both web and mobile implementation ensuring consistency.
+
+  - Context: API endpoint needs to be created with frontend integration.
+    user: "Create user profile API and connect it to the UI"
+    assistant: "Let me invoke the fullstack-developer agent to build the complete stack"
+    Commentary: Developer implements end-to-end features from backend to frontend.
+
+  - Context: Bug fix required across multiple codebases.
+    user: "Fix the authentication timeout issue affecting all clients"
+    assistant: "I'll use the fullstack-developer agent to fix this across web and mobile"
+    Commentary: Coordinated fixes across platforms ensure consistent behavior.
 model: sonnet
 color: blue
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, TodoWrite

@@ -1,6 +1,23 @@
 ---
 name: git-manager
-description: Use proactively for managing version control operations, commits, and rollbacks. MUST BE USED for committing approved changes, handling pre-commit hooks, and managing git operations.\n\nExamples:\n- <example>\n  Context: Quality-approved changes need to be committed.\n  user: "Quality gates passed, ready to commit the authentication feature"\n  assistant: "I'll use the git-manager agent to commit these approved changes"\n  <commentary>\n  Git manager ensures only quality-approved code enters version control with proper commit messages.\n  </commentary>\n</example>\n- <example>\n  Context: Pre-commit hook failures need handling.\n  user: "Pre-commit hooks are failing on the commit"\n  assistant: "Let me invoke the git-manager agent to investigate and resolve the hook failures"\n  <commentary>\n  Git manager handles complex git operations and ensures hooks are satisfied.\n  </commentary>\n</example>
+description: >
+  Use proactively for managing version control operations, commits, and rollbacks. MUST BE USED for committing approved changes, handling pre-commit hooks, and managing git operations.
+
+  Examples:
+  - Context: Quality-approved changes need to be committed.
+    user: "Quality gates passed, ready to commit the authentication feature"
+    assistant: "I'll use the git-manager agent to commit these approved changes"
+    Commentary: Git manager ensures only quality-approved code enters version control with proper commit messages.
+
+  - Context: Pre-commit hook failures need handling.
+    user: "Pre-commit hooks are failing on the commit"
+    assistant: "Let me invoke the git-manager agent to investigate and resolve the hook failures"
+    Commentary: Git manager handles complex git operations and ensures hooks are satisfied.
+
+  - Context: Need to rollback after failed deployment.
+    user: "The last commit broke production, need to rollback"
+    assistant: "I'll use the git-manager agent to safely rollback to the previous stable state"
+    Commentary: Git manager handles critical rollback operations ensuring repository integrity.
 model: haiku
 color: black
 tools: Bash, Read, Grep

@@ -3,7 +3,7 @@
 - bring in code formatters
 - split up some of the rules files to fe/be
 - make tech specific coding agents + implement jinja templates
-- eval system
+- eval system using dspy
 - port prompts to centralised format with templates per implementation
 - opencode port plus install scripts
 - look at registry system beyond prototype duplication

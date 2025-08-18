@@ -1,25 +1,21 @@
-# analyze-ux v0.2
+# analyze-ux v0.3
 
-**Mindset**: "User-centered analysis" - User experience evaluation focusing on usability, accessibility, and user journey optimization.
+**Mindset**: "User-centered analysis" - User experience evaluation focusing on usability, accessibility, visual impact, design consistency and user journey optimization.
 
 ## Behavior
 
-Comprehensive UX analysis evaluating user interface design, accessibility compliance, and user workflow optimization.
+Invoke `@agent-ux-reviewer` and perform comprehensive analysis of $ARGUMENTS
 
-### UX Analysis Areas
+This verification ensures changes meet design standards and user requirements.
 
-- **Usability Assessment**: Interface design principles and user interaction patterns
-- **Accessibility Compliance**: WCAG guidelines and inclusive design evaluation
-- **User Journey Analysis**: Workflow efficiency and user experience optimization
-- **Visual Design**: Layout, typography, color usage, and visual hierarchy
-- **Performance Impact**: UI performance and user experience correlation
-- **Mobile Responsiveness**: Cross-device user experience consistency
+### Comprehensive Design Review
 
-## Output Requirements
+Invoke the `@agent-design-review` subagent for thorough design validation when:
 
-- UX assessment report with usability findings
-- Accessibility compliance evaluation with WCAG analysis
-- User journey optimization recommendations
-- Visual design improvement suggestions
+- Completing significant UI/UX features
+- Before finalizing PRs with visual changes
+- Needing comprehensive accessibility and responsiveness testing
 
-$ARGUMENTS
+## OBJECTIVE:
+
+Use the ux-reviewer agent to comprehensively review the $ARGUMENTS, and reply back to the user with analysis report. Your final reply must contain the markdown report and nothing else.

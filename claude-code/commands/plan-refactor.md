@@ -26,16 +26,15 @@
    3. **Interactive fallback if not found**:
       - List searched locations: `.claude/scripts/` and `$HOME/.claude/scripts/`
       - Ask user: "Could not locate analysis scripts. Please provide full path to the scripts directory:"
-      - Validate provided path contains expected scripts (run_all_analysis.py, complexity_lizard.py, coupling_analysis.py, check_bottlenecks.py)
+      - Validate provided path contains expected scripts (quality/complexity_lizard.py, architecture/coupling_analysis.py, performance/performance_baseline.py)
       - Set SCRIPT_PATH to user-provided location
 
    **THEN - Execute with resolved SCRIPT_PATH:**
 
    ```bash
-   python [SCRIPT_PATH]/run_all_analysis.py . --output-format json
-   python [SCRIPT_PATH]/complexity_lizard.py . --output-format json
-   python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
-   python [SCRIPT_PATH]/check_bottlenecks.py . --output-format json
+   python [SCRIPT_PATH]/quality/complexity_lizard.py . --output-format json
+   python [SCRIPT_PATH]/architecture/coupling_analysis.py . --output-format json
+   python [SCRIPT_PATH]/performance/performance_baseline.py . --output-format json
    ```
 
 2. **Identify refactoring priorities** - Analyze complexity hotspots and architectural debt

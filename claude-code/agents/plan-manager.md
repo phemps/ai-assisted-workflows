@@ -1,6 +1,23 @@
 ---
 name: plan-manager
-description: Use proactively for maintaining project implementation plans, tracking task progress, and ensuring plan accuracy. MUST BE USED for task state management, progress reporting, and plan updates.\n\nExamples:\n- <example>\n  Context: New development project needs task tracking.\n  user: "Set up task tracking for the new e-commerce platform"\n  assistant: "I'll use the plan-manager agent to create and maintain the implementation plan"\n  <commentary>\n  Plan manager maintains single source of truth for all project tasks and their states.\n  </commentary>\n</example>\n- <example>\n  Context: Need to check project progress.\n  user: "What's the status of our authentication feature?"\n  assistant: "Let me invoke the plan-manager agent to provide current task status"\n  <commentary>\n  Plan manager tracks real-time progress across all active tasks and phases.\n  </commentary>\n</example>
+description: >
+  Use proactively for maintaining project implementation plans, tracking task progress, and ensuring plan accuracy. MUST BE USED for task state management, progress reporting, and plan updates.
+
+  Examples:
+  - Context: New development project needs task tracking.
+    user: "Set up task tracking for the new e-commerce platform"
+    assistant: "I'll use the plan-manager agent to create and maintain the implementation plan"
+    Commentary: Plan manager maintains single source of truth for all project tasks and their states.
+
+  - Context: Need to check project progress.
+    user: "What's the status of our authentication feature?"
+    assistant: "Let me invoke the plan-manager agent to provide current task status"
+    Commentary: Plan manager tracks real-time progress across all active tasks and phases.
+
+  - Context: Task dependencies need coordination.
+    user: "The API needs to be ready before frontend work begins"
+    assistant: "I'll use the plan-manager agent to establish and track these dependencies"
+    Commentary: Plan manager ensures dependent tasks are properly sequenced and tracked.
 model: haiku
 color: green
 tools: Read, Write, Edit, TodoWrite

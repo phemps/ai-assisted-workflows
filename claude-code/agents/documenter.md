@@ -1,6 +1,23 @@
 ---
 name: documenter
-description: Use proactively for finding existing documentation and preventing duplication. MUST BE USED for checking documentation availability before creating new docs and maintaining documentation registry.\n\nExamples:\n- <example>\n  Context: Starting a new feature that may have existing documentation.\n  user: "Implement user profile management feature"\n  assistant: "I'll use the documenter agent to check for existing documentation first"\n  <commentary>\n  Documenter prevents duplicate documentation by finding and surfacing existing resources.\n  </commentary>\n</example>\n- <example>\n  Context: Agent wants to create new documentation.\n  user: "Need to document the API authentication flow"\n  assistant: "Let me invoke the documenter agent to verify this doesn't already exist"\n  <commentary>\n  Always check with documenter before creating new documentation to maintain single source of truth.\n  </commentary>\n</example>
+description: >
+  Use proactively for finding existing documentation and preventing duplication. MUST BE USED for checking documentation availability before creating new docs and maintaining documentation registry.
+
+  Examples:
+  - Context: Starting a new feature that may have existing documentation.
+    user: "Implement user profile management feature"
+    assistant: "I'll use the documenter agent to check for existing documentation first"
+    Commentary: Documenter prevents duplicate documentation by finding and surfacing existing resources.
+
+  - Context: Agent wants to create new documentation.
+    user: "Need to document the API authentication flow"
+    assistant: "Let me invoke the documenter agent to verify this doesn't already exist"
+    Commentary: Always check with documenter before creating new documentation to maintain single source of truth.
+
+  - Context: Looking for project documentation.
+    user: "Where is the architecture documentation?"
+    assistant: "I'll use the documenter agent to locate all architecture-related documentation"
+    Commentary: Documenter maintains a registry of all project documentation for easy discovery.
 model: haiku
 color: gray
 tools: Read, Grep, Glob, LS, Write

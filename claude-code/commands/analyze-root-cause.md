@@ -45,7 +45,7 @@ Execute root cause analysis scripts via Bash tool for systematic investigation:
 3. **Interactive fallback if not found**:
    - List searched locations: `.claude/scripts/analyzers/root_cause/` and `$HOME/.claude/scripts/analyzers/root_cause/`
    - Ask user: "Could not locate root cause analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py, simple_trace.py)
+   - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py)
    - Set SCRIPT_PATH to user-provided location
 
 **THEN - Execute with resolved SCRIPT_PATH:**
@@ -54,7 +54,6 @@ Execute root cause analysis scripts via Bash tool for systematic investigation:
 python [SCRIPT_PATH]/trace_execution.py . --output-format json
 python [SCRIPT_PATH]/recent_changes.py . --output-format json
 python [SCRIPT_PATH]/error_patterns.py . --output-format json
-python [SCRIPT_PATH]/simple_trace.py . --output-format json
 ```
 
 ## Optional Flags

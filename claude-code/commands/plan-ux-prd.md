@@ -47,8 +47,8 @@ You are an expert product manager and UX/UI specialist with deep expertise in cr
       ```
 
    3. **Interactive fallback if not found**:
-      - List searched locations: `.claude/scripts/plan/` and `$HOME/.claude/scripts/plan/`
-      - Ask user: "Could not locate PRD generation script. Please provide full path to generate_prd.py:"
+      - List searched locations: `.claude/scripts/generators/` and `$HOME/.claude/scripts/generators/`
+      - Ask user: "Could not locate PRD generation script. Please provide full path to prd.py:"
       - Validate provided path exists and is executable
       - Set SCRIPT_PATH to user-provided location
 

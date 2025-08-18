@@ -22,7 +22,7 @@ Define the universal approach for creating agent files that enable specialized A
    - Use "think harder" only for genuinely complex analysis
    - Use "IMPORTANT" only for the single most critical behavior
    - Use behavioral modifiers ("go beyond basics") when depth needed
-10. **Description format**: The description field MUST use inline format with \n for line breaks, not YAML child items. The agent system requires this exact format to parse examples correctly
+10. **Description format**: The description field supports both inline format with \n for line breaks and YAML multi-line format. Use multi-line YAML format for better readability when including examples
 
 ## Agent Structure
 
@@ -30,14 +30,27 @@ Define the universal approach for creating agent files that enable specialized A
 
 ```yaml
 ---
-name: agent-name  # lowercase with hyphens
-description: Use proactively for [primary purpose and invocation guidance]. MUST BE USED for [critical scenarios].\n\nExamples:\n- <example>\n  Context: Situation where this agent is needed.\n  user: "User request that triggers this agent"\n  assistant: "I'll use the agent-name agent to handle this specific task"\n  <commentary>\n  Explanation of why this agent is appropriate for this scenario.\n  </commentary>\n</example>\n- <example>\n  Context: Another common use case.\n  user: "Different request needing this expertise"\n  assistant: "Let me invoke the agent-name agent to address this requirement"\n  <commentary>\n  Clear reasoning for agent selection.\n  </commentary>\n</example> #must use inline format
-model: opus  # Model selection based on task complexity:
-             # opus-4.1: Multi-agent frameworks, complex codebase refactoring, nuanced creative writing, complex financial/scientific analysis
-             # sonnet-4: Complex customer chatbot inquiries, complex code generation, straightforward agentic loops, data analysis
-             # haiku-3.5: Basic customer support, high-volume formulaic content generation, straightforward data extraction
-color: blue  # visual identifier
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebFetch, WebSearch, Task, TodoWrite, ExitPlanMode  # Optional - omit to inherit all tools. Select ONLY the minimum tools needed for the agent's specific tasks
+name: agent-name # lowercase with hyphens
+description: >
+  Use proactively for [primary purpose and invocation guidance]. MUST BE USED for [critical scenarios].
+
+  Examples:
+  - Context: Situation where this agent is needed.
+    user: "User request that triggers this agent"
+    assistant: "I'll use the agent-name agent to handle this specific task"
+    Commentary: Explanation of why this agent is appropriate for this scenario.
+
+  - Context: Another common use case.
+    user: "Different request needing this expertise"
+    assistant: "Let me invoke the agent-name agent to address this requirement"
+    Commentary: Clear reasoning for agent selection.
+model:
+  opus # Model selection based on task complexity:
+  # opus-4.1: Multi-agent frameworks, complex codebase refactoring, nuanced creative writing, complex financial/scientific analysis
+  # sonnet-4: Complex customer chatbot inquiries, complex code generation, straightforward agentic loops, data analysis
+  # haiku-3.5: Basic customer support, high-volume formulaic content generation, straightforward data extraction
+color: blue # visual identifier
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebFetch, WebSearch, Task, TodoWrite, ExitPlanMode # Optional - omit to inherit all tools. Select ONLY the minimum tools needed for the agent's specific tasks
 ---
 ```
 
@@ -258,7 +271,24 @@ Remember: [Mission statement that reinforces the agent's core purpose and approa
 ```yaml
 ---
 name: cto
-description: Use proactively for critical escalation when any agent fails a task 3 times. MUST BE USED for resolving complex technical blocks, architectural conflicts, and quality gate deadlocks.\n\nExamples:\n- <example>\n  Context: Quality Monitor has rejected Developer's implementation 3 times for failing tests.\n  user: "Developer has failed quality gates 3 times with persistent test failures"\n  assistant: "I'll use the cto agent to analyze the situation and guide the developer to resolution"\n  <commentary>\n  CTO intervention is required after 3 failures to prevent infinite loops and provide expert guidance.\n  </commentary>\n</example>\n- <example>\n  Context: Git Manager cannot commit due to recurring pre-commit hook failures.\n  user: "Git pre-commit hooks keep failing after 3 attempts to fix"\n  assistant: "Let me invoke the cto agent to investigate the root cause and orchestrate a solution"\n  <commentary>\n  Complex integration issues often require CTO's broader perspective and problem-solving approach.\n  </commentary>\n</example>\n- <example>\n  Context: Solution Validator and Developer disagree on architectural approach.\n  user: "Architecture validation has been rejected 3 times with conflicting requirements"\n  assistant: "I'll use the cto agent to mediate and establish the correct technical direction"\n  <commentary>\n  CTO acts as final arbiter for technical disputes and architectural decisions.\n  </commentary>\n</example>
+description: >
+  Use proactively for critical escalation when any agent fails a task 3 times. MUST BE USED for resolving complex technical blocks, architectural conflicts, and quality gate deadlocks.
+
+  Examples:
+  - Context: Quality Monitor has rejected Developer's implementation 3 times for failing tests.
+    user: "Developer has failed quality gates 3 times with persistent test failures"
+    assistant: "I'll use the cto agent to analyze the situation and guide the developer to resolution"
+    Commentary: CTO intervention is required after 3 failures to prevent infinite loops and provide expert guidance.
+
+  - Context: Git Manager cannot commit due to recurring pre-commit hook failures.
+    user: "Git pre-commit hooks keep failing after 3 attempts to fix"
+    assistant: "Let me invoke the cto agent to investigate the root cause and orchestrate a solution"
+    Commentary: Complex integration issues often require CTO's broader perspective and problem-solving approach.
+
+  - Context: Solution Validator and Developer disagree on architectural approach.
+    user: "Architecture validation has been rejected 3 times with conflicting requirements"
+    assistant: "I'll use the cto agent to mediate and establish the correct technical direction"
+    Commentary: CTO acts as final arbiter for technical disputes and architectural decisions.
 model: opus
 color: red
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebFetch, WebSearch, Task, TodoWrite
@@ -341,7 +371,24 @@ Remember: Your role is to guide and unblock, not to implement. Empower teams to 
 ```yaml
 ---
 name: documenter
-description: Use proactively for finding existing documentation and preventing duplication. MUST BE USED for checking documentation availability before creating new docs and maintaining documentation registry.\n\nExamples:\n- <example>\n  Context: Starting a new feature that may have existing documentation.\n  user: "Implement user profile management feature"\n  assistant: "I'll use the documenter agent to check for existing documentation first"\n  <commentary>\n  Documenter prevents duplicate documentation by finding and surfacing existing resources.\n  </commentary>\n</example>\n- <example>\n  Context: Agent wants to create new documentation.\n  user: "Need to document the API authentication flow"\n  assistant: "Let me invoke the documenter agent to verify this doesn't already exist"\n  <commentary>\n  Always check with documenter before creating new documentation to maintain single source of truth.\n  </commentary>\n</example>\n- <example>\n  Context: Looking for project documentation.\n  user: "Where is the architecture documentation?"\n  assistant: "I'll use the documenter agent to locate all architecture-related documentation"\n  <commentary>\n  Documenter maintains a registry of all project documentation for easy discovery.\n  </commentary>\n</example>
+description: >
+  Use proactively for finding existing documentation and preventing duplication. MUST BE USED for checking documentation availability before creating new docs and maintaining documentation registry.
+
+  Examples:
+  - Context: Starting a new feature that may have existing documentation.
+    user: "Implement user profile management feature"
+    assistant: "I'll use the documenter agent to check for existing documentation first"
+    Commentary: Documenter prevents duplicate documentation by finding and surfacing existing resources.
+
+  - Context: Agent wants to create new documentation.
+    user: "Need to document the API authentication flow"
+    assistant: "Let me invoke the documenter agent to verify this doesn't already exist"
+    Commentary: Always check with documenter before creating new documentation to maintain single source of truth.
+
+  - Context: Looking for project documentation.
+    user: "Where is the architecture documentation?"
+    assistant: "I'll use the documenter agent to locate all architecture-related documentation"
+    Commentary: Documenter maintains a registry of all project documentation for easy discovery.
 model: haiku
 color: green
 tools: Read, Grep, Glob, LS, Write

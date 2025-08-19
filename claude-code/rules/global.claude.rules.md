@@ -111,6 +111,10 @@ You must follow and apply the below ways of working to your current task(s)
 
 # **IMPORTANT** Must Follow Global Coding Rules:
 
+## General coding rules
+
+- **🚫 No Trailing Whitespace Policy**: Never leave spaces or tabs at the end of any line in any file.
+
 ## Security Requirements:
 
 - **Secrets Management**: Never commit secrets, API keys, or credentials to version control

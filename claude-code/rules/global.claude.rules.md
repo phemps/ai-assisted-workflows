@@ -161,4 +161,66 @@ You must follow and apply the below ways of working to your current task(s)
 
 - **PROHIBITED**: Any technical approach, architectural pattern, or creative interpretation designed to circumvent the spirit of these rules while satisfying their letter
 
+## Strategic Agent Delegation for Session Optimization
+
+### **IMPORTANT** Agent Maximization Strategy
+
+To extend Claude Code session uptime and preserve subscription usage, proactively delegate appropriate tasks to free tier AI agents:
+
+#### **@agent-gemini-handler - Context-Heavy Analysis**
+
+**Use When:**
+
+- Task requires analysis of >5 files simultaneously
+- Context window would exceed 50k tokens in Claude Code
+- Comprehensive codebase analysis or documentation review needed
+- Multi-file refactoring or large-scale architectural changes
+- Research tasks requiring broad information synthesis
+
+#### **@agent-qwen-handler - Tool-Heavy Operations**
+
+**Use When:**
+
+- Task requires >100 tool operations across multiple files
+- Complex batch processing (file migrations, bulk edits)
+- Multi-step development workflows with testing and validation
+- File system operations requiring careful sequencing
+- Iterative development tasks with extensive tool usage
+
+### **Delegation Decision Matrix**
+
+| Task Type                    | Primary Agent         | Rationale                                        |
+| ---------------------------- | --------------------- | ------------------------------------------------ |
+| Codebase analysis (>5 files) | @agent-gemini-handler | Leverage 1M token context window                 |
+| Bulk file operations         | @agent-qwen-handler   | 2,000 daily requests for tool-heavy tasks        |
+| Research & synthesis         | @agent-gemini-handler | Large context for comprehensive analysis         |
+| Multi-step workflows         | @agent-qwen-handler   | Request-based billing ideal for tool sequences   |
+| Architecture review          | @agent-gemini-handler | 1M token context for holistic understanding      |
+| File migrations/refactoring  | @agent-qwen-handler   | Tool-intensive operations within generous limits |
+
+### **Fallback Mechanism**
+
+**CRITICAL**: If agent delegation fails for any reason (usage limits, errors, unavailability), immediately fallback your normal execution:
+
+**Fallback Triggers:**
+
+- Agent reports usage limit reached (daily/rate limits)
+- Agent execution fails with errors
+- Agent becomes unavailable or unresponsive
+- Agent cannot complete task within reasonable timeframe
+
+**Fallback Protocol:**
+
+1. **Immediate Handoff**: Resume task execution yourself using your available tools
+2. **Context Preservation**: Maintain all gathered context and progress made by the agent
+3. **Task Adaptation**: Adjust approach as needed for your execution
+4. **No Task Abandonment**: NEVER abandon a user task due to agent limitations
+
+**Implementation:**
+
+- Monitor agent execution status continuously
+- Set reasonable timeout thresholds for agent completion
+- Seamlessly transition to direct execution without user interruption
+- Preserve user experience and task completion commitment
+
 ---

@@ -28,6 +28,27 @@
 /add-serena-mcp                       # Recommended per project mcp lsp tool
 ```
 
+### 🤖 **Optional: Free Tier AI CLI Tools**
+
+**Maximize session uptime with free AI CLI tools that extend workflow capabilities:**
+
+```bash
+# Gemini CLI - Context-heavy analysis (1,000 requests/day)
+npm install -g @google/gemini-cli
+gemini  # OAuth authentication
+
+# Qwen Code CLI - Tool-intensive operations (2,000 requests/day)
+npm install -g @qwen-code/qwen-code@latest
+qwen    # OAuth authentication
+```
+
+**Benefits:**
+
+- 🔋 **Extended uptime**: Preserve Claude Code subscription for core interactions
+- 🆓 **Free tier leverage**: 3,000+ daily requests across both tools
+- 🔄 **Smart fallback**: Automatic degradation to Claude Code on limits
+- 📊 **Usage optimization**: Built-in rate limiting and request management
+
 ### 🔧 Dependencies
 
 Due to the programmatic analysis scripts, there's quite a lot of dependencies installed.
@@ -96,6 +117,21 @@ _Implemented through slash commands, agents, rules/user modes, programmatic scri
 | **documenter**          | 📚 Technical Writer | Documentation discovery and management      |
 | **log-monitor**         | 📊 Site Reliability | Runtime error detection                     |
 | **cto**                 | 🎯 Escalation       | Critical handler (3 failures → CTO → human) |
+
+### ⚡ **Free Tier Agent Maximization**
+
+**Strategic subagents that extend Claude Code session uptime by leveraging free AI CLI tools:**
+
+| Agent                     | Specialization            | Free Tier Benefits                                 |
+| :------------------------ | :------------------------ | :------------------------------------------------- |
+| **@agent-gemini-handler** | 🧠 Context-Heavy Analysis | 1,000 requests/day • 1M token context • OAuth      |
+| **@agent-qwen-handler**   | 🔧 Tool-Heavy Operations  | 2,000 requests/day • Request-based billing • OAuth |
+
+**Smart Delegation Triggers:**
+
+- **Context-heavy tasks** (>5 files, >50k tokens) → `@agent-gemini-handler`
+- **Tool-intensive workflows** (>100 operations, batch processing) → `@agent-qwen-handler`
+- **Automatic fallback** to direct Claude Code execution on agent limits
 
 ### ⚡ **Dynamic Quality Gates**
 
@@ -284,10 +320,17 @@ claude /create-project [project-name] --from-todos [todos-file-path]
 ## 📁 Directory Structure
 
 ```
-.claude/
+claude-code/
 ├── commands/                  # Slash commands for workflows and CI
-├── agents/                    # 8-agent orchestration definitions
+├── agents/                    # 8-agent + 2 subagent orchestration definitions
+│   ├── gemini-handler.md      # Context-heavy analysis delegation
+│   ├── qwen-handler.md        # Tool-intensive operations delegation
+│   └── [8-core-agents...]     # Main orchestration agents
 ├── rules/                     # Tech stack and quality gate rules
+│   └── global.claude.rules.md # Agent delegation strategy
+├── docs/                      # CLI tool integration guides
+│   ├── gemini-cli-guide.md    # Gemini CLI setup and usage
+│   └── qwen-code-cli-guide.md # Qwen Code CLI setup and usage
 ├── templates/                 # Project and code generation templates
 └── scripts/
     ├── ci/                    # Continuous improvement engine

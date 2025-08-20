@@ -26,7 +26,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install faiss-cpu transformers torch sentence-transformers numpy scipy
           pip install multilspy
-          pip install uvx
 
       - name: Verify multilspy installation
         run: |
@@ -34,7 +33,7 @@ jobs:
 
       - name: Run duplicate detection
         run: |
-          python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py \
+          PYTHONPATH=shared python shared/ci/integration/orchestration_bridge.py \
             --project-root . \
             --changed-files-only \
             --threshold 0.85 \

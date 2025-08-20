@@ -179,13 +179,29 @@ jobs:
       run: |
         python -c "import multilspy; print('multilspy library installed successfully')"
 
+    - name: Get changed files
+      id: changed-files
+      run: |
+        if [ "${{{{ github.event_name }}}}" == "pull_request" ]; then
+          git diff --name-only ${{{{ github.event.pull_request.base.sha }}}}..${{{{ github.sha }}}} > changed_files.txt
+        else
+          git diff --name-only HEAD~1 HEAD > changed_files.txt
+        fi
+        echo "files=$(cat changed_files.txt | tr '\\n' ' ')" >> $GITHUB_OUTPUT
+        echo "Changed files:"
+        cat changed_files.txt
+
+    - name: Ensure CI registry directory exists
+      run: |
+        mkdir -p .ci-registry/reports
+        mkdir -p .ci-registry/cache
+        mkdir -p .ci-registry/backups
+
     - name: Run duplicate detection
       run: |
-        python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py \\
-          --project-root . \\
-          --changed-files-only \\
-          --threshold 0.85 \\
-          --github-actions
+        cd shared && PYTHONPATH=.. python ci/integration/orchestration_bridge.py \\
+          --project-root .. \\
+          --changed-files ${{{{ steps.changed-files.outputs.files }}}}
 
     - name: Upload analysis results
       if: always()
@@ -223,17 +239,19 @@ jobs:
           if (fs.existsSync(path)) {{
             const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
             const duplicateCount = analysis.findings?.length || 0;
+            const threshold = analysis.config?.similarity_threshold || '0.85';
 
-            const comment = `## 🔍 Code Duplication Analysis
+            const status = duplicateCount > 0 ?
+              'Code duplications detected. Review analysis artifacts for details.' :
+              'No significant code duplication detected.';
 
-**Project**: {project_name}
-**Duplicates Found**: ${{duplicateCount}}
-**Threshold**: ${{analysis.config?.similarity_threshold || '0.85'}}
+            const comment = `## Code Duplication Analysis Results
 
-${{duplicateCount > 0 ?
-  '⚠️ Code duplications detected. Review analysis artifacts for details.' :
-  '✅ No significant code duplication detected.'
-}}
+Project: {project_name}
+Duplicates Found: ${{{{duplicateCount}}}}
+Similarity Threshold: ${{{{threshold}}}}
+
+Status: ${{{{status}}}}
 
 Analysis completed by Continuous Improvement Framework.`;
 
@@ -244,6 +262,15 @@ Analysis completed by Continuous Improvement Framework.`;
               body: comment
             }});
           }}
+
+    - name: Check analysis results
+      run: |
+        if [ -f ".ci-registry/reports/latest-analysis.json" ]; then
+          echo "Analysis completed successfully"
+          cat .ci-registry/reports/latest-analysis.json
+        else
+          echo "No analysis results found"
+        fi
 """
 
     ci_workflow_file = workflows_dir / "continuous-improvement.yml"
@@ -296,7 +323,7 @@ Test the setup:
 claude mcp list
 
 # Test code analysis
-python shared/lib/scripts/continuous-improvement/core/semantic_duplicate_detector.py --test
+python shared/ci/core/semantic_duplicate_detector.py --test
 ```
 
 ## Integration Status
@@ -340,13 +367,13 @@ def update_project_claude_md(project_dir: str, languages: List[str]) -> bool:
 claude /continuous-improvement-status
 
 # Manual duplicate analysis
-python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py
+python shared/ci/integration/orchestration_bridge.py
 
 # Generate metrics report
-python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report
+python shared/ci/metrics/ci_metrics_collector.py report
 
 # Registry management
-python shared/lib/scripts/continuous-improvement/core/registry_manager.py --status
+python shared/ci/core/registry_manager.py --status
 ```
 
 ### Workflow Integration
@@ -469,12 +496,10 @@ def main():
         print("\n🚀 Next Steps:")
         print("  1. Complete MCP setup: cat .ci-registry/mcp-setup.md")
         print(
-            "  2. Initialize registry: python shared/lib/scripts/continuous-improvement/core/registry_manager.py --init"
+            "  2. Initialize registry: python shared/ci/core/registry_manager.py --init"
         )
         print("  3. Test system: claude /continuous-improvement-status")
-        print(
-            "  4. Run analysis: python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py"
-        )
+        print("  4. Run analysis: python shared/ci/integration/orchestration_bridge.py")
 
         return 0
 

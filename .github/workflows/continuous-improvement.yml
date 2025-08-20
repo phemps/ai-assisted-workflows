@@ -26,6 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install faiss-cpu transformers torch sentence-transformers numpy scipy
           pip install multilspy
+          pip install uvx
 
       - name: Verify multilspy installation
         run: |
@@ -79,6 +80,37 @@ jobs:
             echo "CI Registry logs:"
             ls -la .ci-registry/logs/
           fi
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.ci-registry/reports/latest-analysis.json';
+
+            if (fs.existsSync(path)) {
+              const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
+              const duplicateCount = analysis.findings?.length || 0;
+
+              const status = duplicateCount > 0 ?
+                'Code duplications detected. Review analysis artifacts for details.' :
+                'No significant code duplication detected.';
+
+              const comment = '## Code Duplication Analysis\\n\\n' +
+                'Project: ai-assisted-workflows\\n' +
+                'Duplicates Found: ' + duplicateCount + '\\n' +
+                'Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\\n\\n' +
+                'Status: ' + status + '\\n\\n' +
+                'Analysis completed by Continuous Improvement Framework.';
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
 
       - name: Check analysis results
         run: |

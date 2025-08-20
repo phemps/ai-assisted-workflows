@@ -1,7 +1,7 @@
 {
   "project_name": "ai-assisted-workflows",
   "version": "1.0",
-  "setup_date": "2025-08-20T17:35:07Z",
+  "setup_date": "2025-08-20T17:53:34Z",
   "analysis": {
     "similarity_threshold": 0.85,
     "exact_duplicate_threshold": 1.0,

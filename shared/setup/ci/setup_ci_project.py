@@ -131,7 +131,6 @@ def create_ci_config(
             "metrics": {"collection_enabled": True, "retention_days": 90},
         },
         "registry": {
-            "registry_path": ".ci-registry/registry.json",
             "enable_caching": True,
             "cache_ttl_hours": 24,
             "max_entries": 10000,

@@ -173,7 +173,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install faiss-cpu transformers torch sentence-transformers numpy scipy
         pip install multilspy
-        pip install uvx
 
     - name: Verify multilspy installation
       run: |

@@ -164,13 +164,13 @@ python shared/ci/framework/ci_framework.py recommendations
 claude /continuous-improvement-status
 
 # Manual duplicate analysis
-python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py
+python shared/ci/integration/orchestration_bridge.py
 
 # Generate metrics report
-python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report
+python shared/ci/metrics/ci_metrics_collector.py report
 
 # Registry management
-python shared/lib/scripts/continuous-improvement/core/registry_manager.py --status
+python shared/ci/core/registry_manager.py --status
 ```
 
 ### Workflow Integration

@@ -24,7 +24,7 @@
 ./claude-code/install.sh              # Install to current directory
 ./claude-code/install.sh ~            # Install globally
 /setup-dev-monitoring                 # Optional: Setup unified dev logging
-/setup-ci-monitoring                  # Optional: Git actions quality checks (WIP, not ready yet)
+/setup-ci-monitoring                  # Optional: Continuous improvement monitoring with duplicate detection
 /add-serena-mcp                       # Recommended per project mcp lsp tool
 ```
 
@@ -117,6 +117,22 @@ _Implemented through slash commands, agents, rules/user modes, programmatic scri
 | **documenter**          | 📚 Technical Writer | Documentation discovery and management      |
 | **log-monitor**         | 📊 Site Reliability | Runtime error detection                     |
 | **cto**                 | 🎯 Escalation       | Critical handler (3 failures → CTO → human) |
+
+### 🧠 **Planning Mode Expert Subagents**
+
+| Subagent                    | Specialization         | Purpose                                       |
+| :-------------------------- | :--------------------- | :-------------------------------------------- |
+| **python-expert**           | Python Development     | Expert planning for Python tasks              |
+| **typescript-expert**       | TypeScript Development | Expert planning for TypeScript tasks          |
+| **rag-architecture-expert** | RAG Systems            | Architecture planning for RAG implementations |
+| **terraform-gcp-expert**    | Infrastructure         | Terraform and GCP infrastructure planning     |
+
+### ⚡ **Session Uptime Maximization Subagents**
+
+| Subagent           | Purpose                   | Benefits                                       |
+| :----------------- | :------------------------ | :--------------------------------------------- |
+| **gemini-handler** | Context-heavy analysis    | Offload large context operations to Gemini CLI |
+| **qwen-handler**   | Tool-intensive operations | Delegate high tool-usage tasks to Qwen CLI     |
 
 ### ⚡ **Free Tier Agent Maximization**
 
@@ -305,7 +321,7 @@ claude /create-project [project-name] --from-todos [todos-file-path]
 /analyze-security
 
 # 2. Setup continuous improvement for existing project
-/setup-ci-monitoring  # (WIP, not ready yet)
+/setup-ci-monitoring
 ```
 
 **The system will:**

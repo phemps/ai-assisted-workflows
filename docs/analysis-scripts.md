@@ -79,6 +79,13 @@
 - `uvx>=0.0.1` - Python package executor for MCP integration
 - `dataclasses>=0.6` - Backport for older Python versions
 
+### Continuous Improvement Framework
+
+- `multilspy>=0.1.0` - Language Server Protocol support for multi-language symbol extraction
+- Framework path reorganization: CI components moved from `shared/lib/scripts/continuous-improvement/` to `shared/ci/`
+- Integration with existing analysis tools for semantic duplicate detection
+- GitHub Actions workflow support for automated code quality monitoring
+
 ### Frontend Analysis (Required - Node.js)
 
 These dependencies are automatically installed by the installer via npm:

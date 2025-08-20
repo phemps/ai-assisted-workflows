@@ -3,7 +3,7 @@
   "setup_date": "2025-08-20T17:53:34Z",
   "project": {
     "project_name": "ai-assisted-workflows",
-    "languages": ["python", "javascript", "typescript", "php", "c"],
+    "languages": ["python"],
     "analysis": {
       "similarity_threshold": 0.85,
       "exact_duplicate_threshold": 1.0,
@@ -31,7 +31,7 @@
         "test_codebase"
       ],
       "files": ["*.min.js", "*.bundle.js", "*.map"],
-      "patterns": ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"]
+      "patterns": []
     },
     "quality_gates": {
       "enabled": true,
@@ -44,7 +44,6 @@
     }
   },
   "registry": {
-    "registry_path": ".ci-registry/registry.json",
     "enable_caching": true,
     "cache_ttl_hours": 24,
     "max_entries": 10000,

@@ -130,7 +130,6 @@ class SimilarityConfig(ConfigBase):
 class RegistryConfig(ConfigBase):
     """Configuration for registry operations."""
 
-    registry_path: Optional[Path] = None
     enable_caching: bool = True
     cache_ttl_hours: int = 24
     max_entries: int = 10000
@@ -139,12 +138,9 @@ class RegistryConfig(ConfigBase):
     compression_enabled: bool = True
 
     def _set_defaults(self):
-        if self.registry_path is None:
-            self.registry_path = Path.cwd() / ".ci-registry" / "registry.json"
+        pass
 
     def _validate(self):
-        self.validate_required("registry_path", self.registry_path)
-
         if self.cache_ttl_hours <= 0:
             CIErrorHandler.validation_error(
                 "cache_ttl_hours", self.cache_ttl_hours, "positive integer"

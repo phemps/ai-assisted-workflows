@@ -154,7 +154,7 @@ if __name__ == '__main__':
         registry_dir = cls.project_root / ".ci-registry"
         registry_dir.mkdir(parents=True)
 
-        # RegistryConfig expects: registry_path, enable_caching, cache_ttl_hours, max_entries, backup_enabled, backup_frequency_hours, compression_enabled
+        # RegistryConfig expects: enable_caching, cache_ttl_hours, max_entries, backup_enabled, backup_frequency_hours, compression_enabled
         config = {
             "enable_caching": True,
             "cache_ttl_hours": 24,

@@ -6,8 +6,8 @@
 ## Phase 1: System Status Verification
 
 1. **Action**: Check if CI registry is initialized
-2. **Tool**: Read - `.ci-registry/registry_config.json` to verify configuration exists
-3. **Expected**: CI configuration file found with project settings
+2. **Tool**: Read - `.ci-registry/project_config.json` to verify project configuration exists
+3. **Expected**: Project configuration file found with project settings
 4. **On missing**: Display setup instructions with `/setup-ci-monitoring`
 
 5. **Action**: Verify CI registry database
@@ -69,7 +69,7 @@
 🔍 CI Monitoring Status Report
 
 📊 System Health:
-  CI Registry: [✅ Initialized / ❌ Not Found] (.ci-registry/registry_config.json)
+  CI Registry: [✅ Initialized / ❌ Not Found] (.ci-registry/project_config.json)
   Configuration: [✅ Active / ❌ Missing] (Threshold: $THRESHOLD)
   ML Dependencies: [✅ Available / ❌ Missing] (faiss, transformers, torch)
 
@@ -108,7 +108,7 @@
   "system_health": {
     "ci_registry": {
       "status": "initialized",
-      "config_path": ".ci-registry/registry_config.json",
+      "config_path": ".ci-registry/project_config.json",
       "directories": ["cache", "reports", "backups"]
     },
     "ml_dependencies": {
@@ -163,7 +163,7 @@
 
 The CI monitoring system has not been set up for this project.
 
-Missing: .ci-registry/registry_config.json
+Missing: .ci-registry/project_config.json
 
 To initialize:
   claude /setup-ci-monitoring

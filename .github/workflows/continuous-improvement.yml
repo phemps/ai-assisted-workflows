@@ -48,11 +48,6 @@ jobs:
           mkdir -p .ci-registry/reports
           mkdir -p .ci-registry/cache
           mkdir -p .ci-registry/backups
-          # Copy config.json to registry_config.json if it doesn't exist
-          if [ -f ".ci-registry/config.json" ] && [ ! -f ".ci-registry/registry_config.json" ]; then
-            cp .ci-registry/config.json .ci-registry/registry_config.json
-            echo "Copied config.json to registry_config.json"
-          fi
 
       - name: Run duplicate detection
         run: |

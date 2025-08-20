@@ -27,7 +27,8 @@
         "__pycache__",
         "dist",
         "build",
-        "target"
+        "target",
+        "test_codebase"
       ],
       "files": ["*.min.js", "*.bundle.js", "*.map"],
       "patterns": ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"]

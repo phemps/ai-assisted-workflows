@@ -118,6 +118,7 @@ def create_ci_config(
                     "dist",
                     "build",
                     "target",
+                    "test_codebase",
                 ],
                 "files": ["*.min.js", "*.bundle.js", "*.map"],
                 "patterns": ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"],

@@ -21,7 +21,7 @@ sys.path.insert(0, str(script_dir / "continuous-improvement"))
 try:
     from shared.core.utils.output_formatter import AnalysisResult, ResultFormatter
     from shared.core.utils.tech_stack_detector import TechStackDetector
-    from analyzers.symbol_extractor import SymbolExtractor
+    from ..integration.symbol_extractor import SymbolExtractor
 except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)

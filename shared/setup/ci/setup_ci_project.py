@@ -168,11 +168,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install faiss-cpu transformers torch sentence-transformers numpy scipy
+        pip install multilspy
         pip install uvx
 
-    - name: Setup Serena MCP
+    - name: Verify multilspy installation
       run: |
-        uvx --from git+https://github.com/oraios/serena serena --version
+        python -c "import multilspy; print('multilspy library installed successfully')"
 
     - name: Run duplicate detection
       run: |
@@ -184,7 +185,7 @@ jobs:
 
     - name: Upload analysis results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: duplication-analysis
         path: |
@@ -192,9 +193,24 @@ jobs:
           .ci-registry/baseline-duplicates.json
         retention-days: 30
 
+    - name: Collect diagnostic information
+      if: failure()
+      run: |
+        echo "=== Diagnostic Information ==="
+        echo "Python Version: $(python --version)"
+        echo "Current Directory: $(pwd)"
+        echo "Available Python packages:"
+        pip list | grep -E "(faiss|transformers|torch|multilspy)"
+
+        # Check for log files
+        if [ -d ".ci-registry/logs" ]; then
+          echo "CI Registry logs:"
+          ls -la .ci-registry/logs/
+        fi
+
     - name: Comment PR with results
       if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');

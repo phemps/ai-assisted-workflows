@@ -15,11 +15,11 @@ from .detection.quality_gate_detector import QualityGateDetector, QualityGateSta
 from .framework.ci_framework import CIFramework, CIPhase, CIMetricType
 from .integration.orchestration_bridge import SimplifiedOrchestrationBridge
 from .metrics.ci_metrics_collector import (
-    BuildMetrics,
-    CIMetricsCollector,
-    PerformanceMetrics,
-    QualityMetrics,
-    TestMetrics,
+    DuplicationScanMetrics,
+    DuplicationMetricsCollector,
+    ComponentPerformanceMetrics,
+    SystemHealthMetrics,
+    CTODecisionMetrics,
 )
 
 # Ensure proper imports are available
@@ -45,11 +45,11 @@ __all__ = [
     "QualityGateDetector",
     "QualityGateStatus",
     # Metrics Collection
-    "CIMetricsCollector",
-    "BuildMetrics",
-    "TestMetrics",
-    "QualityMetrics",
-    "PerformanceMetrics",
+    "DuplicationMetricsCollector",
+    "DuplicationScanMetrics",
+    "CTODecisionMetrics",
+    "ComponentPerformanceMetrics",
+    "SystemHealthMetrics",
 ]
 
 
@@ -94,7 +94,7 @@ def setup_quality_gate_detection(project_root: str = ".") -> QualityGateDetector
     return QualityGateDetector(project_root)
 
 
-def create_metrics_collector(project_root: str = ".") -> CIMetricsCollector:
+def create_metrics_collector(project_root: str = ".") -> DuplicationMetricsCollector:
     """
     Create a metrics collector for the project.
 
@@ -102,9 +102,9 @@ def create_metrics_collector(project_root: str = ".") -> CIMetricsCollector:
         project_root: Path to the project root directory
 
     Returns:
-        CIMetricsCollector instance
+        DuplicationMetricsCollector instance
     """
-    return CIMetricsCollector(project_root)
+    return DuplicationMetricsCollector(project_root)
 
 
 # Integration status and info

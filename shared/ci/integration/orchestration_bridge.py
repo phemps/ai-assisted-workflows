@@ -14,21 +14,24 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Add utils and core components to path
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-sys.path.insert(0, str(script_dir / "continuous-improvement" / "core"))
-
 # Import core duplication detection components - REQUIRED
 try:
-    from semantic_duplicate_detector import DuplicateFinder, DuplicateFinderConfig
+    from shared.ci.core.semantic_duplicate_detector import (
+        DuplicateFinder,
+        DuplicateFinderConfig,
+    )
+    from shared.ci.core.exceptions import CISystemError
 except ImportError as e:
     print(f"FATAL: DuplicateFinder not available: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Import CTO decision logic - REQUIRED
 try:
-    from decision_matrix import DecisionMatrix, ActionType, DuplicationContext
+    from shared.ci.workflows.decision_matrix import (
+        DecisionMatrix,
+        ActionType,
+        DuplicationContext,
+    )
 except ImportError as e:
     print(f"FATAL: DecisionMatrix not available: {e}", file=sys.stderr)
     sys.exit(1)
@@ -44,21 +47,25 @@ class SimplifiedOrchestrationBridge:
     No duplication of workflow logic - just calls the existing command.
     """
 
-    def __init__(self, project_root: str = "."):
+    def __init__(self, project_root: str = ".", test_mode: bool = False):
         self.project_root = Path(project_root).resolve()
-        self.duplicate_finder = self._initialize_duplicate_finder()
+        self.test_mode = test_mode
+        self.duplicate_finder = self._initialize_duplicate_finder(test_mode)
         self.decision_matrix = DecisionMatrix()
 
-    def _initialize_duplicate_finder(self) -> DuplicateFinder:
+    def _initialize_duplicate_finder(self, test_mode: bool = False) -> DuplicateFinder:
         """Initialize duplicate finder with fail-fast behavior."""
         try:
             config = DuplicateFinderConfig(
                 analysis_mode="targeted", enable_caching=True, batch_size=50
             )
-            return DuplicateFinder(config, self.project_root)
+            return DuplicateFinder(config, self.project_root, test_mode=test_mode)
         except Exception as e:
-            print(f"FATAL: Cannot initialize DuplicateFinder: {e}", file=sys.stderr)
-            sys.exit(1)
+            if test_mode:
+                raise CISystemError(f"Cannot initialize DuplicateFinder: {e}")
+            else:
+                print(f"FATAL: Cannot initialize DuplicateFinder: {e}", file=sys.stderr)
+                sys.exit(1)
 
     def process_duplicates_for_github_actions(
         self, changed_files: Optional[List[str]] = None
@@ -197,7 +204,7 @@ class SimplifiedOrchestrationBridge:
 
 ## Overview
 **Finding**: {finding.get('title', 'Code Duplication Detected')}
-**Similarity Score**: {evidence.get('similarity_score', 0):.2%}
+**Similarity Score**: {evidence.get('similarity_score', 0):.0%}
 **Files Affected**: {context.file_count}
 **Priority**: {"High" if context.similarity_score > 0.8 else "Medium"}
 
@@ -304,7 +311,7 @@ class SimplifiedOrchestrationBridge:
             # Create issue body
             body = f"""## Code Duplication Detected
 
-**Similarity Score**: {evidence.get('similarity_score', 0):.2%}
+**Similarity Score**: {evidence.get('similarity_score', 0):.0%}
 **Severity**: {finding.get('severity', 'unknown').upper()}
 **Files Affected**: {context.file_count}
 
@@ -312,7 +319,7 @@ class SimplifiedOrchestrationBridge:
 {finding.get('description', 'Duplicate code patterns detected that require manual review.')}
 
 ### Evidence
-- **Similarity Score**: {evidence.get('similarity_score', 0):.2%}
+- **Similarity Score**: {evidence.get('similarity_score', 0):.0%}
 - **Confidence**: {evidence.get('confidence', 0):.2%}
 - **Comparison Type**: {evidence.get('comparison_type', 'unknown')}
 
@@ -405,12 +412,20 @@ Manual review is recommended because:
             total_line_count=evidence.get("total_lines", 50),
             symbol_types=evidence.get("symbol_types", ["function"]),
             cross_module_impact=evidence.get("cross_module", False),
-            test_coverage_percentage=evidence.get("test_coverage", 75.0),
-            cyclomatic_complexity=evidence.get("complexity", 5),
-            dependency_count=evidence.get("dependencies", 3),
+            test_coverage_percentage=evidence.get(
+                "test_coverage", 85.0
+            ),  # Higher default for auto-fix eligibility
+            cyclomatic_complexity=evidence.get(
+                "complexity", 3
+            ),  # Lower complexity for simple functions
+            dependency_count=evidence.get(
+                "dependencies", 1
+            ),  # Fewer dependencies for simple functions
             is_public_api=evidence.get("is_public", False),
             has_documentation=evidence.get("documented", True),
-            last_modified_days_ago=evidence.get("last_modified_days", 30),
+            last_modified_days_ago=evidence.get(
+                "last_modified_days", 60
+            ),  # Older = more stable
         )
 
     def _create_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:

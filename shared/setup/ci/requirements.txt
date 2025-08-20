@@ -1,4 +1,7 @@
 # Continuous Improvement Framework Dependencies
+# LSP integration for semantic analysis
+multilspy>=3.0.0
+
 # Vector similarity search and embeddings
 faiss-cpu>=1.7.0
 transformers>=4.21.0

@@ -32,13 +32,13 @@ except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)
 
-# Import Symbol from analyzers
+# Import Symbol from integration
 try:
-    from ..analyzers.symbol_extractor import Symbol
+    from ..integration.symbol_extractor import Symbol
 except ImportError:
     try:
         # Fallback for direct execution
-        sys.path.insert(0, str(Path(__file__).parent.parent / "analyzers"))
+        sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
         from symbol_extractor import Symbol
     except ImportError as e:
         print(f"Error importing Symbol: {e}", file=sys.stderr)
@@ -197,7 +197,10 @@ class EmbeddingEngine:
                 symbols, cached_embeddings, cache_misses, new_embeddings
             )
         else:
-            all_embeddings = cached_embeddings
+            # Convert cached embeddings dict to numpy array in symbol order
+            all_embeddings = self._combine_embeddings(
+                symbols, cached_embeddings, [], np.array([])
+            )
 
         # Track performance
         execution_time = time.time() - start_time

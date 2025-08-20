@@ -113,7 +113,9 @@ You must follow and apply the below ways of working to your current task(s)
 
 ## General coding rules
 
-- **🚫 No Trailing Whitespace Policy**: Never leave spaces or tabs at the end of any line in any file.
+- ** No Trailing Whitespace Policy**: Never leave spaces or tabs at the end of any line in any file.
+- ** Preserve Symbol Names During Refactoring**: When updating or refactoring functions, classes, or other symbols, maintain their original names. Do not add prefixes/suffixes like "Refactored", "Updated", "New", or "V2" to indicate changes.
+- ** Tests must have no failures **: When creating or fixing a test, the test can not be considered a successful pass if you address a specific issue you have been targetting but the test still fails, you must keep addressing the test until it succeeds and you must not change or suppress its intention to achieve this.
 
 ## Security Requirements:
 
@@ -146,6 +148,8 @@ You must follow and apply the below ways of working to your current task(s)
 - **NEVER** alter, disable, add permissive variants to, or conditionally bypass quality gate or test rules
 - **NEVER** comment out, conditionally disable, rename to avoid calling, or move to unreachable locations any failing code
 - **NEVER** delegate prohibited behaviors to external services, configuration files, or separate modules
+- **NEVER** bypass or skip a task and move on to the next because a task failed once or repeatedly
+- **NEVER** implement fallback modes or temporary strategys to meet task requirements
 
 ### Positive Requirements:
 
@@ -165,15 +169,18 @@ You must follow and apply the below ways of working to your current task(s)
 
 - **PROHIBITED**: Any technical approach, architectural pattern, or creative interpretation designed to circumvent the spirit of these rules while satisfying their letter
 
-## Strategic Agent Delegation for Session Optimization
+# Subagent Delegation Strategies
 
-### **IMPORTANT** Agent Maximization Strategy
+## 1. Expert planning strategy
 
-To extend Claude Code session uptime and preserve subscription usage, proactively delegate appropriate tasks to free tier AI agents:
+**IMPORTANT** When in planning mode, you must invoke the corresponding expert:
 
-#### **@agent-gemini-handler - Context-Heavy Analysis**
+- When in planning mode for a python based task you must invoke @agent-python-expert for task planning
+- When in planning mode for a typescript based task you must invoke @agent-typescript-expert for task planning
 
-**Use When:**
+## 2. Session uptime optimization strategy
+
+**IMPORTANT** When task execution requires any of the following, you must invoke @agent-gemini-handler:
 
 - Task requires analysis of >5 files simultaneously
 - Context window would exceed 50k tokens in Claude Code
@@ -181,9 +188,7 @@ To extend Claude Code session uptime and preserve subscription usage, proactivel
 - Multi-file refactoring or large-scale architectural changes
 - Research tasks requiring broad information synthesis
 
-#### **@agent-qwen-handler - Tool-Heavy Operations**
-
-**Use When:**
+**IMPORTANT** When task execution requires any of the following, you must invoke @agent-qwen-handler:
 
 - Task requires >100 tool operations across multiple files
 - Complex batch processing (file migrations, bulk edits)
@@ -191,38 +196,18 @@ To extend Claude Code session uptime and preserve subscription usage, proactivel
 - File system operations requiring careful sequencing
 - Iterative development tasks with extensive tool usage
 
-### **Delegation Decision Matrix**
+## **Subagent Failure Protocol:**
 
-| Task Type                    | Primary Agent         | Rationale                                        |
-| ---------------------------- | --------------------- | ------------------------------------------------ |
-| Codebase analysis (>5 files) | @agent-gemini-handler | Leverage 1M token context window                 |
-| Bulk file operations         | @agent-qwen-handler   | 2,000 daily requests for tool-heavy tasks        |
-| Research & synthesis         | @agent-gemini-handler | Large context for comprehensive analysis         |
-| Multi-step workflows         | @agent-qwen-handler   | Request-based billing ideal for tool sequences   |
-| Architecture review          | @agent-gemini-handler | 1M token context for holistic understanding      |
-| File migrations/refactoring  | @agent-qwen-handler   | Tool-intensive operations within generous limits |
-
-### **Fallback Mechanism**
-
-**CRITICAL**: If agent delegation fails for any reason (usage limits, errors, unavailability), immediately fallback your normal execution:
-
-**Fallback Triggers:**
-
-- Agent reports usage limit reached (daily/rate limits)
-- Agent execution fails with errors
-- Agent becomes unavailable or unresponsive
-- Agent cannot complete task within reasonable timeframe
-
-**Fallback Protocol:**
+**CRITICAL**: If a Subagent delegation fails for any reason (usage limits, errors, unavailability), immediately fallback to your normal execution:
 
 1. **Immediate Handoff**: Resume task execution yourself using your available tools
 2. **Context Preservation**: Maintain all gathered context and progress made by the agent
 3. **Task Adaptation**: Adjust approach as needed for your execution
 4. **No Task Abandonment**: NEVER abandon a user task due to agent limitations
 
-**Implementation:**
+**Strategy Implementation:**
 
-- Monitor agent execution status continuously
+- Monitor Subagent execution status continuously
 - Set reasonable timeout thresholds for agent completion
 - Seamlessly transition to direct execution without user interruption
 - Preserve user experience and task completion commitment

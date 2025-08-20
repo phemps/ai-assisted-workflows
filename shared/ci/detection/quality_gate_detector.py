@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 # Import base utilities (eliminates duplication)
-from ..base import (
+from shared.core.base import (
     CIAnalysisModule,
     ConfigFactory,
     QualityGateConfig,
@@ -33,8 +33,8 @@ class QualityGateStatus(Enum):
     NOT_AVAILABLE = "not_available"
 
 
-class RefactoredQualityGateDetector(CIAnalysisModule):
-    """Refactored Quality Gate Detector using base utilities."""
+class QualityGateDetector(CIAnalysisModule):
+    """Quality Gate Detector using base utilities to eliminate duplication."""
 
     def __init__(self, project_root: str = "."):
         super().__init__("quality_gate_detector", project_root)
@@ -440,7 +440,7 @@ def main():
     cli.parser.add_argument("--correlation-id", help="Correlation ID for tracking")
 
     def main_function(args):
-        detector = RefactoredQualityGateDetector(str(args.project_root))
+        detector = QualityGateDetector(str(args.project_root))
 
         if args.command == "detect":
             return detector.detect_available_gates()

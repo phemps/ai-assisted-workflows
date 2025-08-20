@@ -4,7 +4,7 @@ Determines whether to automatically fix duplicates or create issues for human re
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 from enum import Enum
 
 
@@ -12,6 +12,17 @@ class ActionType(Enum):
     AUTOMATIC_FIX = "automatic_fix"
     HUMAN_REVIEW = "human_review"
     SKIP = "skip"
+
+
+@dataclass
+class Decision:
+    """CTO decision matrix result for code duplication handling."""
+
+    action: ActionType
+    justification: str
+    metadata: Dict[str, Any]
+    confidence: str
+    risk_score: float
 
 
 @dataclass
@@ -53,22 +64,22 @@ class DecisionMatrix:
     }
 
     @classmethod
-    def evaluate(
-        cls, context: DuplicationContext
-    ) -> Tuple[ActionType, str, Dict[str, Any]]:
+    def evaluate(cls, context: DuplicationContext) -> Decision:
         """
         Evaluate duplication context and return action decision
 
         Returns:
-            Tuple of (action_type, rationale, metadata)
+            Decision object with action, justification, metadata, confidence, and risk_score
         """
 
         # SKIP CRITERIA - Not worth addressing
         if cls._should_skip(context):
-            return (
-                ActionType.SKIP,
-                "Duplication below actionable threshold",
-                {"risk_score": 0, "confidence": "high"},
+            return Decision(
+                action=ActionType.SKIP,
+                justification="Duplication below actionable threshold",
+                metadata={"recommended_approach": "no_action"},
+                confidence="high",
+                risk_score=0.0,
             )
 
         # Calculate risk score
@@ -79,25 +90,29 @@ class DecisionMatrix:
 
         # AUTOMATIC FIX CRITERIA
         if cls._can_auto_fix(context, risk_score, confidence):
-            return (
-                ActionType.AUTOMATIC_FIX,
-                cls._get_auto_fix_rationale(context, risk_score, confidence),
-                {
-                    "risk_score": risk_score,
-                    "confidence": confidence,
+            return Decision(
+                action=ActionType.AUTOMATIC_FIX,
+                justification=cls._get_auto_fix_rationale(
+                    context, risk_score, confidence
+                ),
+                metadata={
                     "recommended_approach": cls._get_fix_approach(context),
                 },
+                confidence=confidence,
+                risk_score=risk_score,
             )
 
         # HUMAN REVIEW CRITERIA (everything else above skip threshold)
-        return (
-            ActionType.HUMAN_REVIEW,
-            cls._get_human_review_rationale(context, risk_score, confidence),
-            {
-                "risk_score": risk_score,
-                "confidence": confidence,
+        return Decision(
+            action=ActionType.HUMAN_REVIEW,
+            justification=cls._get_human_review_rationale(
+                context, risk_score, confidence
+            ),
+            metadata={
                 "concerns": cls._get_concerns(context, risk_score),
             },
+            confidence=confidence,
+            risk_score=risk_score,
         )
 
     @classmethod

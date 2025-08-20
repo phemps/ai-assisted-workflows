@@ -578,11 +578,6 @@ class CodeDuplicationAnalyzer(BaseAnalyzer):
                 "target",
                 "vendor",
                 "migrations",
-                "test",
-                "tests",
-                "__tests__",
-                "spec",
-                "specs",
             },
         )
 

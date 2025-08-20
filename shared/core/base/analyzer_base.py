@@ -218,12 +218,8 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             True if file should be scanned
         """
         # Check if file path matches any skip patterns
-        file_path_str = str(file_path)
         for skip_pattern in self.config.skip_patterns:
-            # Check if skip pattern matches any part of the path
-            if skip_pattern in file_path_str:
-                return False
-            # Also check individual path parts for exact matches
+            # Check individual path parts for exact matches only
             if skip_pattern in file_path.parts:
                 return False
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Improved Pattern Detection Utility
+Pattern Detection Utility
 Distinguishes between language syntax and actual architectural patterns.
 """
 

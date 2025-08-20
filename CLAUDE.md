@@ -139,11 +139,54 @@ python shared/ci/metrics/ci_metrics_collector.py report
 python shared/ci/framework/ci_framework.py recommendations
 ```
 
-## =
-
-Debugging Tips
+## Debugging Tips
 
 - Check logs in `/tmp/claude-workflows-install.log` for installation issues
 - Use `--verbose` flag with analyzers for detailed output
 - Test analyzers with `--max-files N` to limit scope during debugging if needed
 - All service logs stream to `/dev.log` when dev monitoring is enabled
+
+## Continuous Improvement Integration
+
+**Code Duplication Detection**: Automated via GitHub Actions and Claude Code agents
+
+### System Status
+
+- **Languages Monitored**: python, javascript, typescript, php, c
+- **Registry**: `.ci-registry/` (SQLite database with symbol tracking)
+- **Analysis Threshold**: Configurable in `.ci-registry/config.json`
+- **GitHub Integration**: Workflow configured for PR/push analysis
+
+### Available Commands
+
+```bash
+# Check system status
+claude /continuous-improvement-status
+
+# Manual duplicate analysis
+python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py
+
+# Generate metrics report
+python shared/lib/scripts/continuous-improvement/metrics/ci_metrics_collector.py report
+
+# Registry management
+python shared/lib/scripts/continuous-improvement/core/registry_manager.py --status
+```
+
+### Workflow Integration
+
+- **Automatic**: GitHub Actions analyze changes and create issues for complex duplicates
+- **CTO Escalation**: Complex refactoring delegated to `claude /todo-orchestrate`
+- **Quality Gates**: Integrated with existing project quality checks
+- **Metrics**: Performance tracking in `.ci-registry/reports/`
+
+### Configuration
+
+Edit `.ci-registry/config.json` to adjust:
+
+- Similarity thresholds (exact: 1.0, high: 0.8, medium: 0.6)
+- Auto-refactor settings (enabled: false by default)
+- Language-specific exclusions
+- Quality gate integration
+
+The system uses fail-fast architecture requiring MCP, CodeBERT, and Faiss dependencies.

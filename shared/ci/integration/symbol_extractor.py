@@ -341,34 +341,41 @@ class SymbolExtractor:
         self.fallback_extractor = SerenaFallbackExtractor()
         self.result_formatter = ResultFormatter()
 
-        # Initialize Serena client with proper integration
-        self.serena_client = self._initialize_serena_client()
-        self.serena_available = self.serena_client is not None
+        # Initialize LSP extractor with proper integration
+        self.lsp_client = self._initialize_lsp_client()
+        self.lsp_available = self.lsp_client is not None
 
-    def _initialize_serena_client(self):
-        """Initialize Serena MCP client if available."""
+    def _initialize_lsp_client(self):
+        """Initialize LSP extractor if available."""
         try:
-            # Import SerenaClient from the core module
-            from ..core.serena_client import SerenaClient, MCPConfig
-
-            # Create client with project-specific configuration
-            config = MCPConfig(
-                use_ast_fallback=True,
-                enable_semantic_analysis=True,
-                max_symbols_per_request=1000,
+            # Import LSP extractor from the core module
+            from ..core.lsp_symbol_extractor import (
+                LSPSymbolExtractor,
+                SymbolExtractionConfig,
             )
 
-            client = SerenaClient(config, self.project_root)
+            # Create client with project-specific configuration
+            config = SymbolExtractionConfig(
+                enable_function_extraction=True,
+                enable_class_extraction=True,
+                enable_method_extraction=True,
+                max_symbols_per_file=1000,
+            )
+
+            client = LSPSymbolExtractor(config, self.project_root)
             return client
 
         except ImportError:
             # Fallback import for direct execution
             try:
                 sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
-                from serena_client import SerenaClient, MCPConfig
+                from lsp_symbol_extractor import (
+                    LSPSymbolExtractor,
+                    SymbolExtractionConfig,
+                )
 
-                config = MCPConfig(use_ast_fallback=True)
-                return SerenaClient(config, self.project_root)
+                config = SymbolExtractionConfig()
+                return LSPSymbolExtractor(config, self.project_root)
 
             except ImportError:
                 return None
@@ -409,10 +416,10 @@ class SymbolExtractor:
                     continue
                 content = file_path.read_text(encoding="utf-8", errors="ignore")
 
-                # Try Serena MCP first if available and requested
-                if use_serena and self.serena_available:
-                    symbols = self.serena_client.extract_symbols([file_path])
-                    if symbols:  # If Serena succeeded
+                # Try LSP first if available and requested
+                if use_serena and self.lsp_available:
+                    symbols = self.lsp_client.extract_symbols([file_path])
+                    if symbols:  # If LSP succeeded
                         all_symbols.extend(symbols)
                         processed_files += 1
                         continue
@@ -509,11 +516,9 @@ class SymbolExtractor:
                 "project_root": str(self.project_root),
                 "tech_stack": tech_config.name,
                 "detected_stacks": detected_stacks,
-                "serena_available": self.serena_available,
-                "serena_connection": (
-                    self.serena_client.get_connection_info()
-                    if self.serena_client
-                    else None
+                "lsp_available": self.lsp_available,
+                "lsp_info": (
+                    self.lsp_client.get_parser_info() if self.lsp_client else None
                 ),
             }
         )
@@ -522,10 +527,10 @@ class SymbolExtractor:
 
         return result
 
-    def get_serena_connection_info(self) -> Optional[Dict]:
-        """Get Serena MCP connection information for diagnostics."""
-        if self.serena_client:
-            return self.serena_client.get_connection_info()
+    def get_lsp_info(self) -> Optional[Dict]:
+        """Get LSP server information for diagnostics."""
+        if self.lsp_client:
+            return self.lsp_client.get_parser_info()
         return None
 
     def _get_project_files(self, tech_config) -> List[Path]:
@@ -583,20 +588,20 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Extract code symbols with Serena MCP integration"
+        description="Extract code symbols with LSP integration"
     )
     parser.add_argument("--project-root", type=Path, help="Project root directory")
     parser.add_argument(
         "--files", nargs="*", type=Path, help="Specific files to analyze"
     )
     parser.add_argument(
-        "--no-serena", action="store_true", help="Skip Serena MCP, use AST/regex only"
+        "--no-lsp", action="store_true", help="Skip LSP, use AST/regex only"
     )
     parser.add_argument(
         "--output", choices=["json", "summary"], default="json", help="Output format"
     )
     parser.add_argument(
-        "--test-serena", action="store_true", help="Test Serena MCP connection"
+        "--test-lsp", action="store_true", help="Test LSP server functionality"
     )
 
     args = parser.parse_args()
@@ -604,19 +609,22 @@ def main():
     # Initialize extractor
     extractor = SymbolExtractor(args.project_root)
 
-    # Test Serena connection if requested
-    if args.test_serena:
-        if extractor.serena_client:
-            test_result = extractor.serena_client.test_extraction()
-            print("Serena MCP Test Results:")
+    # Test LSP servers if requested
+    if args.test_lsp:
+        if extractor.lsp_client:
+            test_result = extractor.lsp_client.test_extraction()
+            print("LSP Server Test Results:")
             status = (
                 "SUCCESS" if test_result.metadata.get("test_successful") else "FAILED"
             )
             print(f"  Status: {status}")
-            if extractor.serena_client.get_connection_info():
-                conn_info = extractor.serena_client.get_connection_info()
-                print(f"  Connection: {conn_info['status']}")
-                print(f"  MCP Available: {conn_info['mcp_available']}")
+            if extractor.lsp_client.get_parser_info():
+                parser_info = extractor.lsp_client.get_parser_info()
+                print(f"  Server Status: {parser_info['status']}")
+                print(f"  LSP Available: {parser_info['lsp_available']}")
+                print(
+                    f"  Supported Languages: {', '.join(parser_info.get('supported_languages', []))}"
+                )
             print(
                 f"  Symbols Found: "
                 f"{test_result.metadata.get('symbols_extracted', 0)}"
@@ -626,12 +634,12 @@ def main():
                 f"{test_result.metadata.get('extraction_method', 'unknown')}"
             )
         else:
-            print("Serena client not available")
+            print("LSP client not available")
         return
 
     # Extract symbols
     result = extractor.extract_symbols(
-        file_paths=args.files, use_serena=not args.no_serena
+        file_paths=args.files, use_serena=not args.no_lsp
     )
 
     # Output results

@@ -17,7 +17,7 @@ from enum import Enum
 import numpy as np
 
 # Import base utilities (eliminates duplication)
-from ..base import (
+from shared.core.base import (
     CIConfigModule,
     ConfigFactory,
     RegistryConfig,
@@ -27,14 +27,14 @@ from ..base import (
     atomic_write,
 )
 
-# Import Symbol from analyzers
+# Import Symbol from integration
 try:
-    from ..analyzers.symbol_extractor import Symbol
+    from ..integration.symbol_extractor import Symbol
 except ImportError:
     # Fallback for direct execution
     import sys
 
-    sys.path.insert(0, str(Path(__file__).parent.parent / "analyzers"))
+    sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
     from symbol_extractor import Symbol
 
 
@@ -62,8 +62,8 @@ class RegistryStats:
         return asdict(self)
 
 
-class RefactoredRegistryManager(CIConfigModule):
-    """Refactored Registry Manager using base utilities to eliminate duplication."""
+class RegistryManager(CIConfigModule):
+    """Registry Manager using base utilities to eliminate duplication."""
 
     def __init__(self, project_root: str = "."):
         super().__init__("registry_manager", project_root)
@@ -123,7 +123,7 @@ class RefactoredRegistryManager(CIConfigModule):
         empty_symbols = []
         empty_embeddings = np.array([])
 
-        with atomic_write(self.symbols_file, encoding=None) as f:
+        with open(self.symbols_file, "wb") as f:
             pickle.dump(empty_symbols, f)
 
         np.save(self.embeddings_file, empty_embeddings)
@@ -169,7 +169,7 @@ class RefactoredRegistryManager(CIConfigModule):
     @timed_operation("save_symbols")
     def save_symbols(self, symbols: List[Symbol]) -> None:
         """Save symbols to registry using atomic operations."""
-        with atomic_write(self.symbols_file, encoding=None) as f:
+        with open(self.symbols_file, "wb") as f:
             pickle.dump(symbols, f)
 
         self.log_operation("symbols_saved", {"count": len(symbols)})
@@ -255,6 +255,32 @@ class RefactoredRegistryManager(CIConfigModule):
             index_size_bytes=index_size,
         )
 
+    def get_registry_info(self) -> Dict[str, Any]:
+        """Get registry status information for validation (consistent with other components)."""
+        try:
+            stats = self.get_registry_stats()
+            status = self.get_status()
+
+            return {
+                "is_available": status
+                in [RegistryStatus.HEALTHY, RegistryStatus.DEGRADED],
+                "status": status.value,
+                "total_symbols": stats.total_symbols,
+                "unique_symbols": stats.unique_symbols,
+                "last_updated": stats.last_updated,
+                "registry_size_bytes": stats.registry_size_bytes,
+                "index_exists": self.index_file.exists(),
+                "symbols_file_exists": self.symbols_file.exists(),
+            }
+        except Exception as e:
+            return {
+                "is_available": False,
+                "status": "error",
+                "error": str(e),
+                "total_symbols": 0,
+                "unique_symbols": 0,
+            }
+
     def get_status(self) -> RegistryStatus:
         """Get registry health status."""
         try:
@@ -305,7 +331,7 @@ class RefactoredRegistryManager(CIConfigModule):
 
     def generate_performance_report(self) -> str:
         """Generate performance report using timing utilities."""
-        from ..base.timing_utils import create_performance_report
+        from shared.core.base.timing_utils import create_performance_report
 
         report = create_performance_report(self.performance_tracker, "summary")
 
@@ -329,7 +355,7 @@ class RefactoredRegistryManager(CIConfigModule):
 
 def main():
     """CLI interface using base utilities."""
-    from ..base.cli_utils import create_standard_cli, run_cli_tool
+    from shared.core.base.cli_utils import create_standard_cli, run_cli_tool
 
     cli = create_standard_cli(
         "registry-manager",
@@ -344,7 +370,7 @@ def main():
     )
 
     def main_function(args):
-        manager = RefactoredRegistryManager(str(args.project_root))
+        manager = RegistryManager(str(args.project_root))
 
         if args.command == "status":
             status = manager.get_status()

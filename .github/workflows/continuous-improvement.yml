@@ -1,0 +1,96 @@
+name: Continuous Improvement - Code Duplication Detection
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  duplicate-detection:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive analysis
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install CI dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install faiss-cpu transformers torch sentence-transformers numpy scipy
+          pip install multilspy
+          pip install uvx
+
+      - name: Verify multilspy installation
+        run: |
+          python -c "import multilspy; print('multilspy library installed successfully')"
+
+      - name: Run duplicate detection
+        run: |
+          python shared/lib/scripts/continuous-improvement/integration/orchestration_bridge.py \
+            --project-root . \
+            --changed-files-only \
+            --threshold 0.85 \
+            --github-actions
+
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: duplication-analysis
+          path: |
+            .ci-registry/reports/
+            .ci-registry/baseline-duplicates.json
+          retention-days: 30
+
+      - name: Collect diagnostic information
+        if: failure()
+        run: |
+          echo "=== Diagnostic Information ==="
+          echo "Python Version: $(python --version)"
+          echo "Current Directory: $(pwd)"
+          echo "Available Python packages:"
+          pip list | grep -E "(faiss|transformers|torch|multilspy)"
+
+          # Check for log files
+          if [ -d ".ci-registry/logs" ]; then
+            echo "CI Registry logs:"
+            ls -la .ci-registry/logs/
+          fi
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.ci-registry/reports/latest-analysis.json';
+
+            if (fs.existsSync(path)) {
+              const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
+              const duplicateCount = analysis.findings?.length || 0;
+
+              const comment = `## 🔍 Code Duplication Analysis
+
+              **Project**: ai-assisted-workflows
+              **Duplicates Found**: ${duplicateCount}
+              **Threshold**: ${analysis.config?.similarity_threshold || '0.85'}
+
+              ${duplicateCount > 0 ? '⚠️ Code duplications detected. Review analysis artifacts for details.' : '✅ No significant code duplication detected.'}
+
+              Analysis completed by Continuous Improvement Framework.`;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }

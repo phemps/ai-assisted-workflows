@@ -154,7 +154,7 @@ python shared/ci/framework/ci_framework.py recommendations
 
 - **Languages Monitored**: python, javascript, typescript, php, c
 - **Registry**: `.ci-registry/` (SQLite database with symbol tracking)
-- **Analysis Threshold**: Configurable in `.ci-registry/config.json`
+- **Analysis Threshold**: Configurable in `.ci-registry/ci_config.json`
 - **GitHub Integration**: Workflow configured for PR/push analysis
 
 ### Available Commands
@@ -182,7 +182,7 @@ python shared/ci/core/registry_manager.py --status
 
 ### Configuration
 
-Edit `.ci-registry/config.json` to adjust:
+Edit `.ci-registry/ci_config.json` to adjust:
 
 - Similarity thresholds (exact: 1.0, high: 0.8, medium: 0.6)
 - Auto-refactor settings (enabled: false by default)

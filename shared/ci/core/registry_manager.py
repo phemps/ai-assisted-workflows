@@ -87,16 +87,44 @@ class RegistryManager(CIConfigModule):
         self._ensure_registry_initialized()
 
     def _load_registry_config(self) -> RegistryConfig:
-        """Load registry configuration using config factory."""
+        """Load registry configuration from unified CI config."""
         try:
-            return ConfigFactory.create_from_file(
-                "registry", self.get_config_path("registry_config.json")
-            )
+            # Load from unified ci_config.json
+            ci_config_path = self.get_config_path("ci_config.json")
+            import json
+
+            with open(ci_config_path, "r") as f:
+                ci_config = json.load(f)
+
+            # Extract registry section
+            registry_config = ci_config.get("registry", {})
+            return ConfigFactory.create_from_dict("registry", registry_config)
         except Exception:
             # Create default config if none exists
             config = ConfigFactory.create("registry")
-            self.save_config("registry_config.json", config.to_dict())
+            # Save to unified config structure
+            self._save_unified_config({"registry": config.to_dict()})
             return config
+
+    def _save_unified_config(self, config_data: Dict[str, Any]) -> None:
+        """Save data to unified CI config file."""
+        ci_config_path = self.get_config_path("ci_config.json")
+
+        # Load existing config if it exists
+        existing_config = {}
+        if ci_config_path.exists():
+            try:
+                with open(ci_config_path, "r") as f:
+                    existing_config = json.load(f)
+            except Exception:
+                pass
+
+        # Merge with new data
+        existing_config.update(config_data)
+
+        # Save back to file
+        with open(ci_config_path, "w") as f:
+            json.dump(existing_config, f, indent=2)
 
     def _ensure_registry_initialized(self) -> None:
         """Ensure registry is properly initialized."""

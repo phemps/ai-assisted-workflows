@@ -87,53 +87,67 @@ def create_ci_config(
     print("Creating CI configuration...")
 
     config = {
-        "project_name": project_name,
         "version": "1.0",
         "setup_date": subprocess.run(
             ["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"], capture_output=True, text=True
         ).stdout.strip(),
-        "analysis": {
-            "similarity_threshold": threshold,
-            "exact_duplicate_threshold": 1.0,
-            "high_similarity_threshold": max(0.8, threshold),
-            "medium_similarity_threshold": max(0.6, threshold - 0.2),
-            "low_similarity_threshold": max(0.3, threshold - 0.4),
-            "analysis_mode": "incremental",
-            "batch_size": 100,
+        "project": {
+            "project_name": project_name,
+            "languages": languages,
+            "analysis": {
+                "similarity_threshold": threshold,
+                "exact_duplicate_threshold": 1.0,
+                "high_similarity_threshold": max(0.8, threshold),
+                "medium_similarity_threshold": max(0.6, threshold - 0.2),
+                "low_similarity_threshold": max(0.3, threshold - 0.4),
+                "analysis_mode": "incremental",
+                "batch_size": 100,
+                "enable_caching": True,
+            },
+            "automation": {
+                "auto_refactor_enabled": auto_refactor,
+                "max_auto_fix_complexity": "low",
+                "require_human_review": ["cross_module", "high_risk", "architectural"],
+                "github_integration": True,
+            },
+            "exclusions": {
+                "directories": [
+                    "node_modules",
+                    ".git",
+                    "__pycache__",
+                    "dist",
+                    "build",
+                    "target",
+                ],
+                "files": ["*.min.js", "*.bundle.js", "*.map"],
+                "patterns": ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"],
+            },
+            "quality_gates": {
+                "enabled": True,
+                "auto_detect": True,
+                "custom_commands": [],
+            },
+            "metrics": {"collection_enabled": True, "retention_days": 90},
+        },
+        "registry": {
+            "registry_path": ".ci-registry/registry.json",
             "enable_caching": True,
+            "cache_ttl_hours": 24,
+            "max_entries": 10000,
+            "backup_enabled": True,
+            "backup_frequency_hours": 6,
+            "compression_enabled": True,
         },
-        "automation": {
-            "auto_refactor_enabled": auto_refactor,
-            "max_auto_fix_complexity": "low",
-            "require_human_review": ["cross_module", "high_risk", "architectural"],
-            "github_integration": True,
-        },
-        "languages": languages,
-        "exclusions": {
-            "directories": [
-                "node_modules",
-                ".git",
-                "__pycache__",
-                "dist",
-                "build",
-                "target",
-            ],
-            "files": ["*.min.js", "*.bundle.js", "*.map"],
-            "patterns": ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"],
-        },
-        "quality_gates": {"enabled": True, "auto_detect": True, "custom_commands": []},
-        "metrics": {"collection_enabled": True, "retention_days": 90},
     }
 
-    # Save project configuration separately (not registry config)
-    project_config_file = Path(project_dir) / ".ci-registry" / "project_config.json"
-    with open(project_config_file, "w") as f:
+    # Save unified CI configuration
+    ci_config_file = Path(project_dir) / ".ci-registry" / "ci_config.json"
+    with open(ci_config_file, "w") as f:
         json.dump(config, f, indent=2)
 
     print(
-        f"  ✓ Created project configuration: {project_config_file.relative_to(project_dir)}"
+        f"  ✓ Created unified CI configuration: {ci_config_file.relative_to(project_dir)}"
     )
-    print("  ✓ Registry config will be auto-created on first use")
     return True
 
 
@@ -357,7 +371,7 @@ def update_project_claude_md(project_dir: str, languages: List[str]) -> bool:
 ### System Status
 - **Languages Monitored**: {', '.join(languages) if languages else 'Auto-detected'}
 - **Registry**: `.ci-registry/` (SQLite database with symbol tracking)
-- **Analysis Threshold**: Configurable in `.ci-registry/project_config.json`
+- **Analysis Threshold**: Configurable in `.ci-registry/ci_config.json`
 - **GitHub Integration**: Workflow configured for PR/push analysis
 
 ### Available Commands
@@ -382,7 +396,7 @@ python shared/ci/core/registry_manager.py --status
 - **Metrics**: Performance tracking in `.ci-registry/reports/`
 
 ### Configuration
-Edit `.ci-registry/project_config.json` to adjust:
+Edit `.ci-registry/ci_config.json` to adjust:
 - Similarity thresholds (exact: 1.0, high: 0.8, medium: 0.6)
 - Auto-refactor settings (enabled: false by default)
 - Language-specific exclusions

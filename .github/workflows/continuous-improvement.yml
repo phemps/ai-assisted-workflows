@@ -64,32 +64,11 @@ jobs:
             ls -la .ci-registry/logs/
           fi
 
-      - name: Comment PR with results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = '.ci-registry/reports/latest-analysis.json';
-
-            if (fs.existsSync(path)) {
-              const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
-              const duplicateCount = analysis.findings?.length || 0;
-
-              const comment = `## 🔍 Code Duplication Analysis
-
-              **Project**: ai-assisted-workflows
-              **Duplicates Found**: ${duplicateCount}
-              **Threshold**: ${analysis.config?.similarity_threshold || '0.85'}
-
-              ${duplicateCount > 0 ? '⚠️ Code duplications detected. Review analysis artifacts for details.' : '✅ No significant code duplication detected.'}
-
-              Analysis completed by Continuous Improvement Framework.`;
-
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            }
+      - name: Check analysis results
+        run: |
+          if [ -f ".ci-registry/reports/latest-analysis.json" ]; then
+            echo "Analysis completed successfully"
+            cat .ci-registry/reports/latest-analysis.json
+          else
+            echo "No analysis results found"
+          fi

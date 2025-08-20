@@ -113,9 +113,10 @@ You must follow and apply the below ways of working to your current task(s)
 
 ## General coding rules
 
-- ** No Trailing Whitespace Policy**: Never leave spaces or tabs at the end of any line in any file.
-- ** Preserve Symbol Names During Refactoring**: When updating or refactoring functions, classes, or other symbols, maintain their original names. Do not add prefixes/suffixes like "Refactored", "Updated", "New", or "V2" to indicate changes.
-- ** Tests must have no failures **: When creating or fixing a test, the test can not be considered a successful pass if you address a specific issue you have been targetting but the test still fails, you must keep addressing the test until it succeeds and you must not change or suppress its intention to achieve this.
+- **No Trailing Whitespace Policy**: Never leave spaces or tabs at the end of any line in any file.
+- **Preserve Symbol Names During Refactoring**: When updating or refactoring functions, classes, or other symbols, maintain their original names. Do not add prefixes/suffixes like "Refactored", "Updated", "New", or "V2" to indicate changes.
+- **Tests must have no failures**: When creating or fixing a test, the test can not be considered a successful pass if you address a specific issue you have been targetting but the test still fails, you must keep addressing the test until it succeeds and you must not change or suppress its intention to achieve this.
+- **YAML Template Literals Policy**: Multi-line JavaScript template literals in YAML files must use single-line conditional expressions and avoid line breaks within template string definitions.
 
 ## Security Requirements:
 
@@ -173,7 +174,7 @@ You must follow and apply the below ways of working to your current task(s)
 
 ## 1. Expert planning strategy
 
-**IMPORTANT** When in planning mode, you must invoke the corresponding expert:
+**IMPORTANT** When in planning mode, you must invoke the corresponding expert Subagent:
 
 - When in planning mode for a python based task you must invoke @agent-python-expert for task planning
 - When in planning mode for a typescript based task you must invoke @agent-typescript-expert for task planning

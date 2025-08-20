@@ -125,7 +125,7 @@ def create_ci_config(
         "metrics": {"collection_enabled": True, "retention_days": 90},
     }
 
-    config_file = Path(project_dir) / ".ci-registry" / "config.json"
+    config_file = Path(project_dir) / ".ci-registry" / "registry_config.json"
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)
 
@@ -327,7 +327,7 @@ def update_project_claude_md(project_dir: str, languages: List[str]) -> bool:
 ### System Status
 - **Languages Monitored**: {', '.join(languages) if languages else 'Auto-detected'}
 - **Registry**: `.ci-registry/` (SQLite database with symbol tracking)
-- **Analysis Threshold**: Configurable in `.ci-registry/config.json`
+- **Analysis Threshold**: Configurable in `.ci-registry/registry_config.json`
 - **GitHub Integration**: Workflow configured for PR/push analysis
 
 ### Available Commands
@@ -352,7 +352,7 @@ python shared/lib/scripts/continuous-improvement/core/registry_manager.py --stat
 - **Metrics**: Performance tracking in `.ci-registry/reports/`
 
 ### Configuration
-Edit `.ci-registry/config.json` to adjust:
+Edit `.ci-registry/registry_config.json` to adjust:
 - Similarity thresholds (exact: 1.0, high: 0.8, medium: 0.6)
 - Auto-refactor settings (enabled: false by default)
 - Language-specific exclusions

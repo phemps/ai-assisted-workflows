@@ -16,6 +16,22 @@
 
 ---
 
+## 🎯 Core Principles
+
+### 🚀 Minimize Token Usage
+
+- Offload to programmatic scripts wherever possible
+- Just-in-time loading when needed (unless it impacts system accuracy)
+
+### 🔄 Hybrid Approach
+
+- Combines LLM intelligence with programmatic scripts for accuracy and repeatability
+
+### 🎯 Focus on LLM Strengths, Mitigate Weaknesses
+
+- **LLM Strengths:** Scale, contextual flexibility, pattern matching
+- **LLM Weaknesses:** Repeatability and predictability
+
 ## 🚀 Quick Start
 
 ### 📦 Installation
@@ -30,19 +46,13 @@
 
 For detailed installation instructions, see [Installation Guide](docs/installation.md).
 
-### 🤖 Free Tier AI CLI Tools
+## Supporting Subagent strategies
 
-**Maximize session uptime with free AI CLI tools that extend workflow capabilities:**
+- 🚀 **8-Agent Orchestration System**
+- 🧠 **Planning Mode Expert Subagents**
+- ⚡ **Free Tier Agent Maximization**
 
-```bash
-# Gemini CLI - Context-heavy analysis (1,000 requests/day)
-npm install -g @google/gemini-cli
-gemini  # OAuth authentication
-
-# Qwen Code CLI - Tool-intensive operations (2,000 requests/day)
-npm install -g @qwen-code/qwen-code@latest
-qwen    # OAuth authentication
-```
+For detailed agent strategy information, see [Agent Orchestration System](docs/agents.md)
 
 ## 🌐 Supported Languages and Analysis Types
 
@@ -59,22 +69,6 @@ qwen    # OAuth authentication
 | **Other Languages** | ✅ Framework detection   | ✅ Language-specific patterns | ✅ Full import analysis | ✅ Performance patterns |
 
 For detailed information about language support and analysis capabilities, see [Analysis Scripts](docs/analysis-scripts.md).
-
-## 🎯 Core Principles
-
-### 🚀 Minimize Token Usage
-
-- Offload to programmatic scripts wherever possible
-- Just-in-time loading when needed (unless it impacts system accuracy)
-
-### 🔄 Hybrid Approach
-
-- Combines LLM intelligence with programmatic scripts for accuracy and repeatability
-
-### 🎯 Focus on LLM Strengths, Mitigate Weaknesses
-
-- **LLM Strengths:** Scale, contextual flexibility, pattern matching
-- **LLM Weaknesses:** Repeatability and predictability
 
 ## 🚀 Common Workflow Examples
 

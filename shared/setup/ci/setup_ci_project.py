@@ -30,17 +30,24 @@ def run_command(cmd, shell=False, cwd=None):
 def detect_project_languages(
     project_dir: str, exclusion_patterns: Optional[List[str]] = None
 ) -> List[str]:
-    """Detect programming languages in the project using shared utility."""
+    """Detect programming languages in the project using TechStackDetector."""
     try:
-        # Import the shared language detector
+        # Import the shared TechStackDetector
         sys.path.insert(0, str(Path(__file__).parent.parent.parent / "core" / "utils"))
-        from language_detector import LanguageDetector
+        from tech_stack_detector import TechStackDetector
 
-        # Use shared utility with exclusion patterns
-        detected_languages = LanguageDetector.detect_from_directory(
-            project_dir, exclusion_patterns
-        )
-        return sorted(list(detected_languages))
+        # Use TechStackDetector to get detected tech stacks
+        detector = TechStackDetector()
+        detected_stacks = detector.detect_tech_stack(project_dir)
+
+        # Extract languages from detected tech stacks
+        languages = set()
+        for stack_id in detected_stacks:
+            if stack_id in detector.tech_stacks:
+                stack_config = detector.tech_stacks[stack_id]
+                languages.update(stack_config.primary_languages)
+
+        return sorted(list(languages))
 
     except ImportError:
         # Fallback to original logic if shared utility not available

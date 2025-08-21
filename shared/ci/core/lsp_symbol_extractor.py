@@ -158,7 +158,7 @@ class LSPSymbolExtractor(CIConfigModule):
     ) -> Optional[SyncLanguageServer]:
         """Initialize a specific language server."""
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory():
                 server = SyncLanguageServer.create(
                     language_server=config["language_server"],
                     language=language.value,
@@ -335,14 +335,8 @@ class LSPSymbolExtractor(CIConfigModule):
 
             line_number = start_pos.get("line", 0) + 1  # LSP is 0-based, we use 1-based
 
-            # Get additional metadata
-            metadata = {
-                "language": language.value,
-                "lsp_kind": lsp_kind,
-                "detail": lsp_symbol.get("detail", ""),
-                "documentation": lsp_symbol.get("documentation", ""),
-                "container_name": lsp_symbol.get("containerName", ""),
-            }
+            # Detect imports using LSP kind (MODULE = 2) or symbol type
+            is_import = lsp_kind == 2 or symbol_type == SymbolType.IMPORT
 
             return Symbol(
                 name=name,
@@ -352,6 +346,7 @@ class LSPSymbolExtractor(CIConfigModule):
                 line_content=lsp_symbol.get("detail", ""),
                 scope="global",  # Default scope
                 visibility="public",  # Default visibility
+                is_import=is_import,
             )
 
         except Exception as e:

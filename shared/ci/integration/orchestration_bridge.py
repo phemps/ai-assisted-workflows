@@ -124,55 +124,7 @@ class OrchestrationBridge:
     def _filter_meaningful_duplicates(
         self, findings: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """Filter out meaningless duplicates like imports and built-in types."""
-
-        # Common import symbols and built-in types to exclude
-        skip_symbols = {
-            # Python built-in types
-            "Path",
-            "List",
-            "Dict",
-            "Set",
-            "Tuple",
-            "Optional",
-            "Union",
-            "Any",
-            "Callable",
-            "Iterator",
-            "Iterable",
-            "Generator",
-            "Type",
-            "TypeVar",
-            # Common imports
-            "os",
-            "sys",
-            "json",
-            "time",
-            "datetime",
-            "pathlib",
-            "typing",
-            "logging",
-            "argparse",
-            "subprocess",
-            "tempfile",
-            "re",
-            "shutil",
-            # Decorators and common patterns
-            "dataclass",
-            "property",
-            "staticmethod",
-            "classmethod",
-            "abstractmethod",
-            # Generic names that are likely false positives
-            "self",
-            "cls",
-            "args",
-            "kwargs",
-            "result",
-            "data",
-            "config",
-            "settings",
-        }
+        """Filter out meaningless duplicates using semantic information."""
 
         meaningful_findings = []
 
@@ -181,12 +133,14 @@ class OrchestrationBridge:
             orig = evidence.get("original_symbol", {})
             dup = evidence.get("duplicate_symbol", {})
 
+            # Skip imports using semantic information instead of hardcoded lists
+            if (hasattr(orig, "is_import") and orig.is_import) or (
+                hasattr(dup, "is_import") and dup.is_import
+            ):
+                continue
+
             orig_name = orig.get("name", "")
             dup_name = dup.get("name", "")
-
-            # Skip if either symbol is in the skip list
-            if orig_name in skip_symbols or dup_name in skip_symbols:
-                continue
 
             # Skip single-character names (likely parameters)
             if len(orig_name) <= 1 or len(dup_name) <= 1:

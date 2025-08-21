@@ -93,7 +93,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
 try:
     from shared.core.utils.output_formatter import ResultFormatter
     from shared.core.utils.tech_stack_detector import TechStackDetector
-    from shared.core.utils.language_detector import LanguageDetector
 except ImportError as e:
     raise CIDependencyError(f"Error importing utilities: {e}")
 
@@ -752,9 +751,44 @@ class DuplicateFinder:
         return result
 
     def _detect_languages_from_files(self, file_paths: List[Path]) -> set[str]:
-        """Detect programming languages from a list of files using shared utility."""
+        """Detect programming languages from a list of files using TechStackDetector."""
         exclusion_patterns = self.config.exclude_file_patterns or []
-        return LanguageDetector.detect_from_files(file_paths, exclusion_patterns)
+
+        # Create a simple language mapping based on file extensions
+        language_patterns = {
+            ".py": "python",
+            ".js": "javascript",
+            ".jsx": "javascript",
+            ".ts": "typescript",
+            ".tsx": "typescript",
+            ".java": "java",
+            ".go": "go",
+            ".rs": "rust",
+            ".php": "php",
+            ".rb": "ruby",
+            ".cs": "csharp",
+            ".cpp": "cpp",
+            ".cc": "cpp",
+            ".cxx": "cpp",
+            ".c": "c",
+            ".h": "c",
+            ".hpp": "cpp",
+        }
+
+        languages = set()
+        for file_path in file_paths:
+            # Simple exclusion check - skip if any exclusion pattern is in the path
+            if any(
+                pattern.replace("*", "") in str(file_path)
+                for pattern in exclusion_patterns
+            ):
+                continue
+
+            suffix = file_path.suffix.lower()
+            if suffix in language_patterns:
+                languages.add(language_patterns[suffix])
+
+        return languages
 
     def _update_project_languages_from_files(self, file_paths: List[Path]) -> None:
         """Update project languages in config if new ones detected in files."""
@@ -850,6 +884,10 @@ class DuplicateFinder:
             # Type filtering
             type_val = symbol.symbol_type.value
             if type_val not in self.config.include_symbol_types:
+                continue
+
+            # Import filtering - exclude imports before expensive embedding generation
+            if hasattr(symbol, "is_import") and symbol.is_import:
                 continue
 
             # Length filtering

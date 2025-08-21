@@ -54,6 +54,7 @@ class Symbol:
     return_type: Optional[str] = None
     complexity: Optional[int] = None
     dependencies: Optional[List[str]] = None
+    is_import: bool = False
 
 
 class SerenaFallbackExtractor:

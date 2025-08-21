@@ -16,7 +16,7 @@
 
 ---
 
-## 🎯 Core Principles
+## Core Principles
 
 ### 🚀 Minimize Token Usage
 
@@ -32,7 +32,7 @@
 - **LLM Strengths:** Scale, contextual flexibility, pattern matching
 - **LLM Weaknesses:** Repeatability and predictability
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 📦 Installation
 
@@ -54,7 +54,7 @@ For detailed installation instructions, see [Installation Guide](docs/installati
 
 For detailed agent strategy information, see [Agent Orchestration System](docs/agents.md)
 
-## 🌐 Supported Languages and Analysis Types
+## Supported Languages and Analysis Types
 
 | Language            | Test Coverage            | Performance Baseline          | Import Analysis         | Bottleneck Detection    |
 | :------------------ | :----------------------- | :---------------------------- | :---------------------- | :---------------------- |
@@ -70,7 +70,32 @@ For detailed agent strategy information, see [Agent Orchestration System](docs/a
 
 For detailed information about language support and analysis capabilities, see [Analysis Scripts](docs/analysis-scripts.md).
 
-## 🚀 Common Workflow Examples
+## Continuous Integration Process
+
+CI system automatically detects and addresses code duplication through GitHub Actions, leveraging advanced ML techniques to maintain code quality.
+
+### Code Duplication Detection Workflow
+
+The [Continuous Improvement workflow](.github/workflows/continuous-improvement.yml) runs on every push to `main`/`develop` branches and pull requests, performing these steps:
+
+1. **Change Detection**: Identifies modified files using Git diff or GitHub API
+2. **ML-Powered Analysis**: Uses transformer models to detect similar code segments
+3. **Risk Assessment**: Evaluates duplication impact using our [Decision Matrix](docs/ci-decision-matrix.md)
+4. **Automated Resolution**: Applies fixes for low-risk duplications or creates GitHub issues for complex cases
+5. **PR Feedback**: Comments results directly on pull requests with detailed analysis
+
+### Decision Logic
+
+Based on our [CTO-approved decision matrix](docs/ci-decision-matrix.md), the system evaluates:
+
+- **Similarity scores** using transformer embeddings
+- **Risk factors** including cross-module impact and public API changes
+- **Confidence levels** based on test coverage and code complexity
+- **Auto-fix criteria** for simple, well-tested code segments
+
+For detailed information about the CI process, see [CI Decision Matrix](docs/ci-decision-matrix.md).
+
+## Common Workflow Examples
 
 ### 1. Setup a project from scratch with monitoring and CI process
 
@@ -110,7 +135,7 @@ For detailed information about language support and analysis capabilities, see [
 
 [See detailed security analysis documentation](docs/workflow-examples.md#example-5-security-analysis-and-refactoring)
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 claude-code/
@@ -147,7 +172,7 @@ docs/
 └── workflow-examples.md       # Common workflow examples and use cases
 ```
 
-## 📚 Documentation
+## Documentation
 
 For detailed documentation on specific components, see:
 
@@ -158,14 +183,8 @@ For detailed documentation on specific components, see:
 - [Workflow Examples](docs/workflow-examples.md)
 - [CI Decision Matrix](docs/ci-decision-matrix.md)
 
-## 📄 License
+## License
 
 **MIT License** - See LICENSE file for details.
 
 ---
-
-<div align="center">
-
-_Built with ❤️ for the developer community_
-
-</div>

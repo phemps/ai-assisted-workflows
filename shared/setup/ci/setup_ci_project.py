@@ -13,7 +13,7 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 def run_command(cmd, shell=False, cwd=None):
@@ -27,32 +27,48 @@ def run_command(cmd, shell=False, cwd=None):
         return False, "", str(e)
 
 
-def detect_project_languages(project_dir: str) -> List[str]:
-    """Detect programming languages in the project."""
-    language_patterns = {
-        "python": ["**/*.py"],
-        "javascript": ["**/*.js", "**/*.jsx"],
-        "typescript": ["**/*.ts", "**/*.tsx"],
-        "java": ["**/*.java"],
-        "go": ["**/*.go"],
-        "rust": ["**/*.rs"],
-        "php": ["**/*.php"],
-        "ruby": ["**/*.rb"],
-        "c": ["**/*.c", "**/*.h"],
-        "cpp": ["**/*.cpp", "**/*.hpp", "**/*.cc"],
-        "csharp": ["**/*.cs"],
-    }
+def detect_project_languages(
+    project_dir: str, exclusion_patterns: Optional[List[str]] = None
+) -> List[str]:
+    """Detect programming languages in the project using shared utility."""
+    try:
+        # Import the shared language detector
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "core" / "utils"))
+        from language_detector import LanguageDetector
 
-    detected = []
-    project_path = Path(project_dir)
+        # Use shared utility with exclusion patterns
+        detected_languages = LanguageDetector.detect_from_directory(
+            project_dir, exclusion_patterns
+        )
+        return sorted(list(detected_languages))
 
-    for lang, patterns in language_patterns.items():
-        for pattern in patterns:
-            if list(project_path.glob(pattern)):
-                detected.append(lang)
-                break
+    except ImportError:
+        # Fallback to original logic if shared utility not available
+        print("Warning: Using fallback language detection", file=sys.stderr)
+        language_patterns = {
+            "python": ["**/*.py"],
+            "javascript": ["**/*.js", "**/*.jsx"],
+            "typescript": ["**/*.ts", "**/*.tsx"],
+            "java": ["**/*.java"],
+            "go": ["**/*.go"],
+            "rust": ["**/*.rs"],
+            "php": ["**/*.php"],
+            "ruby": ["**/*.rb"],
+            "c": ["**/*.c", "**/*.h"],
+            "cpp": ["**/*.cpp", "**/*.hpp", "**/*.cc"],
+            "csharp": ["**/*.cs"],
+        }
 
-    return detected
+        detected = []
+        project_path = Path(project_dir)
+
+        for lang, patterns in language_patterns.items():
+            for pattern in patterns:
+                if list(project_path.glob(pattern)):
+                    detected.append(lang)
+                    break
+
+        return detected
 
 
 def create_ci_registry_structure(project_dir: str) -> bool:
@@ -466,7 +482,17 @@ def main():
     try:
         # Detect project languages
         print("\nDetecting project languages...")
-        languages = detect_project_languages(args.project_dir)
+        # Use standard exclusion patterns
+        exclusion_patterns = [
+            "node_modules",
+            ".git",
+            "__pycache__",
+            "dist",
+            "build",
+            "target",
+            "test_codebase",
+        ]
+        languages = detect_project_languages(args.project_dir, exclusion_patterns)
         if languages:
             print(f"  ✓ Detected: {', '.join(languages)}")
         else:

@@ -93,6 +93,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
 try:
     from shared.core.utils.output_formatter import ResultFormatter
     from shared.core.utils.tech_stack_detector import TechStackDetector
+    from shared.core.utils.language_detector import LanguageDetector
 except ImportError as e:
     raise CIDependencyError(f"Error importing utilities: {e}")
 
@@ -653,9 +654,7 @@ class DuplicateFinder:
             try:
                 self._update_registry_with_results(filtered_symbols, embeddings)
             except Exception as e:
-                self._handle_fatal_error(
-                    f"Registry update failed: {e}", CISystemError
-                )
+                self._handle_fatal_error(f"Registry update failed: {e}", CISystemError)
 
         return duplicates
 
@@ -747,7 +746,32 @@ class DuplicateFinder:
         result.metadata["analysis_mode"] = "incremental"
         result.metadata["changed_files"] = [str(f) for f in changed_files]
 
+        # Check for new languages in changed files and update config if needed
+        self._update_project_languages_from_files(changed_files)
+
         return result
+
+    def _detect_languages_from_files(self, file_paths: List[Path]) -> set[str]:
+        """Detect programming languages from a list of files using shared utility."""
+        exclusion_patterns = self.config.exclude_file_patterns or []
+        return LanguageDetector.detect_from_files(file_paths, exclusion_patterns)
+
+    def _update_project_languages_from_files(self, file_paths: List[Path]) -> None:
+        """Update project languages in config if new ones detected in files."""
+        if not file_paths:
+            return
+
+        # Detect languages from the files
+        detected_languages = self._detect_languages_from_files(file_paths)
+
+        if detected_languages:
+            # Get current languages from registry manager
+            try:
+                self.registry_manager.update_project_languages(detected_languages)
+            except Exception as e:
+                print(
+                    f"Warning: Could not update project languages: {e}", file=sys.stderr
+                )
 
     def _extract_project_symbols(
         self,

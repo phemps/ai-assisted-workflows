@@ -380,6 +380,54 @@ class RegistryManager(CIConfigModule):
 
         return "\n".join(full_report)
 
+    def update_project_languages(self, new_languages: set[str]) -> None:
+        """Update project languages in CI config if new ones detected."""
+        if not new_languages:
+            return
+
+        ci_config_path = self.get_config_path("ci_config.json")
+
+        if not ci_config_path.exists():
+            print(
+                f"Warning: CI config file not found at {ci_config_path}",
+                file=sys.stderr,
+            )
+            return
+
+        try:
+            # Load current config
+            with open(ci_config_path, "r") as f:
+                config = json.load(f)
+
+            # Get current languages
+            current_languages = set(config.get("project", {}).get("languages", []))
+            updated_languages = current_languages.union(new_languages)
+
+            # Update if new languages detected
+            if updated_languages != current_languages:
+                if "project" not in config:
+                    config["project"] = {}
+                config["project"]["languages"] = sorted(list(updated_languages))
+
+                # Save back to file using atomic write
+                with atomic_write(ci_config_path) as f:
+                    json.dump(config, f, indent=2)
+
+                new_langs = updated_languages - current_languages
+                print(
+                    f"✓ Added new languages to config: {', '.join(sorted(new_langs))}"
+                )
+                self.log_operation(
+                    "languages_updated",
+                    {
+                        "new_languages": list(new_langs),
+                        "total_languages": len(updated_languages),
+                    },
+                )
+
+        except Exception as e:
+            print(f"Error updating project languages: {e}", file=sys.stderr)
+
 
 def main():
     """CLI interface using base utilities."""

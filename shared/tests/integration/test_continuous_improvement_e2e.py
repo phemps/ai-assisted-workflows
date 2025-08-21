@@ -11,7 +11,6 @@ Tests the complete workflow:
 This test validates the entire AI-assisted workflow pipeline.
 """
 
-import json
 import os
 import shutil
 import tempfile
@@ -26,7 +25,7 @@ sys.path.insert(0, str(project_root))
 
 # Test imports - using absolute imports from project root
 try:
-    from shared.ci.integration.orchestration_bridge import SimplifiedOrchestrationBridge
+    from shared.ci.integration.orchestration_bridge import OrchestrationBridge
     from shared.ci.core.semantic_duplicate_detector import DuplicateFinder
     from shared.ci.workflows.decision_matrix import (
         DecisionMatrix,
@@ -150,21 +149,11 @@ if __name__ == '__main__':
 
     @classmethod
     def _create_registry_config(cls):
-        """Create minimal registry configuration."""
+        """Create minimal CI registry structure."""
         registry_dir = cls.project_root / ".ci-registry"
         registry_dir.mkdir(parents=True)
 
-        # RegistryConfig expects: enable_caching, cache_ttl_hours, max_entries, backup_enabled, backup_frequency_hours, compression_enabled
-        config = {
-            "enable_caching": True,
-            "cache_ttl_hours": 24,
-            "max_entries": 1000,
-            "backup_enabled": False,
-            "backup_frequency_hours": 6,
-            "compression_enabled": True,
-        }
-
-        (registry_dir / "registry_config.json").write_text(json.dumps(config, indent=2))
+        # Just create the directory structure - config will be passed via config_path
 
     def setUp(self):
         """Set up individual test."""
@@ -172,9 +161,10 @@ if __name__ == '__main__':
         self.original_cwd = os.getcwd()
         os.chdir(self.project_root)
 
-        # Initialize bridge in test mode
-        self.bridge = SimplifiedOrchestrationBridge(
-            str(self.project_root), test_mode=True
+        # Initialize bridge in test mode with direct config path
+        test_config_path = Path(__file__).parent / "ci_config_test.json"
+        self.bridge = OrchestrationBridge(
+            str(self.project_root), test_mode=True, config_path=str(test_config_path)
         )
 
     def tearDown(self):

@@ -6,7 +6,7 @@
 ## Phase 1: System Status Verification
 
 1. **Action**: Check if CI registry is initialized
-2. **Tool**: Read - `.ci-registry/project_config.json` to verify project configuration exists
+2. **Tool**: Read - `.ci-registry/ci_config.json` to verify project configuration exists
 3. **Expected**: Project configuration file found with project settings
 4. **On missing**: Display setup instructions with `/setup-ci-monitoring`
 
@@ -69,7 +69,7 @@
 🔍 CI Monitoring Status Report
 
 📊 System Health:
-  CI Registry: [✅ Initialized / ❌ Not Found] (.ci-registry/project_config.json)
+  CI Registry: [✅ Initialized / ❌ Not Found] (.ci-registry/ci_config.json)
   Configuration: [✅ Active / ❌ Missing] (Threshold: $THRESHOLD)
   ML Dependencies: [✅ Available / ❌ Missing] (faiss, transformers, torch)
 

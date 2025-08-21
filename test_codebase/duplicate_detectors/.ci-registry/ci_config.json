@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "setup_date": "2025-08-21T00:00:00Z",
+  "project": {
+    "project_name": "test-continuous-improvement",
+    "languages": [
+      "python"
+    ],
+    "analysis": {
+      "similarity_threshold": 0.65,
+      "exact_duplicate_threshold": 1.0,
+      "high_similarity_threshold": 0.85,
+      "medium_similarity_threshold": 0.65,
+      "low_similarity_threshold": 0.45,
+      "analysis_mode": "full",
+      "batch_size": 100,
+      "enable_caching": true
+    },
+    "automation": {
+      "auto_refactor_enabled": false,
+      "max_auto_fix_complexity": "low",
+      "require_human_review": [
+        "cross_module",
+        "high_risk",
+        "architectural"
+      ],
+      "github_integration": false
+    },
+    "exclusions": {
+      "directories": [
+        "node_modules",
+        ".git",
+        "__pycache__",
+        "dist",
+        "build",
+        "target",
+        "shared",
+        "claude-code",
+        "eval",
+        "opencode",
+        "todos"
+      ],
+      "files": [
+        "*.min.js",
+        "*.bundle.js",
+        "*.map"
+      ],
+      "patterns": [
+        "test_codebase/monorepo/**/*",
+        "test_codebase/python/**/*"
+      ]
+    },
+    "quality_gates": {
+      "enabled": false,
+      "auto_detect": false,
+      "custom_commands": []
+    },
+    "metrics": {
+      "collection_enabled": true,
+      "retention_days": 90
+    }
+  },
+  "registry": {
+    "enable_caching": true,
+    "cache_ttl_hours": 24,
+    "max_entries": 1000,
+    "backup_enabled": false,
+    "backup_frequency_hours": 6,
+    "compression_enabled": true
+  }
+}

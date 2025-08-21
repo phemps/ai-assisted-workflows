@@ -7,7 +7,7 @@ Capture a comprehensive summary of the current chat session including all discus
 When this command is invoked, Claude should:
 
 1. **Analyze the current session** to identify all significant discussions and actions
-2. **Append to session-notes.md** (create if it doesn't exist) with timestamp header
+2. **Append to session-notes.md** (create if it doesn't exist) with timestamp header `session-notes.md`
 
 ## Output Format
 

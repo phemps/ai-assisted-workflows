@@ -11,6 +11,8 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
+import numpy as np
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -37,9 +39,26 @@ except ImportError as e:
     sys.exit(1)
 
 
-class SimplifiedOrchestrationBridge:
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles numpy types and other non-serializable objects."""
+
+    def default(self, obj):
+        if isinstance(obj, (np.integer, np.int32, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, Path):
+            return str(obj)
+        elif hasattr(obj, "__dict__"):
+            return obj.__dict__
+        return super().default(obj)
+
+
+class OrchestrationBridge:
     """
-    Simplified bridge that delegates to existing Claude Code workflows.
+    Bridge that orchestrates duplicate detection and remediation workflows.
 
     Purpose: When CTO decision logic determines a fix is needed, create a
     simple implementation plan and pass it to claude /todo-orchestrate.
@@ -47,17 +66,52 @@ class SimplifiedOrchestrationBridge:
     No duplication of workflow logic - just calls the existing command.
     """
 
-    def __init__(self, project_root: str = ".", test_mode: bool = False):
+    def __init__(
+        self, project_root: str = ".", test_mode: bool = False, config_path: str = None
+    ):
         self.project_root = Path(project_root).resolve()
         self.test_mode = test_mode
+        self.config_path = config_path
         self.duplicate_finder = self._initialize_duplicate_finder(test_mode)
         self.decision_matrix = DecisionMatrix()
 
     def _initialize_duplicate_finder(self, test_mode: bool = False) -> DuplicateFinder:
         """Initialize duplicate finder with fail-fast behavior."""
         try:
+            # Load CI configuration if available
+            ci_config = self._load_ci_config()
+
+            # Extract configuration values
+            analysis_config = ci_config.get("project", {}).get("analysis", {})
+            exclusions = ci_config.get("project", {}).get("exclusions", {})
+
+            # Build exclude patterns from CI config
+            exclude_patterns = []
+            exclude_patterns.extend(exclusions.get("files", []))
+            exclude_patterns.extend(exclusions.get("patterns", []))
+
+            # Add directory exclusions as patterns
+            for directory in exclusions.get("directories", []):
+                exclude_patterns.append(f"{directory}/*")
+                exclude_patterns.append(f"**/{directory}/*")
+
             config = DuplicateFinderConfig(
-                analysis_mode="targeted", enable_caching=True, batch_size=50
+                analysis_mode=analysis_config.get("analysis_mode", "targeted"),
+                enable_caching=analysis_config.get("enable_caching", True),
+                batch_size=analysis_config.get("batch_size", 50),
+                medium_similarity_threshold=analysis_config.get(
+                    "medium_similarity_threshold", 0.75
+                ),
+                high_similarity_threshold=analysis_config.get(
+                    "high_similarity_threshold", 0.85
+                ),
+                exact_duplicate_threshold=analysis_config.get(
+                    "exact_duplicate_threshold", 1.0
+                ),
+                low_similarity_threshold=analysis_config.get(
+                    "low_similarity_threshold", 0.45
+                ),
+                exclude_file_patterns=exclude_patterns if exclude_patterns else None,
             )
             return DuplicateFinder(config, self.project_root, test_mode=test_mode)
         except Exception as e:
@@ -66,6 +120,498 @@ class SimplifiedOrchestrationBridge:
             else:
                 print(f"FATAL: Cannot initialize DuplicateFinder: {e}", file=sys.stderr)
                 sys.exit(1)
+
+    def _filter_meaningful_duplicates(
+        self, findings: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Filter out meaningless duplicates like imports and built-in types."""
+
+        # Common import symbols and built-in types to exclude
+        skip_symbols = {
+            # Python built-in types
+            "Path",
+            "List",
+            "Dict",
+            "Set",
+            "Tuple",
+            "Optional",
+            "Union",
+            "Any",
+            "Callable",
+            "Iterator",
+            "Iterable",
+            "Generator",
+            "Type",
+            "TypeVar",
+            # Common imports
+            "os",
+            "sys",
+            "json",
+            "time",
+            "datetime",
+            "pathlib",
+            "typing",
+            "logging",
+            "argparse",
+            "subprocess",
+            "tempfile",
+            "re",
+            "shutil",
+            # Decorators and common patterns
+            "dataclass",
+            "property",
+            "staticmethod",
+            "classmethod",
+            "abstractmethod",
+            # Generic names that are likely false positives
+            "self",
+            "cls",
+            "args",
+            "kwargs",
+            "result",
+            "data",
+            "config",
+            "settings",
+        }
+
+        meaningful_findings = []
+
+        for finding in findings:
+            evidence = finding.get("evidence", {})
+            orig = evidence.get("original_symbol", {})
+            dup = evidence.get("duplicate_symbol", {})
+
+            orig_name = orig.get("name", "")
+            dup_name = dup.get("name", "")
+
+            # Skip if either symbol is in the skip list
+            if orig_name in skip_symbols or dup_name in skip_symbols:
+                continue
+
+            # Skip single-character names (likely parameters)
+            if len(orig_name) <= 1 or len(dup_name) <= 1:
+                continue
+
+            # Skip if names are too generic
+            generic_names = {"i", "j", "k", "x", "y", "z", "n", "m", "e", "f", "v"}
+            if orig_name.lower() in generic_names or dup_name.lower() in generic_names:
+                continue
+
+            # Only include cross-file duplicates for now (more meaningful)
+            orig_file = orig.get("file", "")
+            dup_file = dup.get("file", "")
+            if orig_file and dup_file and orig_file != dup_file:
+                meaningful_findings.append(finding)
+
+        return meaningful_findings
+
+    def _aggregate_findings(
+        self, findings: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Group findings by duplicate pairs to create consolidated refactoring tasks."""
+        from collections import defaultdict
+
+        # Group findings by the pair of files involved
+        file_pairs = defaultdict(list)
+
+        for finding in findings:
+            evidence = finding.get("evidence", {})
+            orig = evidence.get("original_symbol", {})
+            dup = evidence.get("duplicate_symbol", {})
+
+            orig_file = orig.get("file", "")
+            dup_file = dup.get("file", "")
+
+            # Create a consistent pair key (sorted to avoid duplicates)
+            if orig_file and dup_file:
+                file_pair = tuple(sorted([orig_file, dup_file]))
+                file_pairs[file_pair].append(finding)
+
+        # Create aggregated findings for each file pair
+        aggregated = []
+
+        for file_pair, pair_findings in file_pairs.items():
+            if len(pair_findings) < 2:  # Skip if less than 2 duplicates
+                continue
+
+            # Calculate aggregate metrics
+            total_similarity = sum(
+                f.get("evidence", {}).get("similarity_score", 0) for f in pair_findings
+            )
+            avg_similarity = total_similarity / len(pair_findings)
+
+            # Get symbol types involved
+            symbol_types = set()
+            duplicate_symbols = []
+
+            for finding in pair_findings:
+                evidence = finding.get("evidence", {})
+                orig = evidence.get("original_symbol", {})
+                dup = evidence.get("duplicate_symbol", {})
+
+                symbol_types.add(orig.get("type", "unknown"))
+                symbol_types.add(dup.get("type", "unknown"))
+
+                duplicate_symbols.append(
+                    {
+                        "original": orig.get("name", ""),
+                        "duplicate": dup.get("name", ""),
+                        "similarity": evidence.get("similarity_score", 0),
+                    }
+                )
+
+            # Create aggregated finding
+            aggregated_finding = {
+                "finding_id": f"aggregated_{len(aggregated):03d}",
+                "title": f"Multiple duplicates between {Path(file_pair[0]).name} and {Path(file_pair[1]).name}",
+                "description": f"Found {len(pair_findings)} duplicate patterns between files with average similarity {avg_similarity:.2f}",
+                "severity": "high" if avg_similarity >= 0.85 else "medium",
+                "evidence": {
+                    "file_pair": file_pair,
+                    "duplicate_count": len(pair_findings),
+                    "average_similarity": avg_similarity,
+                    "symbol_types": list(symbol_types),
+                    "duplicate_symbols": duplicate_symbols,
+                    "individual_findings": pair_findings,
+                },
+            }
+
+            aggregated.append(aggregated_finding)
+
+        # Sort by severity and duplicate count
+        aggregated.sort(
+            key=lambda x: (
+                x["evidence"]["average_similarity"],
+                x["evidence"]["duplicate_count"],
+            ),
+            reverse=True,
+        )
+
+        return aggregated
+
+    def _expert_review_duplicates(
+        self, aggregated_findings: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Pass aggregated findings to expert agents for language-specific review.
+        Each language expert creates comprehensive refactoring plans.
+        """
+        results = []
+
+        for finding in aggregated_findings:
+            try:
+                evidence = finding.get("evidence", {})
+                file_pair = evidence.get("file_pair", [])
+
+                # Determine primary language from file extensions
+                primary_language = self._detect_primary_language(file_pair)
+
+                # Create review context for the expert agent
+                review_context = {
+                    "finding": finding,
+                    "language": primary_language,
+                    "file_pair": file_pair,
+                    "duplicate_count": evidence.get("duplicate_count", 0),
+                    "average_similarity": evidence.get("average_similarity", 0),
+                    "duplicate_symbols": evidence.get("duplicate_symbols", []),
+                }
+
+                # Pass to appropriate expert agent
+                if primary_language == "python":
+                    result = self._python_expert_review(review_context)
+                elif primary_language in ["javascript", "typescript"]:
+                    result = self._typescript_expert_review(review_context)
+                else:
+                    # Fallback to CTO for unknown languages
+                    result = self._cto_expert_review(review_context)
+
+                results.append(result)
+
+            except Exception as e:
+                # Handle errors gracefully
+                error_result = {
+                    "action": "expert_review_error",
+                    "status": "error",
+                    "error": str(e),
+                    "finding_id": finding.get("finding_id", "unknown"),
+                    "message": f"Expert review failed: {e}",
+                }
+                results.append(error_result)
+
+        return results
+
+    def _detect_primary_language(self, file_pair: List[str]) -> str:
+        """Detect the primary programming language from file extensions."""
+        if not file_pair:
+            return "unknown"
+
+        extensions = [Path(f).suffix.lower() for f in file_pair]
+
+        # Count language occurrences
+        language_count = {}
+        for ext in extensions:
+            if ext in [".py", ".pyx"]:
+                language_count["python"] = language_count.get("python", 0) + 1
+            elif ext in [".js", ".jsx"]:
+                language_count["javascript"] = language_count.get("javascript", 0) + 1
+            elif ext in [".ts", ".tsx"]:
+                language_count["typescript"] = language_count.get("typescript", 0) + 1
+            elif ext in [".rs"]:
+                language_count["rust"] = language_count.get("rust", 0) + 1
+            elif ext in [".go"]:
+                language_count["go"] = language_count.get("go", 0) + 1
+
+        # Return most common language, or "unknown" if none detected
+        if language_count:
+            return max(language_count, key=language_count.get)
+        return "unknown"
+
+    def _python_expert_review(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Pass aggregated Python duplicates to python-expert agent."""
+        try:
+            print(
+                f"🐍 Passing {context['duplicate_count']} duplicates to python-expert..."
+            )
+
+            # Create comprehensive task description for the expert agent
+            task_description = self._create_expert_task_description(
+                context, "python-expert"
+            )
+
+            # Call the expert agent through Task tool
+            result = self._call_expert_agent("python-expert", task_description, context)
+
+            return {
+                "action": "expert_review",
+                "agent": "python-expert",
+                "status": result.get("status", "completed"),
+                "finding_id": context["finding"].get("finding_id", "unknown"),
+                "language": "python",
+                "expert_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "expert_review",
+                "agent": "python-expert",
+                "status": "error",
+                "error": str(e),
+                "finding_id": context["finding"].get("finding_id", "unknown"),
+            }
+
+    def _typescript_expert_review(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Pass aggregated TypeScript/JavaScript duplicates to typescript-expert agent."""
+        try:
+            print(
+                f"📜 Passing {context['duplicate_count']} duplicates to typescript-expert..."
+            )
+
+            task_description = self._create_expert_task_description(
+                context, "typescript-expert"
+            )
+            result = self._call_expert_agent(
+                "typescript-expert", task_description, context
+            )
+
+            return {
+                "action": "expert_review",
+                "agent": "typescript-expert",
+                "status": result.get("status", "completed"),
+                "finding_id": context["finding"].get("finding_id", "unknown"),
+                "language": context["language"],
+                "expert_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "expert_review",
+                "agent": "typescript-expert",
+                "status": "error",
+                "error": str(e),
+                "finding_id": context["finding"].get("finding_id", "unknown"),
+            }
+
+    def _cto_expert_review(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Pass complex or unknown language duplicates to CTO agent."""
+        try:
+            print(
+                f"👔 Escalating {context['duplicate_count']} duplicates to CTO for complex review..."
+            )
+
+            task_description = self._create_expert_task_description(context, "cto")
+            result = self._call_expert_agent("cto", task_description, context)
+
+            return {
+                "action": "expert_review",
+                "agent": "cto",
+                "status": result.get("status", "completed"),
+                "finding_id": context["finding"].get("finding_id", "unknown"),
+                "language": context["language"],
+                "expert_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "expert_review",
+                "agent": "cto",
+                "status": "error",
+                "error": str(e),
+                "finding_id": context["finding"].get("finding_id", "unknown"),
+            }
+
+    def _create_expert_task_description(
+        self, context: Dict[str, Any], agent_type: str
+    ) -> str:
+        """Create detailed task description for expert agents."""
+        finding = context["finding"]
+        evidence = finding.get("evidence", {})
+        duplicate_symbols = evidence.get("duplicate_symbols", [])
+
+        # Format duplicate symbols information
+        symbols_info = "\n".join(
+            [
+                f"- {sym['original']} ↔ {sym['duplicate']} (similarity: {sym['similarity']:.2f})"
+                for sym in duplicate_symbols[:10]  # Limit to first 10 for readability
+            ]
+        )
+
+        if len(duplicate_symbols) > 10:
+            symbols_info += f"\n... and {len(duplicate_symbols) - 10} more duplicates"
+
+        file_pair = context["file_pair"]
+
+        return f"""# Code Duplication Review and Planning Task
+
+## Context
+You are reviewing code duplication findings from our continuous improvement system. Your role is to:
+1. Analyze the aggregated duplicate patterns
+2. Create a comprehensive refactoring plan
+3. Decide whether to proceed with automatic refactoring or escalate to human review
+
+## Duplication Details
+
+**File Pair**: {Path(file_pair[0]).name} ↔ {Path(file_pair[1]).name}
+**Total Duplicates Found**: {context['duplicate_count']}
+**Average Similarity**: {context['average_similarity']:.2f}
+**Language**: {context['language']}
+
+### Duplicate Patterns Identified:
+{symbols_info}
+
+## Task Requirements
+
+1. **Analysis Phase**:
+   - Use Serena tools to examine both files and understand the duplicate patterns
+   - Assess the complexity and risk of consolidating these duplicates
+   - Consider dependencies, test coverage, and architectural impact
+
+2. **Decision Phase**:
+   - If duplicates are simple and low-risk: Create implementation plan for automatic refactoring
+   - If duplicates are complex or high-risk: Create detailed issue for human review
+   - Consider the decision matrix criteria: similarity, complexity, test coverage, API impact
+
+3. **Action Phase**:
+   - For automatic refactoring: Use /todo-orchestrate with your implementation plan
+   - For human review: Create detailed GitHub issue with your analysis
+
+## Success Criteria
+- Thorough analysis of all duplicate patterns in the file pair
+- Clear decision on refactoring approach based on risk assessment
+- Either completed refactoring or well-documented issue for human review
+
+Please proceed with the analysis and take appropriate action based on your assessment.
+"""
+
+    def _call_expert_agent(
+        self, agent_type: str, task_description: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Call expert agent using Claude Code Task tool (simulated for now)."""
+        try:
+            # In test mode, simulate expert agent response
+            if self.test_mode:
+                return {
+                    "status": "simulated_success",
+                    "agent": agent_type,
+                    "message": f"Simulated {agent_type} review completed",
+                    "action_taken": "simulated_analysis",
+                    "recommendation": "Proceed with automatic refactoring"
+                    if context.get("average_similarity", 0) > 0.8
+                    else "Escalate to human review",
+                }
+
+            # In real mode, this would call the Task tool with the specified agent
+            # For now, return a placeholder that indicates the system is working
+            return {
+                "status": "agent_call_required",
+                "agent": agent_type,
+                "task_description": task_description,
+                "message": f"Task prepared for {agent_type} - agent integration pending",
+                "context_summary": {
+                    "duplicates": context["duplicate_count"],
+                    "similarity": context["average_similarity"],
+                    "files": context["file_pair"],
+                },
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "message": f"Failed to call {agent_type} agent",
+            }
+
+    def _load_ci_config(self) -> Dict[str, Any]:
+        """Load CI configuration from file."""
+        import json
+
+        # Determine config file path
+        if self.config_path:
+            config_file = Path(self.config_path)
+        else:
+            # Default location
+            config_file = self.project_root / ".ci-registry" / "ci_config.json"
+
+        if not config_file.exists():
+            # Return default configuration if no config file found
+            return {
+                "project": {
+                    "analysis": {
+                        "analysis_mode": "targeted",
+                        "enable_caching": True,
+                        "batch_size": 50,
+                        "medium_similarity_threshold": 0.75,
+                        "high_similarity_threshold": 0.85,
+                        "exact_duplicate_threshold": 1.0,
+                        "low_similarity_threshold": 0.45,
+                    },
+                    "exclusions": {
+                        "directories": [
+                            "node_modules",
+                            ".git",
+                            "__pycache__",
+                            "dist",
+                            "build",
+                            "target",
+                        ],
+                        "files": ["*.min.js", "*.bundle.js", "*.map"],
+                        "patterns": [],
+                    },
+                }
+            }
+
+        try:
+            with open(config_file, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            if self.test_mode:
+                raise CISystemError(f"Failed to load CI config from {config_file}: {e}")
+            else:
+                print(
+                    f"Warning: Failed to load CI config from {config_file}: {e}",
+                    file=sys.stderr,
+                )
+                print("Using default configuration", file=sys.stderr)
+                return {"project": {"analysis": {}, "exclusions": {}}}
 
     def process_duplicates_for_github_actions(
         self, changed_files: Optional[List[str]] = None
@@ -96,38 +642,74 @@ class SimplifiedOrchestrationBridge:
             else:
                 analysis_result = self.duplicate_finder.analyze_project()
 
-            findings_count = len(analysis_result.findings)
-            print(f"📊 Found {findings_count} potential duplicate(s)")
+            # Step 1.5: Filter out meaningless duplicates (imports, built-ins)
+            filtered_findings = self._filter_meaningful_duplicates(
+                analysis_result.findings
+            )
+            findings_count = len(filtered_findings)
+            print(
+                f"📊 Found {findings_count} meaningful duplicate(s) (filtered from {len(analysis_result.findings)} total)"
+            )
 
             if findings_count == 0:
-                return {
+                result = {
                     "status": "success",
                     "action": "no_duplicates_found",
                     "results": [],
+                    "summary": {
+                        "automatic_fixes": 0,
+                        "github_issues": 0,
+                        "skipped": 0,
+                        "errors": 0,
+                        "successes": 0,
+                    },
                 }
+                # Save report even when no duplicates found
+                self._save_analysis_report(result)
+                return result
 
-            # Step 2: Process each finding through CTO decision matrix
-            results = []
-            for finding in analysis_result.findings:
-                result = self._process_single_duplicate(finding)
-                results.append(result)
+            # Step 2: Aggregate findings by file pairs to reduce processing overhead
+            aggregated_findings = self._aggregate_findings(filtered_findings)
+            print(f"📦 Aggregated into {len(aggregated_findings)} finding groups")
 
-            # Step 3: Create summary
+            # Step 3: Expert agent review for aggregated findings
+            if len(aggregated_findings) > 0:
+                expert_results = self._expert_review_duplicates(aggregated_findings)
+                results = expert_results
+            else:
+                results = []
+
+            # Step 4: Create summary
             summary = self._create_summary(results)
 
-            return {
+            result = {
                 "status": "success",
                 "findings_processed": findings_count,
                 "summary": summary,
                 "results": results,
             }
 
+            # Step 5: Save analysis report
+            self._save_analysis_report(result)
+
+            return result
+
         except Exception as e:
-            return {
+            error_result = {
                 "status": "error",
                 "error": str(e),
                 "message": "Duplicate analysis failed - see logs for details",
+                "summary": {
+                    "automatic_fixes": 0,
+                    "github_issues": 0,
+                    "skipped": 0,
+                    "errors": 1,
+                    "successes": 0,
+                },
             }
+            # Save error report as well
+            self._save_analysis_report(error_result)
+            return error_result
 
     def _process_single_duplicate(self, finding: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single duplicate finding through CTO decision matrix."""
@@ -431,30 +1013,85 @@ Manual review is recommended because:
     def _create_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create summary of processing results."""
         summary = {
+            "expert_reviews": 0,
             "automatic_fixes": 0,
             "github_issues": 0,
             "skipped": 0,
             "errors": 0,
             "successes": 0,
+            "agents_used": set(),
         }
 
         for result in results:
             action = result.get("action", "unknown")
             status = result.get("status", "unknown")
+            agent = result.get("agent", "")
 
-            if action == "automatic_fix":
+            if action == "expert_review":
+                summary["expert_reviews"] += 1
+                if agent:
+                    summary["agents_used"].add(agent)
+            elif action == "automatic_fix":
                 summary["automatic_fixes"] += 1
             elif action == "github_issue":
                 summary["github_issues"] += 1
             elif action == "skipped":
                 summary["skipped"] += 1
-            elif action == "error":
+            elif action in ["error", "expert_review_error"]:
                 summary["errors"] += 1
 
-            if status == "success":
+            if status in ["success", "completed", "simulated_success"]:
                 summary["successes"] += 1
 
+        # Convert set to list for JSON serialization
+        summary["agents_used"] = list(summary["agents_used"])
         return summary
+
+    def _save_analysis_report(self, result: Dict[str, Any]) -> None:
+        """Save analysis results to reports directory for GitHub Actions artifact upload."""
+        try:
+            # Create reports directory
+            reports_dir = Path(self.project_root) / ".ci-registry" / "reports"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create comprehensive report
+            report_data = {
+                "timestamp": time.time(),
+                "analysis_date": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+                "status": result.get("status", "unknown"),
+                "findings": result.get("results", []),
+                "summary": result.get("summary", {}),
+                "config": {
+                    "similarity_threshold": 0.85,  # TODO: Get from actual config
+                    "project_root": str(self.project_root),
+                    "analysis_mode": "github_actions",
+                },
+                "metadata": {
+                    "analysis_type": "duplicate_detection",
+                    "workflow_trigger": "github_actions",
+                    "findings_processed": result.get("findings_processed", 0),
+                    "action": result.get("action", "analysis_completed"),
+                },
+            }
+
+            # Save latest analysis report
+            report_file = reports_dir / "latest-analysis.json"
+            with open(report_file, "w") as f:
+                json.dump(report_data, f, indent=2, cls=CustomJSONEncoder)
+
+            print(
+                f"✅ Analysis report saved to {report_file.relative_to(self.project_root)}"
+            )
+
+            # Also save timestamped report for history
+            timestamp = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+            historical_file = reports_dir / f"analysis_{timestamp}.json"
+            with open(historical_file, "w") as f:
+                json.dump(report_data, f, indent=2, cls=CustomJSONEncoder)
+
+        except Exception as e:
+            print(f"⚠️  Warning: Could not save analysis report: {e}", file=sys.stderr)
+            # Don't fail the entire process if report saving fails
 
 
 def main():
@@ -468,17 +1105,18 @@ def main():
         "--changed-files", nargs="*", help="List of changed files to analyze"
     )
     parser.add_argument("--project-root", default=".", help="Project root directory")
+    parser.add_argument("--config-path", help="Path to custom CI configuration file")
 
     args = parser.parse_args()
 
     # Initialize bridge
-    bridge = SimplifiedOrchestrationBridge(args.project_root)
+    bridge = OrchestrationBridge(args.project_root, config_path=args.config_path)
 
     # Process duplicates
     result = bridge.process_duplicates_for_github_actions(args.changed_files)
 
     # Output results as JSON for GitHub Actions
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, cls=CustomJSONEncoder))
 
     # Exit with appropriate code
     if result.get("status") == "error":

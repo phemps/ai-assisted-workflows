@@ -34,14 +34,28 @@ jobs:
       - name: Get changed files
         id: changed-files
         run: |
+          set -e
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
+            # Use GitHub API for more reliable diff when available
+            if command -v gh >/dev/null 2>&1; then
+              gh api repos/${{ github.repository }}/compare/${{ github.event.pull_request.base.sha }}...${{ github.sha }} \
+                --jq '.files[].filename' > changed_files.txt 2>/dev/null || {
+                echo "GitHub API failed, falling back to git diff"
+                git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
+              }
+            else
+              git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
+            fi
           else
-            git diff --name-only HEAD~1 HEAD > changed_files.txt
+            git diff --name-only HEAD~1 HEAD > changed_files.txt || {
+              echo "Git diff failed, analyzing all files"
+              echo "" > changed_files.txt
+            }
           fi
+
           echo "files=$(cat changed_files.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
           echo "Changed files:"
-          cat changed_files.txt
+          cat changed_files.txt || echo "No changed files detected"
 
       - name: Ensure CI registry directory exists
         run: |
@@ -55,8 +69,29 @@ jobs:
             --project-root .. \
             --changed-files ${{ steps.changed-files.outputs.files }}
 
-      - name: Upload analysis results
+      - name: Check for analysis results
+        id: check-results
         if: always()
+        run: |
+          if [ -f ".ci-registry/reports/latest-analysis.json" ]; then
+            echo "reports_exist=true" >> $GITHUB_OUTPUT
+            echo "Analysis results found"
+            echo "Report size: $(wc -c < .ci-registry/reports/latest-analysis.json) bytes"
+          else
+            echo "reports_exist=false" >> $GITHUB_OUTPUT
+            echo "No analysis results found"
+          fi
+
+          # Check if reports directory exists and list contents
+          if [ -d ".ci-registry/reports" ]; then
+            echo "Reports directory contents:"
+            ls -la .ci-registry/reports/
+          else
+            echo "Reports directory does not exist"
+          fi
+
+      - name: Upload analysis results
+        if: always() && steps.check-results.outputs.reports_exist == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: duplication-analysis
@@ -64,6 +99,7 @@ jobs:
             .ci-registry/reports/
             .ci-registry/baseline-duplicates.json
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Collect diagnostic information
         if: failure()
@@ -91,15 +127,22 @@ jobs:
             if (fs.existsSync(path)) {
               const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
               const duplicateCount = analysis.findings?.length || 0;
+              const summary = analysis.summary || {};
 
               const status = duplicateCount > 0 ?
                 'Code duplications detected. Review analysis artifacts for details.' :
                 'No significant code duplication detected.';
 
-              const comment = '## Code Duplication Analysis\\n\\n' +
+              const comment = '## Code Duplication Analysis Results\\n\\n' +
                 'Project: ai-assisted-workflows\\n' +
+                'Analysis Date: ' + (analysis.analysis_date || 'Unknown') + '\\n' +
                 'Duplicates Found: ' + duplicateCount + '\\n' +
-                'Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\\n\\n' +
+                'Similarity Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\\n\\n' +
+                '### Summary\\n' +
+                '- Automatic Fixes: ' + (summary.automatic_fixes || 0) + '\\n' +
+                '- GitHub Issues: ' + (summary.github_issues || 0) + '\\n' +
+                '- Skipped: ' + (summary.skipped || 0) + '\\n' +
+                '- Errors: ' + (summary.errors || 0) + '\\n\\n' +
                 'Status: ' + status + '\\n\\n' +
                 'Analysis completed by Continuous Improvement Framework.';
 
@@ -119,3 +162,31 @@ jobs:
           else
             echo "No analysis results found"
           fi
+
+      - name: Validate workflow completion
+        if: always()
+        run: |
+          echo "=== Workflow Validation ==="
+          echo "Working Directory: $(pwd)"
+          echo "Workflow Status: ${{ job.status }}"
+          echo "Python Version: $(python --version)"
+
+          echo ""
+          echo "CI Registry Structure:"
+          if [ -d ".ci-registry" ]; then
+            find .ci-registry -type f -ls 2>/dev/null || ls -la .ci-registry/ 2>/dev/null || echo "Cannot list CI registry contents"
+          else
+            echo "CI registry directory not found"
+          fi
+
+          echo ""
+          echo "Reports Directory:"
+          if [ -d ".ci-registry/reports" ]; then
+            ls -la .ci-registry/reports/
+            echo "Report file count: $(find .ci-registry/reports -name '*.json' | wc -l)"
+          else
+            echo "Reports directory not found"
+          fi
+
+          echo ""
+          echo "Workflow completed with status: ${{ job.status }}"

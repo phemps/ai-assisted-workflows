@@ -58,6 +58,7 @@ Successfully fixed the GitHub Actions continuous improvement workflow by consoli
 
 - Updated `CLAUDE.md` references from `project_config.json` to `ci_config.json`
 - Updated setup script template documentation
+- Restructured project documentation into separate files in the `docs/` directory for better organization
 
 ### 5. Exclusions Enhancement
 

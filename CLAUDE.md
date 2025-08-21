@@ -113,6 +113,13 @@ The system automatically detects and runs appropriate quality checks based on te
 │   ├── agents/                # 8-agent system definitions
 │   ├── modes/                 # Behavior modification modes
 │   └── install.sh             # Installation script
+├── docs/                      # Detailed documentation
+│   ├── analysis-scripts.md    # Language support and analysis capabilities
+│   ├── agents.md              # Agent orchestration system documentation
+│   ├── ci-decision-matrix.md  # Code duplication decision criteria
+│   ├── installation.md        # Installation and setup guide
+│   ├── monitoring.md          # Development and CI monitoring systems
+│   └── workflow-examples.md   # Common workflow examples and use cases
 ├── eval/                      # WIP evaluation framework
 ├── opencode/                    # WIP Opencode-specific workflows and configurations
 ├── shared/                    # Shared Python infrastructure

@@ -1,4 +1,20 @@
-# AI-Assisted Workflows - Detailed Documentation
+# Programming Language Support and Analysis Capabilities
+
+## Supported Languages
+
+**Core Support:** Python, JavaScript, TypeScript, Java, C#, Go, Rust, PHP, Ruby, C/C++, Swift, Kotlin, SQL, and more
+
+| Language            | Test Coverage            | Performance Baseline          | Import Analysis         | Bottleneck Detection    |
+| :------------------ | :----------------------- | :---------------------------- | :---------------------- | :---------------------- |
+| **Python**          | ✅ pytest, coverage      | ✅ cProfile, memory-profiler  | ✅ import patterns      | ✅ AST analysis         |
+| **JavaScript**      | ✅ jest, nyc, c8         | ✅ npm scripts, profiling     | ✅ import/require       | ✅ performance patterns |
+| **TypeScript**      | ✅ jest, nyc, c8         | ✅ npm scripts, profiling     | ✅ import patterns      | ✅ performance patterns |
+| **Java**            | ✅ junit, jacoco         | ✅ maven/gradle, JFR          | ✅ import statements    | ✅ performance patterns |
+| **Go**              | ✅ go test, coverage     | ✅ go build, benchmarks       | ✅ import patterns      | ✅ performance patterns |
+| **Rust**            | ✅ cargo test, tarpaulin | ✅ cargo bench, flamegraph    | ✅ use statements       | ✅ performance patterns |
+| **C#**              | ✅ dotnet test, coverlet | ✅ dotnet build, profiling    | ✅ using statements     | ✅ performance patterns |
+| **SQL**             | ✅ SQLFluff integration  | ✅ Query performance analysis | ✅ Schema dependencies  | ✅ Query optimization   |
+| **Other Languages** | ✅ Framework detection   | ✅ Language-specific patterns | ✅ Full import analysis | ✅ Performance patterns |
 
 ## Python Libraries and Dependencies
 
@@ -97,108 +113,6 @@ These dependencies are automatically installed by the installer via npm:
 - `eslint-plugin-import@latest` - Import/export syntax checking
 - `eslint-plugin-vue@latest` - Vue.js-specific linting rules
 - `eslint-plugin-svelte@latest` - Svelte-specific linting rules
-
-## Installation Details
-
-### Installation Options
-
-```bash
-# Current directory (uses ./.claude/)
-./claude-code/install.sh
-
-# User global (uses ~/.claude/)
-./claude-code/install.sh ~
-
-# Custom location
-./claude-code/install.sh /my/project/path
-
-# Advanced options
-./claude-code/install.sh --dry-run       # Preview changes without making modifications
-./claude-code/install.sh --verbose      # Enable detailed debug output
-./claude-code/install.sh --skip-mcp     # Skip MCP tools installation (Python scripts only)
-./claude-code/install.sh --skip-python  # Skip Python dependencies installation
-./claude-code/install.sh --help         # Show detailed help and usage information
-```
-
-### Dependencies Installation
-
-The installer automatically handles all dependencies:
-
-**Python Dependencies:**
-- Runs `shared/setup/install_dependencies.py` to install packages from `shared/setup/requirements.txt`
-- Optionally installs CI framework dependencies from `shared/setup/ci/requirements.txt`
-- Validates Python 3.7+ compatibility
-
-**Node.js Dependencies:**
-- Automatically installs ESLint and plugins via npm if not present
-- Creates a `package.json` in the installation directory
-- Installs comprehensive frontend analysis tools (ESLint, TypeScript, React, Vue, Svelte plugins)
-
-**Installation Tracking:**
-- Creates an installation log for clean uninstallation tracking
-- Tracks which packages were pre-existing vs newly installed
-
-### Handling Existing .Claude Installations
-
-**Automatic Backup:** All installation options automatically create a timestamped backup of your existing installation before making any changes.
-
-The installer automatically detects existing `.claude` directories and offers four options:
-
-1. **Fresh Install:** Complete replacement of existing installation
-2. **Merge:** Preserve user customizations while adding new features (no overwrites)
-3. **Update Workflows Only:** Update built-in commands and scripts while preserving custom commands and all other files (recommended for updates)
-4. **Cancel:** Exit without changes
-
-## Uninstalling
-
-To safely remove AI-Assisted Workflows components while preserving your .claude directory:
-
-```bash
-# Preview what would be removed (recommended first step)
-./uninstall.sh --dry-run
-
-# Uninstall from current directory
-./uninstall.sh
-
-# Uninstall from specific path
-./uninstall.sh /path/to/installation
-
-# Verbose output for detailed logging
-./uninstall.sh --verbose
-```
-
-**Smart Uninstall Features:**
-
-- **📦 Safe Removal**: Only removes workflow components, preserves .claude structure and user files
-- **⚠️ Dependency Tracking**: Distinguishes pre-existing vs newly installed Python packages/MCP servers using installation-log.txt
-- **💾 Automatic Backups**: Creates backups of MCP configuration and claude.md before changes
-- **🧹 Thorough Cleanup**: Removes **pycache** folders and empty directories
-- **📝 Installation Log**: Uses installation-log.txt to provide intelligent removal warnings
-
-The uninstaller will interactively prompt for each Python package and MCP server removal, showing whether each item was:
-
-- **🔧 Newly installed** by AI-Assisted Workflows (safer to remove)
-- **⚠️ Pre-existing** before installation (likely used by other projects - caution advised)
-
-## BaseAnalyzer Framework
-
-### Shared Infrastructure
-
-All analysis tools extend the `BaseAnalyzer` class (`shared/core/base/analyzer_base.py`) which provides:
-
-- **File Scanning**: Intelligent file discovery with gitignore support and configurable filters
-- **CLI Interface**: Consistent command-line arguments (--verbose, --output-format, --max-files, etc.)
-- **Result Formatting**: JSON, table, and report output formats
-- **Error Handling**: Robust error handling with detailed logging
-- **Validation**: Strict input validation with no placeholder logic
-- **Performance**: Built-in timing and progress tracking
-
-### Design Principles
-
-- **No Placeholder Logic**: All analyzers produce real, actionable findings
-- **Established Tools**: Leverages proven tools (Semgrep, Lizard, detect-secrets) over bespoke implementations
-- **Consistent Interface**: All analyzers share the same CLI patterns and output formats
-- **Extensible**: Easy to add new analyzers by extending BaseAnalyzer
 
 ## Analysis Scripts Architecture
 

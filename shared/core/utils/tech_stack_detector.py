@@ -21,6 +21,11 @@ class TechStackConfig:
     config_files: Set[str]
     source_patterns: Set[str]
     build_artifacts: Set[str]
+    boilerplate_patterns: Set[str] = None
+
+    def __post_init__(self):
+        if self.boilerplate_patterns is None:
+            self.boilerplate_patterns = set()
 
 
 class TechStackDetector:
@@ -83,6 +88,18 @@ class TechStackDetector:
                     "controllers/**/*",
                 },
                 build_artifacts={"dist", "build", "lib"},
+                boilerplate_patterns={
+                    "constructor",  # JS/TS constructor
+                    "toString",  # String representation
+                    "valueOf",  # Value conversion
+                    "get *",  # ES6 getter
+                    "set *",  # ES6 setter
+                    "componentDidMount",  # React lifecycle
+                    "componentWillUnmount",  # React lifecycle
+                    "render",  # React render
+                    "ngOnInit",  # Angular lifecycle
+                    "ngOnDestroy",  # Angular lifecycle
+                },
             ),
             "python": TechStackConfig(
                 name="Python",
@@ -110,6 +127,21 @@ class TechStackDetector:
                 },
                 source_patterns={"src/**/*", "app/**/*", "lib/**/*", "**/*.py"},
                 build_artifacts={"dist", "build", "*.egg-info"},
+                boilerplate_patterns={
+                    "__init__",  # Constructor
+                    "__str__",  # String representation
+                    "__repr__",  # Debug representation
+                    "__eq__",  # Equality
+                    "__hash__",  # Hash for sets/dicts
+                    "__enter__",  # Context manager
+                    "__exit__",  # Context manager
+                    "get_*",  # Getter pattern
+                    "set_*",  # Setter pattern
+                    "is_*",  # Boolean check pattern
+                    "has_*",  # Existence check pattern
+                    "_get_*",  # Private getter
+                    "_set_*",  # Private setter
+                },
             ),
             "java_maven": TechStackConfig(
                 name="Java with Maven",
@@ -128,6 +160,15 @@ class TechStackDetector:
                 config_files={"pom.xml", "maven-wrapper.properties"},
                 source_patterns={"src/main/**/*", "src/test/**/*"},
                 build_artifacts={"target"},
+                boilerplate_patterns={
+                    "equals",  # Object equality
+                    "hashCode",  # Hash code
+                    "toString",  # String representation
+                    "get*",  # JavaBean getter
+                    "set*",  # JavaBean setter
+                    "is*",  # Boolean getter
+                    "compareTo",  # Comparable
+                },
             ),
             "java_gradle": TechStackConfig(
                 name="Java with Gradle",
@@ -146,6 +187,15 @@ class TechStackDetector:
                 config_files={"build.gradle", "gradle.properties", "settings.gradle"},
                 source_patterns={"src/main/**/*", "src/test/**/*"},
                 build_artifacts={"build"},
+                boilerplate_patterns={
+                    "equals",  # Object equality
+                    "hashCode",  # Hash code
+                    "toString",  # String representation
+                    "get*",  # JavaBean getter
+                    "set*",  # JavaBean setter
+                    "is*",  # Boolean getter
+                    "compareTo",  # Comparable
+                },
             ),
             "dotnet": TechStackConfig(
                 name=".NET",

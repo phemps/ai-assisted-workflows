@@ -86,7 +86,7 @@ The [Continuous Improvement workflow](.github/workflows/continuous-improvement.y
 
 ### Decision Logic
 
-Based on our [CTO-approved decision matrix](docs/ci-decision-matrix.md), the system evaluates:
+The system evaluates:
 
 - **Similarity scores** using transformer embeddings
 - **Risk factors** including cross-module impact and public API changes

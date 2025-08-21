@@ -365,7 +365,8 @@ if __name__ == '__main__':
 
             # Verify at least one action was taken
             total_actions = (
-                summary["automatic_fixes"]
+                summary.get("expert_reviews", 0)
+                + summary["automatic_fixes"]
                 + summary["github_issues"]
                 + summary["skipped"]
             )

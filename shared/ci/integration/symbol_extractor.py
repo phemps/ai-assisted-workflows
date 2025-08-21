@@ -55,6 +55,8 @@ class Symbol:
     complexity: Optional[int] = None
     dependencies: Optional[List[str]] = None
     is_import: bool = False
+    lsp_kind: Optional[int] = None
+    line_count: int = 1  # Number of lines this symbol spans
 
 
 class SerenaFallbackExtractor:

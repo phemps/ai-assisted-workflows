@@ -328,12 +328,19 @@ class LSPSymbolExtractor(CIConfigModule):
             lsp_kind = lsp_symbol.get("kind", 0)
             symbol_type = self._map_lsp_kind_to_symbol_type(lsp_kind)
 
-            # Get position information
-            location = lsp_symbol.get("location", {})
-            range_info = location.get("range", {})
+            # Get position information from DocumentSymbol format
+            range_info = lsp_symbol.get("range", {})
             start_pos = range_info.get("start", {})
+            end_pos = range_info.get("end", {})
 
             line_number = start_pos.get("line", 0) + 1  # LSP is 0-based, we use 1-based
+
+            # Calculate line count if range information is available
+            line_count = 1
+            if start_pos and end_pos:
+                start_line = start_pos.get("line", 0)
+                end_line = end_pos.get("line", 0)
+                line_count = max(1, end_line - start_line + 1)
 
             # Detect imports using LSP kind (MODULE = 2) or symbol type
             is_import = lsp_kind == 2 or symbol_type == SymbolType.IMPORT
@@ -347,6 +354,8 @@ class LSPSymbolExtractor(CIConfigModule):
                 scope="global",  # Default scope
                 visibility="public",  # Default visibility
                 is_import=is_import,
+                lsp_kind=lsp_kind,
+                line_count=line_count,
             )
 
         except Exception as e:

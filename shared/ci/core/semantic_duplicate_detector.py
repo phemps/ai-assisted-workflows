@@ -1054,6 +1054,8 @@ class DuplicateFinder:
                         "file": duplicate.original_symbol.file_path,
                         "line": duplicate.original_symbol.line_number,
                         "content": duplicate.original_symbol.line_content[:100],
+                        "lsp_kind": duplicate.original_symbol.lsp_kind,
+                        "line_count": duplicate.original_symbol.line_count,
                     },
                     "duplicate_symbol": {
                         "name": duplicate.duplicate_symbol.name,
@@ -1061,6 +1063,8 @@ class DuplicateFinder:
                         "file": duplicate.duplicate_symbol.file_path,
                         "line": duplicate.duplicate_symbol.line_number,
                         "content": duplicate.duplicate_symbol.line_content[:100],
+                        "lsp_kind": duplicate.duplicate_symbol.lsp_kind,
+                        "line_count": duplicate.duplicate_symbol.line_count,
                     },
                     "details": duplicate.details,
                 },

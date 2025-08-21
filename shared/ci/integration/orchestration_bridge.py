@@ -124,7 +124,15 @@ class OrchestrationBridge:
     def _filter_meaningful_duplicates(
         self, findings: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """Filter out meaningless duplicates using semantic information."""
+        """Enhanced filtering using LSP kinds and language-specific patterns."""
+
+        # Import tech stack detector for language patterns
+        try:
+            from shared.core.utils.tech_stack_detector import TechStackDetector
+
+            detector = TechStackDetector()
+        except ImportError:
+            detector = None
 
         meaningful_findings = []
 
@@ -133,27 +141,90 @@ class OrchestrationBridge:
             orig = evidence.get("original_symbol", {})
             dup = evidence.get("duplicate_symbol", {})
 
-            # Skip imports using semantic information instead of hardcoded lists
-            if (hasattr(orig, "is_import") and orig.is_import) or (
-                hasattr(dup, "is_import") and dup.is_import
-            ):
+            # 1. USE LSP KIND for semantic filtering (not string matching!)
+            orig_kind = orig.get("lsp_kind", 0)
+            dup_kind = dup.get("lsp_kind", 0)
+            similarity = evidence.get("similarity_score", 0)
+
+            # Skip imports (LSP kind 2 = MODULE)
+            if orig_kind == 2 or dup_kind == 2:
+                continue
+
+            # Skip constants (LSP kind 14 = CONSTANT, 22 = ENUM_MEMBER)
+            if orig_kind in [14, 22] or dup_kind in [14, 22]:
+                continue
+
+            # Skip constructors unless exact match (LSP kind 9 = CONSTRUCTOR)
+            if (orig_kind == 9 or dup_kind == 9) and similarity < 0.95:
                 continue
 
             orig_name = orig.get("name", "")
             dup_name = dup.get("name", "")
+            orig_file = orig.get("file", "")
+            dup_file = dup.get("file", "")
 
-            # Skip single-character names (likely parameters)
+            # 2. Get language-specific patterns if available
+            if detector and orig_file:
+                language = self._detect_language_from_file(orig_file)
+                boilerplate_patterns = set()
+
+                # Load boilerplate patterns for this language
+                for stack_id, config in detector.tech_stacks.items():
+                    if (
+                        language in config.primary_languages
+                        and config.boilerplate_patterns
+                    ):
+                        boilerplate_patterns.update(config.boilerplate_patterns)
+
+                # 3. Check against language-specific patterns using fnmatch
+                if boilerplate_patterns:
+                    import fnmatch
+
+                    is_boilerplate = False
+                    for pattern in boilerplate_patterns:
+                        if fnmatch.fnmatch(orig_name, pattern) or fnmatch.fnmatch(
+                            dup_name, pattern
+                        ):
+                            # Boilerplate detected - only flag if very high similarity
+                            if similarity < 0.90:
+                                is_boilerplate = True
+                                break
+
+                    if is_boilerplate:
+                        continue
+
+            # 4. Skip PROPERTY kinds (LSP kind 7) unless high similarity
+            # Properties/getters/setters are often similar by design
+            if (orig_kind == 7 or dup_kind == 7) and similarity < 0.90:
+                continue
+
+            # 5. Skip very short duplicates unless exact match
+            # Only filter if we have reliable line count data AND it's not just function signatures
+            orig_lines = orig.get("line_count")
+            dup_lines = dup.get("line_count")
+            if (
+                orig_lines
+                and dup_lines
+                and orig_lines < 3
+                and dup_lines < 3
+                and similarity < 1.0
+                and
+                # Don't filter functions based on line count - LSP often only returns signature
+                orig_kind not in [12, 6]
+                and dup_kind not in [12, 6]
+            ):  # 12=FUNCTION, 6=METHOD
+                continue
+
+            # 6. Skip single-character names (likely parameters)
             if len(orig_name) <= 1 or len(dup_name) <= 1:
                 continue
 
-            # Skip if names are too generic
+            # 7. Skip if names are too generic
             generic_names = {"i", "j", "k", "x", "y", "z", "n", "m", "e", "f", "v"}
             if orig_name.lower() in generic_names or dup_name.lower() in generic_names:
                 continue
 
-            # Only include cross-file duplicates for now (more meaningful)
-            orig_file = orig.get("file", "")
-            dup_file = dup.get("file", "")
+            # 8. Only include cross-file duplicates (more meaningful)
             if orig_file and dup_file and orig_file != dup_file:
                 meaningful_findings.append(finding)
 
@@ -185,7 +256,7 @@ class OrchestrationBridge:
         aggregated = []
 
         for file_pair, pair_findings in file_pairs.items():
-            if len(pair_findings) < 2:  # Skip if less than 2 duplicates
+            if len(pair_findings) < 1:  # Skip if no duplicates
                 continue
 
             # Calculate aggregate metrics
@@ -248,36 +319,35 @@ class OrchestrationBridge:
     ) -> List[Dict[str, Any]]:
         """
         Pass aggregated findings to expert agents for language-specific review.
-        Each language expert creates comprehensive refactoring plans.
+        Batch all findings by language to give experts full context.
         """
-        results = []
+        from collections import defaultdict
+
+        # Group findings by language FIRST
+        findings_by_language = defaultdict(list)
 
         for finding in aggregated_findings:
             try:
                 evidence = finding.get("evidence", {})
                 file_pair = evidence.get("file_pair", [])
-
-                # Determine primary language from file extensions
                 primary_language = self._detect_primary_language(file_pair)
+                findings_by_language[primary_language].append(finding)
+            except Exception:
+                # Handle errors gracefully - add to unknown language group
+                findings_by_language["unknown"].append(finding)
 
-                # Create review context for the expert agent
-                review_context = {
-                    "finding": finding,
-                    "language": primary_language,
-                    "file_pair": file_pair,
-                    "duplicate_count": evidence.get("duplicate_count", 0),
-                    "average_similarity": evidence.get("average_similarity", 0),
-                    "duplicate_symbols": evidence.get("duplicate_symbols", []),
-                }
+        results = []
 
-                # Pass to appropriate expert agent
-                if primary_language == "python":
-                    result = self._python_expert_review(review_context)
-                elif primary_language in ["javascript", "typescript"]:
-                    result = self._typescript_expert_review(review_context)
+        # Process each language group with a SINGLE expert call
+        for language, language_findings in findings_by_language.items():
+            try:
+                if language == "python" and language_findings:
+                    result = self._python_expert_review_batch(language_findings)
+                elif language in ["javascript", "typescript"] and language_findings:
+                    result = self._typescript_expert_review_batch(language_findings)
                 else:
                     # Fallback to CTO for unknown languages
-                    result = self._cto_expert_review(review_context)
+                    result = self._cto_expert_review_batch(language_findings)
 
                 results.append(result)
 
@@ -287,8 +357,9 @@ class OrchestrationBridge:
                     "action": "expert_review_error",
                     "status": "error",
                     "error": str(e),
-                    "finding_id": finding.get("finding_id", "unknown"),
-                    "message": f"Expert review failed: {e}",
+                    "language": language,
+                    "findings_count": len(language_findings),
+                    "message": f"Expert batch review failed for {language}: {e}",
                 }
                 results.append(error_result)
 
@@ -318,6 +389,40 @@ class OrchestrationBridge:
         # Return most common language, or "unknown" if none detected
         if language_count:
             return max(language_count, key=language_count.get)
+        return "unknown"
+
+    def _detect_language_from_file(self, file_path: str) -> str:
+        """Detect programming language from a single file path."""
+        if not file_path:
+            return "unknown"
+
+        ext = Path(file_path).suffix.lower()
+
+        if ext in [".py", ".pyx"]:
+            return "python"
+        elif ext in [".js", ".jsx"]:
+            return "javascript"
+        elif ext in [".ts", ".tsx"]:
+            return "typescript"
+        elif ext in [".rs"]:
+            return "rust"
+        elif ext in [".go"]:
+            return "go"
+        elif ext in [".java"]:
+            return "java"
+        elif ext in [".cs"]:
+            return "csharp"
+        elif ext in [".cpp", ".cc", ".cxx", ".c"]:
+            return "cpp"
+        elif ext in [".rb"]:
+            return "ruby"
+        elif ext in [".php"]:
+            return "php"
+        elif ext in [".swift"]:
+            return "swift"
+        elif ext in [".kt"]:
+            return "kotlin"
+
         return "unknown"
 
     def _python_expert_review(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -413,6 +518,144 @@ class OrchestrationBridge:
                 "finding_id": context["finding"].get("finding_id", "unknown"),
             }
 
+    def _python_expert_review_batch(
+        self, findings: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Pass all Python duplicates to python-expert in one batch."""
+        try:
+            total_duplicates = sum(
+                f.get("evidence", {}).get("duplicate_count", 0) for f in findings
+            )
+            print(
+                f"🐍 Passing {total_duplicates} duplicates across {len(findings)} file pairs to python-expert..."
+            )
+
+            # Create batch context
+            batch_context = {
+                "findings": findings,
+                "total_file_pairs": len(findings),
+                "total_duplicates": total_duplicates,
+                "language": "python",
+            }
+
+            # Create comprehensive batch task description
+            task_description = self._create_expert_batch_task_description(
+                batch_context, "python-expert"
+            )
+            result = self._call_expert_agent(
+                "python-expert", task_description, batch_context
+            )
+
+            return {
+                "action": "expert_review",
+                "agent": "python-expert",
+                "status": result.get("status", "completed"),
+                "language": "python",
+                "findings_count": len(findings),
+                "total_duplicates": total_duplicates,
+                "expert_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "expert_review",
+                "agent": "python-expert",
+                "status": "error",
+                "error": str(e),
+                "language": "python",
+                "findings_count": len(findings),
+            }
+
+    def _typescript_expert_review_batch(
+        self, findings: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Pass all TypeScript/JavaScript duplicates to typescript-expert in one batch."""
+        try:
+            total_duplicates = sum(
+                f.get("evidence", {}).get("duplicate_count", 0) for f in findings
+            )
+            print(
+                f"📜 Passing {total_duplicates} duplicates across {len(findings)} file pairs to typescript-expert..."
+            )
+
+            batch_context = {
+                "findings": findings,
+                "total_file_pairs": len(findings),
+                "total_duplicates": total_duplicates,
+                "language": "typescript",
+            }
+
+            task_description = self._create_expert_batch_task_description(
+                batch_context, "typescript-expert"
+            )
+            result = self._call_expert_agent(
+                "typescript-expert", task_description, batch_context
+            )
+
+            return {
+                "action": "expert_review",
+                "agent": "typescript-expert",
+                "status": result.get("status", "completed"),
+                "language": "typescript",
+                "findings_count": len(findings),
+                "total_duplicates": total_duplicates,
+                "expert_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "expert_review",
+                "agent": "typescript-expert",
+                "status": "error",
+                "error": str(e),
+                "language": "typescript",
+                "findings_count": len(findings),
+            }
+
+    def _cto_expert_review_batch(
+        self, findings: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Pass complex or unknown language duplicates to CTO agent in one batch."""
+        try:
+            total_duplicates = sum(
+                f.get("evidence", {}).get("duplicate_count", 0) for f in findings
+            )
+            print(
+                f"👔 Escalating {total_duplicates} duplicates across {len(findings)} file pairs to CTO for complex review..."
+            )
+
+            batch_context = {
+                "findings": findings,
+                "total_file_pairs": len(findings),
+                "total_duplicates": total_duplicates,
+                "language": "unknown",
+            }
+
+            task_description = self._create_expert_batch_task_description(
+                batch_context, "cto"
+            )
+            result = self._call_expert_agent("cto", task_description, batch_context)
+
+            return {
+                "action": "expert_review",
+                "agent": "cto",
+                "status": result.get("status", "completed"),
+                "language": "unknown",
+                "findings_count": len(findings),
+                "total_duplicates": total_duplicates,
+                "expert_result": result,
+            }
+
+        except Exception as e:
+            return {
+                "action": "expert_review",
+                "agent": "cto",
+                "status": "error",
+                "error": str(e),
+                "language": "unknown",
+                "findings_count": len(findings),
+            }
+
     def _create_expert_task_description(
         self, context: Dict[str, Any], agent_type: str
     ) -> str:
@@ -474,6 +717,96 @@ You are reviewing code duplication findings from our continuous improvement syst
 - Either completed refactoring or well-documented issue for human review
 
 Please proceed with the analysis and take appropriate action based on your assessment.
+"""
+
+    def _create_expert_batch_task_description(
+        self, batch_context: Dict[str, Any], agent_type: str
+    ) -> str:
+        """Create detailed task description for batch expert review."""
+        findings = batch_context["findings"]
+        total_file_pairs = batch_context["total_file_pairs"]
+        total_duplicates = batch_context["total_duplicates"]
+        language = batch_context["language"]
+
+        # Extract file pairs and summary info
+        file_pairs_info = []
+        all_duplicate_symbols = []
+
+        for finding in findings:
+            evidence = finding.get("evidence", {})
+            file_pair = evidence.get("file_pair", [])
+            duplicate_count = evidence.get("duplicate_count", 0)
+            avg_similarity = evidence.get("average_similarity", 0)
+            duplicate_symbols = evidence.get("duplicate_symbols", [])
+
+            if file_pair:
+                file_pairs_info.append(
+                    f"- **{Path(file_pair[0]).name} ↔ {Path(file_pair[1]).name}**: {duplicate_count} duplicates (avg similarity: {avg_similarity:.2f})"
+                )
+
+            all_duplicate_symbols.extend(duplicate_symbols)
+
+        # Format first 15 duplicate symbols for readability
+        symbols_info = "\n".join(
+            [
+                f"- {sym['original']} ↔ {sym['duplicate']} (similarity: {sym['similarity']:.2f})"
+                for sym in all_duplicate_symbols[:15]
+            ]
+        )
+
+        if len(all_duplicate_symbols) > 15:
+            symbols_info += f"\n... and {len(all_duplicate_symbols) - 15} more duplicates across all file pairs"
+
+        return f"""# Comprehensive Code Duplication Review and Refactoring Strategy
+
+## Context
+You are conducting a comprehensive review of code duplication findings across multiple file pairs in a {language} codebase. Your role is to:
+1. Analyze all duplicate patterns holistically
+2. Create a unified refactoring strategy that addresses the entire scope
+3. Decide on the best approach for coordinated refactoring across all affected files
+
+## Batch Duplication Overview
+
+**Language**: {language}
+**Total File Pairs**: {total_file_pairs}
+**Total Duplicates Found**: {total_duplicates}
+
+### File Pairs Analyzed:
+{chr(10).join(file_pairs_info)}
+
+### Sample Duplicate Patterns (across all pairs):
+{symbols_info}
+
+## Comprehensive Analysis Requirements
+
+1. **Holistic Pattern Analysis**:
+   - Identify common themes and patterns across all file pairs
+   - Look for architectural issues that span multiple files
+   - Assess whether duplicates suggest missing abstractions or shared utilities
+
+2. **Unified Refactoring Strategy**:
+   - Consider refactoring all related duplicates together rather than piecemeal
+   - Identify opportunities for shared libraries, base classes, or utility functions
+   - Plan the sequence of refactoring to minimize conflicts
+
+3. **Risk Assessment**:
+   - Evaluate the overall complexity and impact of coordinated refactoring
+   - Consider dependencies, test coverage, and API impacts across all files
+   - Assess whether batch refactoring is safer than individual file fixes
+
+4. **Strategic Decision**:
+   - **For coordinated automatic refactoring**: Use /todo-orchestrate with comprehensive implementation plan
+   - **For complex architectural changes**: Create detailed GitHub issue with full analysis and recommendations
+
+## Success Criteria
+- Comprehensive analysis covering all {total_file_pairs} file pairs
+- Clear strategic approach that considers interdependencies
+- Either completed coordinated refactoring or well-documented architectural improvement plan
+
+## Additional Context
+This batch review allows you to see the full scope of duplication patterns, enabling better architectural decisions than reviewing files individually.
+
+Please proceed with the holistic analysis and create an appropriate refactoring strategy.
 """
 
     def _call_expert_agent(

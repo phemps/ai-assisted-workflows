@@ -207,7 +207,7 @@ jobs:
         fetch-depth: 0  # Full history for comprehensive analysis
 
     - name: Setup Python
-      uses: actions/setup-python@0ae19d67d5c6b1e9a2f3a2a4f2b1c5c6d7e8f9e0  # v5.3.0
+      uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.3.0
       with:
         python-version: '3.9'
         cache: 'pip'

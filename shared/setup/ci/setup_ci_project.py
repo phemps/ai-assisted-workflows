@@ -318,16 +318,7 @@ jobs:
             --output json > ../indexing_status.json
 
           # Parse indexing status with inline Python
-          initial_completed=$(python -c "
-          import json, sys
-          try:
-              with open('indexing_status.json', 'r') as f:
-                  data = json.load(f)
-              print(str(data.get('initial_index_completed', False)).lower())
-          except Exception as e:
-              print('false')
-              sys.exit(0)
-          ")
+          initial_completed=$(python -c "import json; data=json.load(open('indexing_status.json')); print(str(data.get('initial_index_completed', False)).lower())" 2>/dev/null || echo "false")
 
           echo "initial_completed=$initial_completed" >> $GITHUB_OUTPUT
           echo "Initial indexing completed: $initial_completed"

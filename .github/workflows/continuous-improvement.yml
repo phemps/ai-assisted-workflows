@@ -1,10 +1,16 @@
 name: Continuous Improvement - Code Duplication Detection
 
-on:
+"on":
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
 
 jobs:
   duplicate-detection:
@@ -12,14 +18,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
         with:
           fetch-depth: 0 # Full history for comprehensive analysis
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0ae19d67d5c6b1e9a2f3a2a4f2b1c5c6d7e8f9e0 # v5.3.0
         with:
           python-version: "3.9"
+          cache: "pip"
 
       - name: Install CI dependencies
         run: |
@@ -27,34 +34,73 @@ jobs:
           pip install chromadb transformers torch sentence-transformers numpy scipy
           pip install multilspy
 
-      - name: Setup language server dependencies
+      - name: Read project languages
+        id: languages
         run: |
-          # Install Go and gopls for Go language support
-          echo "Installing Go language server dependencies..."
-          if ! command -v go &> /dev/null; then
-            # Download and install Go
-            wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-            echo "/usr/local/go/bin" >> $GITHUB_PATH
-            export PATH=$PATH:/usr/local/go/bin
+          if [ -f ".ci-registry/ci_config.json" ]; then
+            languages=$(python -c "
+            import json, sys
+            try:
+                with open('.ci-registry/ci_config.json') as f:
+                    config = json.load(f)
+                langs = config.get('project', {}).get('languages', [])
+                print(','.join(langs))
+            except Exception as e:
+                print('', file=sys.stderr)  # Empty fallback
+                sys.exit(0)
+            ") || languages=""
+            echo "detected_languages=$languages" >> $GITHUB_OUTPUT
+            echo "Detected project languages: $languages"
+          else
+            echo "detected_languages=" >> $GITHUB_OUTPUT
+            echo "No CI config found - skipping language-specific installations"
           fi
 
-          # Install gopls
-          go install golang.org/x/tools/gopls@latest
-          echo "$HOME/go/bin" >> $GITHUB_PATH
+      - name: Setup Go
+        if: contains(steps.languages.outputs.detected_languages, 'go')
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.2.0
+        with:
+          go-version: "1.21"
+          cache: true
 
-          # Install .NET for C# language support
-          echo "Installing .NET for C# language server..."
-          wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-          sudo dpkg -i packages-microsoft-prod.deb
-          sudo apt-get update
-          sudo apt-get install -y dotnet-sdk-6.0
+      - name: Setup .NET
+        if: contains(steps.languages.outputs.detected_languages, 'csharp')
+        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4.1.0
+        with:
+          dotnet-version: "8.0"
 
-          # Verify installations
-          echo "Verifying language server installations..."
-          go version || echo "Go installation failed"
-          gopls version || echo "gopls installation failed"
-          dotnet --version || echo ".NET installation failed"
+      - name: Install language server dependencies
+        run: |
+          # Install language servers based on detected languages
+          languages="${{ steps.languages.outputs.detected_languages }}"
+          echo "Installing language servers for: $languages"
+
+          if [[ "$languages" == *"go"* ]]; then
+            echo "Installing Go language server (gopls)..."
+            go install golang.org/x/tools/gopls@latest
+            echo "$HOME/go/bin" >> $GITHUB_PATH
+
+            # Validate installation
+            if command -v gopls >/dev/null 2>&1; then
+              go version
+              gopls version
+              echo "✅ gopls installed successfully"
+            else
+              echo "❌ gopls installation failed" >&2
+              exit 1
+            fi
+          else
+            echo "Skipping Go language server installation"
+          fi
+
+          if [[ "$languages" == *"csharp"* ]]; then
+            echo "Verifying .NET installation..."
+            dotnet --version
+          else
+            echo "Skipping .NET language server verification"
+          fi
+
+          echo "Language server setup complete"
 
       - name: Verify multilspy installation
         run: |
@@ -63,28 +109,14 @@ jobs:
       - name: Get changed files
         id: changed-files
         run: |
-          set -e
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            # Use GitHub API for more reliable diff when available
-            if command -v gh >/dev/null 2>&1; then
-              gh api repos/${{ github.repository }}/compare/${{ github.event.pull_request.base.sha }}...${{ github.sha }} \
-                --jq '.files[].filename' > changed_files.txt 2>/dev/null || {
-                echo "GitHub API failed, falling back to git diff"
-                git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
-              }
-            else
-              git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
-            fi
+            git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
           else
-            git diff --name-only HEAD~1 HEAD > changed_files.txt || {
-              echo "Git diff failed, analyzing all files"
-              echo "" > changed_files.txt
-            }
+            git diff --name-only HEAD~1 HEAD > changed_files.txt
           fi
-
           echo "files=$(cat changed_files.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
           echo "Changed files:"
-          cat changed_files.txt || echo "No changed files detected"
+          cat changed_files.txt
 
       - name: Ensure CI registry directory exists
         run: |
@@ -101,14 +133,16 @@ jobs:
               --check-indexing \
               --output json > ../indexing_status.json
 
-            initial_completed=$(python3 -c "
-            import json
+            # Parse indexing status with inline Python
+            initial_completed=$(python -c "
+            import json, sys
             try:
                 with open('indexing_status.json', 'r') as f:
                     data = json.load(f)
                 print(str(data.get('initial_index_completed', False)).lower())
-            except:
+            except Exception as e:
                 print('false')
+                sys.exit(0)
             ")
 
             echo "initial_completed=$initial_completed" >> $GITHUB_OUTPUT
@@ -140,37 +174,15 @@ jobs:
             --project-root .. \
             --changed-files ${{ steps.changed-files.outputs.files }}
 
-      - name: Check for analysis results
-        id: check-results
-        if: always()
-        run: |
-          if [ -f ".ci-registry/reports/latest-analysis.json" ]; then
-            echo "reports_exist=true" >> $GITHUB_OUTPUT
-            echo "Analysis results found"
-            echo "Report size: $(wc -c < .ci-registry/reports/latest-analysis.json) bytes"
-          else
-            echo "reports_exist=false" >> $GITHUB_OUTPUT
-            echo "No analysis results found"
-          fi
-
-          # Check if reports directory exists and list contents
-          if [ -d ".ci-registry/reports" ]; then
-            echo "Reports directory contents:"
-            ls -la .ci-registry/reports/
-          else
-            echo "Reports directory does not exist"
-          fi
-
       - name: Upload analysis results
-        if: always() && steps.check-results.outputs.reports_exist == 'true'
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
         with:
           name: duplication-analysis
           path: |
             .ci-registry/reports/
             .ci-registry/baseline-duplicates.json
           retention-days: 30
-          if-no-files-found: warn
 
       - name: Collect diagnostic information
         if: failure()
@@ -179,7 +191,7 @@ jobs:
           echo "Python Version: $(python --version)"
           echo "Current Directory: $(pwd)"
           echo "Available Python packages:"
-          pip list | grep -E "(faiss|transformers|torch|multilspy)"
+          pip list | grep -E "(chromadb|transformers|torch|multilspy)"
 
           # Check for log files
           if [ -d ".ci-registry/logs" ]; then
@@ -189,7 +201,7 @@ jobs:
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             const fs = require('fs');
@@ -204,17 +216,17 @@ jobs:
                 'Code duplications detected. Review analysis artifacts for details.' :
                 'No significant code duplication detected.';
 
-              const comment = '## Code Duplication Analysis Results\\n\\n' +
-                'Project: ai-assisted-workflows\\n' +
-                'Analysis Date: ' + (analysis.analysis_date || 'Unknown') + '\\n' +
-                'Duplicates Found: ' + duplicateCount + '\\n' +
-                'Similarity Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\\n\\n' +
-                '### Summary\\n' +
-                '- Automatic Fixes: ' + (summary.automatic_fixes || 0) + '\\n' +
-                '- GitHub Issues: ' + (summary.github_issues || 0) + '\\n' +
-                '- Skipped: ' + (summary.skipped || 0) + '\\n' +
-                '- Errors: ' + (summary.errors || 0) + '\\n\\n' +
-                'Status: ' + status + '\\n\\n' +
+              const comment = '## Code Duplication Analysis Results\n\n' +
+                'Project: \n' +
+                'Analysis Date: ' + (analysis.analysis_date || 'Unknown') + '\n' +
+                'Duplicates Found: ' + duplicateCount + '\n' +
+                'Similarity Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\n\n' +
+                '### Summary\n' +
+                '- Automatic Fixes: ' + (summary.automatic_fixes || 0) + '\n' +
+                '- GitHub Issues: ' + (summary.github_issues || 0) + '\n' +
+                '- Skipped: ' + (summary.skipped || 0) + '\n' +
+                '- Errors: ' + (summary.errors || 0) + '\n\n' +
+                'Status: ' + status + '\n\n' +
                 'Analysis completed by Continuous Improvement Framework.';
 
               github.rest.issues.createComment({
@@ -233,31 +245,3 @@ jobs:
           else
             echo "No analysis results found"
           fi
-
-      - name: Validate workflow completion
-        if: always()
-        run: |
-          echo "=== Workflow Validation ==="
-          echo "Working Directory: $(pwd)"
-          echo "Workflow Status: ${{ job.status }}"
-          echo "Python Version: $(python --version)"
-
-          echo ""
-          echo "CI Registry Structure:"
-          if [ -d ".ci-registry" ]; then
-            find .ci-registry -type f -ls 2>/dev/null || ls -la .ci-registry/ 2>/dev/null || echo "Cannot list CI registry contents"
-          else
-            echo "CI registry directory not found"
-          fi
-
-          echo ""
-          echo "Reports Directory:"
-          if [ -d ".ci-registry/reports" ]; then
-            ls -la .ci-registry/reports/
-            echo "Report file count: $(find .ci-registry/reports -name '*.json' | wc -l)"
-          else
-            echo "Reports directory not found"
-          fi
-
-          echo ""
-          echo "Workflow completed with status: ${{ job.status }}"

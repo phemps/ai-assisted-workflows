@@ -317,22 +317,17 @@ jobs:
             --check-indexing \\
             --output json > ../indexing_status.json
 
-          # Create Python script to parse indexing status
-          cat > ../parse_status.py << 'EOF'
-import json
-import sys
-
-try:
-    with open('indexing_status.json', 'r') as f:
-        data = json.load(f)
-    print(str(data.get('initial_index_completed', False)).lower())
-except Exception as e:
-    print('false')
-    sys.exit(0)
-EOF
-
-          initial_completed=$(python ../parse_status.py)
-          rm -f ../parse_status.py
+          # Parse indexing status with inline Python
+          initial_completed=$(python -c "
+          import json, sys
+          try:
+              with open('indexing_status.json', 'r') as f:
+                  data = json.load(f)
+              print(str(data.get('initial_index_completed', False)).lower())
+          except Exception as e:
+              print('false')
+              sys.exit(0)
+          ")
 
           echo "initial_completed=$initial_completed" >> $GITHUB_OUTPUT
           echo "Initial indexing completed: $initial_completed"

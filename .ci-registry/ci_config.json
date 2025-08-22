@@ -50,5 +50,12 @@
     "backup_enabled": true,
     "backup_frequency_hours": 6,
     "compression_enabled": true
+  },
+  "indexing": {
+    "initial_index_completed": false,
+    "completed_at": null,
+    "symbol_count": 0,
+    "files_processed": 0,
+    "last_error": "Full scan failed: attempted relative import with no known parent package"
   }
 }

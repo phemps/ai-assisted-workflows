@@ -7,6 +7,7 @@ This directory contains permanent test fixtures for the continuous improvement s
 - Run from the **project root directory** (`/Users/adamjackson/LocalDev/ai-assisted-workflows`)
 - Ensure `TESTING=true` environment variable is set
 - Use `PYTHONPATH=.` to ensure correct imports
+- **Important**: All modules use `shared.` prefix imports for consistency
 
 ## Test Commands
 
@@ -64,7 +65,26 @@ TESTING=true PYTHONPATH=. python shared/ci/integration/orchestration_bridge.py \
 - `0.65` - Medium precision (our current test threshold)
 - `0.45` - Low precision (more potential duplicates detected)
 
-### 4. Quick Validation Test
+### 4. Test New Indexing Flag System
+
+```bash
+# Test ChromaDB indexing status check
+PYTHONPATH=. python shared/ci/core/chromadb_storage.py \
+  --project-root test_codebase/duplicate_detectors \
+  --check-indexing
+
+# Test full scan functionality  
+PYTHONPATH=. python shared/ci/core/chromadb_storage.py \
+  --project-root test_codebase/duplicate_detectors \
+  --full-scan
+
+# Verify indexing completed
+PYTHONPATH=. python shared/ci/core/chromadb_storage.py \
+  --project-root test_codebase/duplicate_detectors \
+  --check-indexing
+```
+
+### 5. Quick Validation Test
 
 ```bash
 # Simple test to verify system is working
@@ -104,20 +124,23 @@ shared/tests/integration/ci_config_test.json  # ← Used directly
 
 1. **"No module named 'shared'"**
    - Solution: Run from project root with `PYTHONPATH=.`
+   - All modules consistently use `shared.` prefix imports
 
-2. **"Registry initialization failed"**
-   - Solution: Ensure the config path is correct in the command
+2. **"Registry initialization failed"** or **"Symbol not available"**
+   - Solution: Ensure the config path is correct and PYTHONPATH is set
    - No need to copy config - it's passed directly via `--config-path`
 
-3. **"CodeBERT not available"**
+3. **"ChromaDB not available"**
    - Solution: Install required dependencies:
    ```bash
-   pip install transformers torch faiss-cpu
+   pip install transformers torch chromadb
    ```
+   - Note: ChromaDB replaced faiss-cpu in the latest implementation
 
 4. **Path confusion**
    - Always run from `/Users/adamjackson/LocalDev/ai-assisted-workflows` (project root)
    - Use relative paths in commands as shown above
+   - **Critical**: All imports use `shared.` prefix for consistency
 
 ### Debug Commands
 

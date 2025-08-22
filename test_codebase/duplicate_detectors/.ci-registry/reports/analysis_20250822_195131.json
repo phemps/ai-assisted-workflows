@@ -1,0 +1,42 @@
+{
+  "timestamp": 1755892291.640665,
+  "analysis_date": "2025-08-22 19:51:31 UTC",
+  "status": "success",
+  "findings": [
+    {
+      "action": "expert_review",
+      "agent": "python-expert",
+      "status": "error",
+      "language": "python",
+      "findings_count": 5,
+      "total_duplicates": 506,
+      "expert_result": {
+        "status": "error",
+        "error": "'duplicate_count'",
+        "message": "Failed to call python-expert agent"
+      }
+    }
+  ],
+  "summary": {
+    "expert_reviews": 1,
+    "automatic_fixes": 0,
+    "github_issues": 0,
+    "skipped": 0,
+    "errors": 0,
+    "successes": 0,
+    "agents_used": [
+      "python-expert"
+    ]
+  },
+  "config": {
+    "similarity_threshold": 0.85,
+    "project_root": "/Users/adamjackson/LocalDev/ai-assisted-workflows/test_codebase/duplicate_detectors",
+    "analysis_mode": "github_actions"
+  },
+  "metadata": {
+    "analysis_type": "duplicate_detection",
+    "workflow_trigger": "github_actions",
+    "findings_processed": 506,
+    "action": "analysis_completed"
+  }
+}

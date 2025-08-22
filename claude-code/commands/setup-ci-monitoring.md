@@ -52,31 +52,35 @@
 
 ## Phase 5: Initial Registry Population
 
-1. **Action**: Perform initial codebase analysis and symbol extraction
-2. **Command**: `python shared/ci/core/chromadb_storage.py --full-scan --project $(pwd)`
-3. **Expected**: All existing symbols cataloged in ChromaDB
+1. **Action**: Start initial codebase indexing in background (for user setup)
+2. **Command**: `python shared/ci/core/chromadb_storage.py --full-scan --project-root $(pwd) &`
+3. **Message**: Display to user: "Initial codebase indexing started in background. This may take 1-5 minutes for large codebases. Check status with \`claude /ci-monitoring-status\`"
+4. **Expected**: Background indexing process started
 
-4. **Action**: Generate baseline duplicate analysis
-5. **Command**: `python shared/ci/core/semantic_duplicate_detector.py --baseline --threshold $THRESHOLD`
-6. **Expected**: Existing duplicates identified and logged
+5. **Action**: For GitHub Actions workflows, indexing runs synchronously
+6. **Note**: GitHub Actions will automatically detect incomplete indexing and run full scan before duplicate detection
 
-7. **Action**: Create initial improvement report
-8. **Format**:
+7. **Action**: Verify indexing completion (optional check)
+8. **Command**: `python shared/ci/core/chromadb_storage.py --check-indexing --project-root $(pwd)`
+9. **Expected**: Indexing status reported with symbol counts
 
-   ```markdown
-   ## Continuous Improvement Setup Complete
+10. **Action**: Create initial improvement report
+11. **Format**:
 
-   **Project**: $PROJECT_NAME
-   **Symbols Cataloged**: $SYMBOL_COUNT
-   **Existing Duplicates**: $DUPLICATE_COUNT
-   **Threshold**: $THRESHOLD
+```markdown
+## Continuous Improvement Setup Complete
 
-   ### Next Steps:
+**Project**: $PROJECT_NAME
+**Symbols Cataloged**: $SYMBOL_COUNT
+**Existing Duplicates**: $DUPLICATE_COUNT
+**Threshold**: $THRESHOLD
 
-   - Monitor commits for new duplicates
-   - Review existing duplicates in `.ci-registry/baseline-duplicates.json`
-   - Adjust thresholds in `.ci-registry/config.json` if needed
-   ```
+### Next Steps:
+
+- Monitor commits for new duplicates
+- Review existing duplicates in `.ci-registry/baseline-duplicates.json`
+- Adjust thresholds in `.ci-registry/config.json` if needed
+```
 
 **STOP** → Registry populated. Ready for verification?
 

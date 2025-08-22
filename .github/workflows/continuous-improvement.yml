@@ -24,7 +24,7 @@ jobs:
       - name: Install CI dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install faiss-cpu transformers torch sentence-transformers numpy scipy
+          pip install chromadb transformers torch sentence-transformers numpy scipy
           pip install multilspy
 
       - name: Verify multilspy installation
@@ -62,6 +62,48 @@ jobs:
           mkdir -p .ci-registry/reports
           mkdir -p .ci-registry/cache
           mkdir -p .ci-registry/backups
+
+      - name: Check initial indexing status
+        id: indexing-check
+        run: |
+          if [ -f ".ci-registry/ci_config.json" ]; then
+            cd shared && PYTHONPATH=.. python ci/core/chromadb_storage.py \
+              --project-root .. \
+              --check-indexing \
+              --output json > ../indexing_status.json
+
+            initial_completed=$(python3 -c "
+            import json
+            try:
+                with open('indexing_status.json', 'r') as f:
+                    data = json.load(f)
+                print(str(data.get('initial_index_completed', False)).lower())
+            except:
+                print('false')
+            ")
+
+            echo "initial_completed=$initial_completed" >> $GITHUB_OUTPUT
+            echo "Initial indexing completed: $initial_completed"
+
+            if [ "$initial_completed" = "true" ]; then
+              echo "Initial indexing already completed - proceeding with incremental analysis"
+            else
+              echo "Initial indexing required - will run full scan first"
+            fi
+          else
+            echo "initial_completed=false" >> $GITHUB_OUTPUT
+            echo "No CI config found - assuming fresh setup"
+          fi
+
+      - name: Run initial full scan
+        if: steps.indexing-check.outputs.initial_completed == 'false'
+        run: |
+          echo "Running initial full codebase scan..."
+          cd shared && PYTHONPATH=.. python ci/core/chromadb_storage.py \
+            --project-root .. \
+            --full-scan
+
+          echo "Initial scan completed - ChromaDB now contains full codebase index"
 
       - name: Run duplicate detection
         run: |

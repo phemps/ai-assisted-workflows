@@ -11,6 +11,7 @@ import hashlib
 import json
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
@@ -29,15 +30,14 @@ except ImportError as e:
 
 # Import Symbol from integration
 try:
-    from ..integration.symbol_extractor import Symbol
-except ImportError:
-    try:
-        # Fallback for direct execution
-        sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
-        from symbol_extractor import Symbol
-    except ImportError as e:
-        print(f"Error importing Symbol: {e}", file=sys.stderr)
-        sys.exit(1)
+    from shared.ci.integration.symbol_extractor import Symbol
+except ImportError as e:
+    print(f"ERROR: Symbol not available: {e}", file=sys.stderr)
+    print(
+        "Please ensure PYTHONPATH includes project root and run from project root directory",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 class ChromaDBStatus(Enum):
@@ -539,7 +539,7 @@ class ChromaDBStorage:
 
     def _metadata_to_symbol(self, metadata: Dict[str, Any]) -> Symbol:
         """Convert ChromaDB metadata back to Symbol object."""
-        from ..integration.symbol_extractor import SymbolType
+        from shared.ci.integration.symbol_extractor import SymbolType
 
         # Convert parameters string back to list
         params_str = metadata.get("parameters", "")
@@ -557,6 +557,169 @@ class ChromaDBStorage:
             line_count=metadata.get("line_count", 1),
             lsp_kind=metadata.get("lsp_kind", ""),
         )
+
+    def update_indexing_status(
+        self,
+        symbol_count: int,
+        files_processed: int,
+        completed: bool = True,
+        error: Optional[str] = None,
+    ) -> None:
+        """Update indexing status in ci_config.json"""
+        config_path = self.project_root / ".ci-registry" / "ci_config.json"
+        if not config_path.exists():
+            print(f"Warning: Config file not found at {config_path}")
+            return
+
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+
+            # Update indexing section
+            indexing = config.get("indexing", {})
+            indexing["initial_index_completed"] = completed
+            indexing["symbol_count"] = symbol_count
+            indexing["files_processed"] = files_processed
+
+            if completed:
+                indexing["completed_at"] = datetime.now().isoformat()
+                indexing["last_error"] = None
+            elif error:
+                indexing["last_error"] = error
+
+            config["indexing"] = indexing
+
+            # Write back atomically
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+
+            print(
+                f"Updated indexing status: completed={completed}, symbols={symbol_count}, files={files_processed}"
+            )
+
+        except Exception as e:
+            print(f"Error updating indexing status: {e}")
+
+    def check_indexing_status(self) -> Dict[str, Any]:
+        """Check if initial indexing is completed with verification"""
+        config_path = self.project_root / ".ci-registry" / "ci_config.json"
+        if not config_path.exists():
+            return {"initial_index_completed": False, "error": "Config file not found"}
+
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+
+            indexing_status = config.get("indexing", {"initial_index_completed": False})
+
+            # If marked as completed, verify against actual ChromaDB contents
+            if indexing_status.get("initial_index_completed", False):
+                try:
+                    # Get actual count from ChromaDB
+                    storage_info = self.get_storage_info()
+                    actual_count = storage_info.get("total_vectors", 0)
+                    config_count = indexing_status.get("symbol_count", 0)
+
+                    # If counts don't match, flag may be stale
+                    if actual_count != config_count and config_count > 0:
+                        indexing_status[
+                            "verification_warning"
+                        ] = f"Symbol count mismatch: config={config_count}, actual={actual_count}"
+
+                    indexing_status["verified_count"] = actual_count
+
+                except Exception as e:
+                    indexing_status[
+                        "verification_error"
+                    ] = f"Could not verify ChromaDB contents: {str(e)}"
+
+            return indexing_status
+
+        except Exception as e:
+            return {"initial_index_completed": False, "error": str(e)}
+
+    def run_full_scan(self) -> bool:
+        """Run full codebase scan and update indexing status"""
+        print("Starting full codebase scan...")
+
+        try:
+            # Import semantic duplicate detector for symbol extraction
+            from shared.ci.core.semantic_duplicate_detector import (
+                DuplicateFinder,
+                DuplicateFinderConfig,
+            )
+
+            # Create duplicate finder for symbol extraction
+            config = DuplicateFinderConfig()
+            finder = DuplicateFinder(config)
+
+            # Extract symbols from project
+            symbols = finder._extract_project_symbols(self.project_root)
+
+            if not symbols:
+                print("No symbols found in project")
+                self.update_indexing_status(0, 0, True)
+                return True
+
+            print(f"Extracted {len(symbols)} symbols from project")
+
+            # Generate embeddings
+            from shared.ci.core.embedding_engine import EmbeddingEngine
+
+            embedding_engine = EmbeddingEngine()
+
+            # Process in batches to avoid memory issues
+            batch_size = 100
+            total_stored = 0
+            files_processed = set()
+
+            for i in range(0, len(symbols), batch_size):
+                batch_symbols = symbols[i : i + batch_size]
+
+                # Generate embeddings for batch
+                embeddings = embedding_engine.generate_embeddings(batch_symbols)
+
+                if embeddings is None or len(embeddings) != len(batch_symbols):
+                    error_msg = (
+                        f"Failed to generate embeddings for batch {i//batch_size + 1}"
+                    )
+                    print(error_msg)
+                    self.update_indexing_status(
+                        total_stored, len(files_processed), False, error_msg
+                    )
+                    return False
+
+                # Store batch in ChromaDB
+                success = self.store_symbols(batch_symbols, embeddings)
+                if not success:
+                    error_msg = f"Failed to store batch {i//batch_size + 1} in ChromaDB"
+                    print(error_msg)
+                    self.update_indexing_status(
+                        total_stored, len(files_processed), False, error_msg
+                    )
+                    return False
+
+                total_stored += len(batch_symbols)
+                files_processed.update(symbol.file_path for symbol in batch_symbols)
+
+                # Progress update
+                progress = (i + len(batch_symbols)) / len(symbols) * 100
+                print(
+                    f"Progress: {progress:.1f}% ({total_stored}/{len(symbols)} symbols)"
+                )
+
+            # Update status as completed
+            self.update_indexing_status(total_stored, len(files_processed), True)
+            print(
+                f"Full scan completed successfully: {total_stored} symbols from {len(files_processed)} files"
+            )
+            return True
+
+        except Exception as e:
+            error_msg = f"Full scan failed: {str(e)}"
+            print(error_msg)
+            self.update_indexing_status(0, 0, False, error_msg)
+            return False
 
     def cleanup(self) -> None:
         """Cleanup resources. Compatible with similarity_detector.cleanup()."""
@@ -591,6 +754,16 @@ def main():
         action="store_true",
         help="Clear collection before testing",
     )
+    parser.add_argument(
+        "--full-scan",
+        action="store_true",
+        help="Run full codebase scan and index all symbols",
+    )
+    parser.add_argument(
+        "--check-indexing",
+        action="store_true",
+        help="Check indexing status",
+    )
 
     args = parser.parse_args()
 
@@ -603,6 +776,35 @@ def main():
     if args.clear_collection:
         storage.clear_collection()
 
+    # Handle indexing commands
+    if args.check_indexing:
+        status = storage.check_indexing_status()
+        if args.output == "json":
+            print(json.dumps(status, indent=2))
+        else:
+            completed = status.get("initial_index_completed", False)
+            print(f"Initial indexing completed: {completed}")
+            if completed:
+                print(f"  Symbols indexed: {status.get('symbol_count', 0)}")
+                print(f"  Files processed: {status.get('files_processed', 0)}")
+                print(f"  Completed at: {status.get('completed_at', 'Unknown')}")
+            if status.get("last_error"):
+                print(f"  Last error: {status.get('last_error')}")
+        return
+
+    if args.full_scan:
+        if not args.project_root:
+            print("Error: --project-root required for full scan")
+            sys.exit(1)
+
+        success = storage.run_full_scan()
+        if success:
+            print("Full scan completed successfully")
+            sys.exit(0)
+        else:
+            print("Full scan failed")
+            sys.exit(1)
+
     # Generate test embeddings and symbols
     print(f"Generating {args.test_vectors} test vectors of dimension {args.vector_dim}")
     test_embeddings = np.random.random((args.test_vectors, args.vector_dim)).astype(
@@ -610,7 +812,7 @@ def main():
     )
 
     # Create test symbols
-    from ..integration.symbol_extractor import Symbol, SymbolType
+    from shared.ci.integration.symbol_extractor import Symbol, SymbolType
 
     test_symbols = []
     for i in range(args.test_vectors):

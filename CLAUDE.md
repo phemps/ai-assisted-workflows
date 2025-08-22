@@ -176,8 +176,8 @@ python shared/ci/integration/orchestration_bridge.py
 # Generate metrics report
 python shared/ci/metrics/ci_metrics_collector.py report
 
-# Registry management
-python shared/ci/core/registry_manager.py --status
+# ChromaDB storage management
+python shared/ci/core/chromadb_storage.py --status
 ```
 
 ### Workflow Integration
@@ -196,4 +196,4 @@ Edit `.ci-registry/ci_config.json` to adjust:
 - Language-specific exclusions
 - Quality gate integration
 
-The system uses fail-fast architecture requiring MCP, CodeBERT, and Faiss dependencies.
+The system uses fail-fast architecture requiring MCP, CodeBERT, and ChromaDB dependencies.

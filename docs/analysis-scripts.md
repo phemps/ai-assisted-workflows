@@ -83,7 +83,7 @@
 
 ### Continuous Improvement Framework
 
-- `faiss-cpu>=1.7.0` - Vector similarity search for semantic duplicate detection
+- `chromadb>=0.4.0` - Unified vector database with built-in persistence for semantic duplicate detection
 - `transformers>=4.21.0` - Pre-trained models for code analysis
 - `torch>=1.12.0` - Deep learning framework for embeddings
 - `sentence-transformers>=2.2.0` - Sentence embeddings for code similarity

@@ -16,7 +16,7 @@
 8. **On missing**: CI registry not initialized
 
 9. **Action**: Verify Python dependencies for duplicate detection
-10. **Command**: `python -c "import faiss, transformers, torch; print('✅ ML dependencies available')"`
+10. **Command**: `python -c "import chromadb, transformers, torch; print('✅ ML dependencies available')"`
 11. **Expected**: Import succeeds without errors
 12. **On failure**: Display dependency installation instructions
 
@@ -28,9 +28,9 @@
 4. **On failure**: Components missing or import errors
 
 5. **Action**: Check registry manager status
-6. **Command**: `PYTHONPATH=shared python -c "from shared.ci.core.registry_manager import RegistryManager; print('✅ Registry manager ready')"`
-7. **Expected**: RegistryManager imports successfully
-8. **On failure**: Registry components not available
+6. **Command**: `PYTHONPATH=shared python -c "from shared.ci.core.chromadb_storage import ChromaDBStorage; print('✅ ChromaDB storage ready')"`
+7. **Expected**: ChromaDBStorage imports successfully
+8. **On failure**: ChromaDB components not available
 
 9. **Action**: Verify orchestration bridge connectivity
 10. **Command**: `PYTHONPATH=shared python -c "from shared.ci.integration.orchestration_bridge import SimplifiedOrchestrationBridge; print('✅ Orchestration bridge ready')"`
@@ -71,7 +71,7 @@
 📊 System Health:
   CI Registry: [✅ Initialized / ❌ Not Found] (.ci-registry/ci_config.json)
   Configuration: [✅ Active / ❌ Missing] (Threshold: $THRESHOLD)
-  ML Dependencies: [✅ Available / ❌ Missing] (faiss, transformers, torch)
+  ML Dependencies: [✅ Available / ❌ Missing] (chromadb, transformers, torch)
 
 🧠 Core Components:
   DuplicateFinder: [✅ Ready / ❌ Import Error]
@@ -113,7 +113,7 @@
     },
     "ml_dependencies": {
       "status": "available",
-      "packages": ["faiss-cpu", "transformers", "torch"],
+      "packages": ["chromadb", "transformers", "torch"],
       "missing": []
     }
   },
@@ -122,7 +122,7 @@
       "status": "ready",
       "import_test": "success"
     },
-    "registry_manager": {
+    "chromadb_storage": {
       "status": "ready",
       "import_test": "success"
     },
@@ -169,7 +169,7 @@ To initialize:
   claude /setup-ci-monitoring
 
 This will:
-  - Install ML dependencies (faiss, transformers, torch)
+  - Install ML dependencies (chromadb, transformers, torch)
   - Initialize CI registry database
   - Configure duplicate detection system
   - Set up GitHub Actions workflow
@@ -181,12 +181,12 @@ This will:
 ❌ CI System Dependencies Missing
 
 Missing Python packages for ML duplicate detection:
-  - faiss-cpu: ❌ Not installed
+  - chromadb: ❌ Not installed
   - transformers: ✅ Available
   - torch: ❌ Not installed
 
 To fix:
-  pip install faiss-cpu transformers torch sentence-transformers numpy scipy multilspy
+  pip install chromadb transformers torch sentence-transformers numpy scipy multilspy
 ```
 
 **Components Available But Import Errors**:

@@ -9,7 +9,7 @@
 2. **Tool**: Read - `.ci-registry/config.json` to detect previous installations
 3. **Action**: Install continuous improvement dependencies (Python packages + MCP tools)
 4. **Command**: `python shared/setup/ci/install_ci_dependencies.py`
-5. **Expected**: All packages (MCP, CodeBERT, Faiss, transformers) installed successfully with user consent
+5. **Expected**: All packages (MCP, CodeBERT, ChromaDB, transformers) installed successfully with user consent
 6. **Note**: Script follows fail-fast behavior - exits clearly if dependencies unavailable
 
 **STOP** → Dependencies installed. Ready to analyze environment?
@@ -33,8 +33,8 @@
 3. **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/
 
 4. **Action**: Initialize code registry database
-5. **Command**: `python shared/ci/core/registry_manager.py --init --project $(pwd)`
-6. **Expected**: Registry initialized with project symbols and language detection
+5. **Command**: `python shared/ci/core/chromadb_storage.py --init --project $(pwd)`
+6. **Expected**: ChromaDB collection initialized with project symbols and language detection
 
 **STOP** → Configuration created. Ready to setup GitHub Actions workflows?
 
@@ -53,8 +53,8 @@
 ## Phase 5: Initial Registry Population
 
 1. **Action**: Perform initial codebase analysis and symbol extraction
-2. **Command**: `python shared/ci/core/registry_manager.py --full-scan --project $(pwd)`
-3. **Expected**: All existing symbols cataloged in registry
+2. **Command**: `python shared/ci/core/chromadb_storage.py --full-scan --project $(pwd)`
+3. **Expected**: All existing symbols cataloged in ChromaDB
 
 4. **Action**: Generate baseline duplicate analysis
 5. **Command**: `python shared/ci/core/semantic_duplicate_detector.py --baseline --threshold $THRESHOLD`

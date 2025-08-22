@@ -4,7 +4,7 @@ The Continuous Improvement framework provides automated code duplication detecti
 
 ## Overview
 
-This system proactively monitors codebases for duplicate code, automatically fixes simple cases, and escalates complex refactoring to human review. It uses a fail-fast architecture requiring specific technologies (MCP, CodeBERT, Faiss) with no fallback mechanisms.
+This system proactively monitors codebases for duplicate code, automatically fixes simple cases, and escalates complex refactoring to human review. It uses a fail-fast architecture requiring specific technologies (MCP, CodeBERT, ChromaDB) with no fallback mechanisms.
 
 ### Core Architecture
 
@@ -13,7 +13,7 @@ GitHub Commit → GitHub Actions → orchestration_bridge.py →
 ├── DuplicateFinder (`core/semantic_duplicate_detector.py`)
 
 - Single consolidated detection system (1,072 lines)
-- Requires all 4 core components: Serena MCP, CodeBERT, Faiss, SQLite
+- Requires all 3 core components: Serena MCP, CodeBERT, ChromaDB
 - Fail-fast behavior with clear error messages
 - Embedding-based similarity detection with configurable thresholds
 
@@ -44,11 +44,11 @@ config = DuplicateFinderConfig(
 )
 ````
 
-### Registry Management
+### Storage Management
 
-**RegistryManager** (`core/registry_manager.py`)
+**ChromaDBStorage** (`core/chromadb_storage.py`)
 
-- SQLite-based symbol tracking
+- Unified vector storage with built-in persistence
 - Full codebase scanning and incremental updates
 - Symbol extraction and metadata storage
 - Project baseline establishment
@@ -98,7 +98,7 @@ The system follows a 6-phase installation process via `claude /setup-ci-monitori
 
 ### Phase 1: Dependency Check
 
-- Verifies Python packages (MCP, CodeBERT, Faiss, transformers)
+- Verifies Python packages (MCP, CodeBERT, ChromaDB, transformers)
 - Installs missing dependencies from requirements.txt
 - Fail-fast behavior if core components unavailable
 
@@ -217,7 +217,7 @@ jobs:
 ### Advanced ML Detection
 
 - CodeBERT embeddings for semantic similarity
-- Faiss vector similarity search for performance
+- ChromaDB unified vector database with built-in persistence for performance
 - Configurable similarity thresholds for different use cases
 
 ### Orchestration Integration
@@ -238,7 +238,7 @@ jobs:
 **"Registry initialization failed"**
 
 - Check permissions: `ls -la .ci-registry/`
-- Reinitialize: `python core/registry_manager.py --init --project $(pwd)`
+- Reinitialize: `python core/chromadb_storage.py --init --project $(pwd)`
 
 **"No duplicates found in clean project"**
 
@@ -252,7 +252,7 @@ jobs:
 claude /ci-monitoring-status --verbose
 
 # Component-specific checks
-python core/registry_manager.py --status
+python core/chromadb_storage.py --status
 python integration/orchestration_bridge.py --dry-run
 python metrics/ci_metrics_collector.py report --days 7
 ```

@@ -4,17 +4,16 @@ CodeBERT Embedding Engine for Continuous Improvement Framework
 
 Provides local CodeBERT embeddings using transformers library.
 Part of AI-Assisted Workflows - integrates with 8-agent orchestration system.
+ChromaDB handles all caching and persistence.
 
 Requires transformers and torch libraries - exits with error if unavailable.
 """
 
-import hashlib
 import json
-import pickle
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -63,15 +62,6 @@ class EmbeddingMethod(Enum):
     CODEBERT = "codebert"
 
 
-class CacheStatus(Enum):
-    """Status of embedding cache operations."""
-
-    HIT = "hit"
-    MISS = "miss"
-    WRITE_ERROR = "write_error"
-    READ_ERROR = "read_error"
-
-
 @dataclass
 class EmbeddingConfig:
     """Configuration for CodeBERT embedding engine."""
@@ -84,8 +74,6 @@ class EmbeddingConfig:
     # Performance settings
     use_gpu: bool = False
     normalize_embeddings: bool = True
-    enable_caching: bool = True
-    cache_ttl_hours: int = 168  # 1 week
 
     # Memory management
     max_memory_gb: float = 2.0
@@ -128,11 +116,6 @@ class EmbeddingEngine:
         self._model = None
         self._tokenizer = None
         self._current_method = EmbeddingMethod.CODEBERT
-
-        # Cache management
-        self.cache_dir = self.project_root / ".claude" / "cache" / "embeddings"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._cache_stats = {"hits": 0, "misses": 0, "errors": 0}
 
         # Performance tracking
         self._embedding_times = []
@@ -181,26 +164,8 @@ class EmbeddingEngine:
 
         start_time = time.time()
 
-        # Check cache first
-        cached_embeddings, cache_misses = self._load_cached_embeddings(symbols)
-
-        # Generate embeddings for cache misses
-        if cache_misses:
-            new_embeddings = self._generate_batch_embeddings(cache_misses)
-
-            # Cache new embeddings
-            if self.config.enable_caching:
-                self._cache_embeddings(cache_misses, new_embeddings)
-
-            # Combine cached and new embeddings
-            all_embeddings = self._combine_embeddings(
-                symbols, cached_embeddings, cache_misses, new_embeddings
-            )
-        else:
-            # Convert cached embeddings dict to numpy array in symbol order
-            all_embeddings = self._combine_embeddings(
-                symbols, cached_embeddings, [], np.array([])
-            )
+        # Generate embeddings for all symbols
+        all_embeddings = self._generate_batch_embeddings(symbols)
 
         # Track performance
         execution_time = time.time() - start_time
@@ -309,109 +274,6 @@ class EmbeddingEngine:
 
         return " | ".join(parts)
 
-    def _get_cache_key(self, symbol: Symbol) -> str:
-        """Generate cache key for symbol."""
-        content = self._symbol_to_text(symbol)
-        cache_data = {
-            "content": content,
-            "method": self._current_method.value,
-            "config_hash": self._get_config_hash(),
-        }
-
-        cache_string = json.dumps(cache_data, sort_keys=True)
-        return hashlib.md5(cache_string.encode()).hexdigest()
-
-    def _get_config_hash(self) -> str:
-        """Get hash of embedding configuration for cache validation."""
-        config_data = {
-            "model_name": self.config.model_name,
-            "normalize": self.config.normalize_embeddings,
-            "max_length": self.config.max_length,
-        }
-        config_string = json.dumps(config_data, sort_keys=True)
-        return hashlib.md5(config_string.encode()).hexdigest()[:8]
-
-    def _load_cached_embeddings(
-        self, symbols: List[Symbol]
-    ) -> Tuple[Dict, List[Symbol]]:
-        """Load cached embeddings and return cache misses."""
-        cached_embeddings = {}
-        cache_misses = []
-
-        if not self.config.enable_caching:
-            return cached_embeddings, symbols
-
-        for symbol in symbols:
-            cache_key = self._get_cache_key(symbol)
-            cache_file = self.cache_dir / f"{cache_key}.pkl"
-
-            try:
-                if cache_file.exists():
-                    # Check if cache is still valid
-                    if self._is_cache_valid(cache_file):
-                        with open(cache_file, "rb") as f:
-                            cached_embeddings[cache_key] = pickle.load(f)
-                        self._cache_stats["hits"] += 1
-                    else:
-                        cache_misses.append(symbol)
-                        self._cache_stats["misses"] += 1
-                else:
-                    cache_misses.append(symbol)
-                    self._cache_stats["misses"] += 1
-            except Exception as e:
-                cache_misses.append(symbol)
-                self._cache_stats["errors"] += 1
-                msg = f"Cache read error for {cache_key}: {e}"
-                print(msg, file=sys.stderr)
-
-        return cached_embeddings, cache_misses
-
-    def _is_cache_valid(self, cache_file: Path) -> bool:
-        """Check if cached embedding is still valid."""
-        try:
-            age_hours = (time.time() - cache_file.stat().st_mtime) / 3600
-            return age_hours < self.config.cache_ttl_hours
-        except Exception:
-            return False
-
-    def _cache_embeddings(self, symbols: List[Symbol], embeddings: np.ndarray) -> None:
-        """Cache embeddings for symbols."""
-        if not self.config.enable_caching or len(embeddings) == 0:
-            return
-
-        for i, symbol in enumerate(symbols):
-            try:
-                cache_key = self._get_cache_key(symbol)
-                cache_file = self.cache_dir / f"{cache_key}.pkl"
-
-                with open(cache_file, "wb") as f:
-                    pickle.dump(embeddings[i], f)
-            except Exception as e:
-                self._cache_stats["errors"] += 1
-                print(f"Cache write error: {e}", file=sys.stderr)
-
-    def _combine_embeddings(
-        self,
-        all_symbols: List[Symbol],
-        cached_embeddings: Dict,
-        cache_misses: List[Symbol],
-        new_embeddings: np.ndarray,
-    ) -> np.ndarray:
-        """Combine cached and new embeddings in original order."""
-        result = []
-        new_idx = 0
-
-        for symbol in all_symbols:
-            cache_key = self._get_cache_key(symbol)
-
-            if cache_key in cached_embeddings:
-                result.append(cached_embeddings[cache_key])
-            else:
-                result.append(new_embeddings[new_idx])
-                new_idx += 1
-
-        return np.array(result) if result else np.array([])
-
     def get_engine_info(self) -> Dict[str, Any]:
         """Get engine status and diagnostic information."""
         return {
@@ -423,10 +285,7 @@ class EmbeddingEngine:
                 "max_length": self.config.max_length,
                 "use_gpu": self.config.use_gpu,
                 "normalize_embeddings": self.config.normalize_embeddings,
-                "enable_caching": self.config.enable_caching,
             },
-            "cache_stats": self._cache_stats.copy(),
-            "cache_dir": str(self.cache_dir),
             "performance": {
                 "avg_embedding_time": (
                     sum(self._embedding_times) / len(self._embedding_times)
@@ -436,30 +295,6 @@ class EmbeddingEngine:
                 "total_batches": len(self._embedding_times),
             },
         }
-
-    def clear_cache(self, older_than_hours: Optional[int] = None) -> int:
-        """Clear embedding cache files."""
-        cleared_count = 0
-        cutoff_time = None
-
-        if older_than_hours:
-            cutoff_time = time.time() - (older_than_hours * 3600)
-
-        try:
-            for cache_file in self.cache_dir.glob("*.pkl"):
-                should_delete = True
-
-                if cutoff_time:
-                    file_age = cache_file.stat().st_mtime
-                    should_delete = file_age < cutoff_time
-
-                if should_delete:
-                    cache_file.unlink()
-                    cleared_count += 1
-        except Exception as e:
-            print(f"Cache clear error: {e}", file=sys.stderr)
-
-        return cleared_count
 
 
 def main():
@@ -472,23 +307,14 @@ def main():
     parser.add_argument(
         "--output", choices=["json", "summary"], default="summary", help="Output format"
     )
-    parser.add_argument("--no-cache", action="store_true", help="Disable caching")
-    parser.add_argument(
-        "--clear-cache", action="store_true", help="Clear embedding cache"
-    )
 
     args = parser.parse_args()
 
     # Create configuration
-    config = EmbeddingConfig(enable_caching=not args.no_cache)
+    config = EmbeddingConfig()
 
     # Initialize engine
     engine = EmbeddingEngine(config, args.project_root)
-
-    if args.clear_cache:
-        cleared = engine.clear_cache()
-        print(f"Cleared {cleared} cache files")
-        return
 
     # Test embedding generation
     if args.test_text:
@@ -526,8 +352,6 @@ def main():
             print("\nEngine Info:")
             print(f"  Method: {engine_info['method']}")
             print(f"  Available: {engine_info['is_available']}")
-            print(f"  Cache hits: {engine_info['cache_stats']['hits']}")
-            print(f"  Cache misses: {engine_info['cache_stats']['misses']}")
     else:
         # Just show engine info
         engine_info = engine.get_engine_info()
@@ -537,8 +361,6 @@ def main():
             print("CodeBERT Embedding Engine Status:")
             print(f"  Method: {engine_info['method']}")
             print(f"  Available: {engine_info['is_available']}")
-            cache_enabled = engine_info["config"]["enable_caching"]
-            print(f"  Cache enabled: {cache_enabled}")
 
 
 if __name__ == "__main__":

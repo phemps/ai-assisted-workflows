@@ -8,15 +8,14 @@ Part of the continuous improvement system for development workflow optimization.
 
 APPROACH:
 - Symbol-level semantic analysis using CodeBERT embeddings
-- Vector similarity search using Facebook AI Similarity Search (Faiss)
+- Vector similarity search using ChromaDB unified storage
 - LSP integration for semantic symbol extraction and cross-file analysis
-- SQLite registry for caching and incremental analysis
+- ChromaDB for unified vector storage, metadata, and persistence
 
 DEPENDENCIES (ALL REQUIRED - FAIL-FAST):
 - LSPSymbolExtractor: Language Server Protocol integration for semantic analysis
 - EmbeddingEngine: CodeBERT/transformers for semantic embeddings
-- SimilarityDetector: Faiss indexing for similarity search
-- RegistryManager: SQLite storage for caching and registry
+- ChromaDBStorage: Unified vector storage, metadata, and persistence
 
 USE CASES:
 - Advanced duplicate detection in development workflow
@@ -26,8 +25,8 @@ USE CASES:
 
 DISTINCTION FROM code_duplication_analyzer.py:
 - This uses advanced ML techniques for semantic understanding
-- Requires heavy dependencies (transformers, Faiss, MCP)
-- Designed for CI pipeline integration with caching
+- Requires heavy dependencies (transformers, ChromaDB, MCP)
+- Designed for CI pipeline integration with unified storage
 - Part of the continuous improvement system
 
 For lightweight traditional duplicate detection, see:
@@ -100,34 +99,19 @@ except ImportError as e:
 try:
     from .lsp_symbol_extractor import LSPSymbolExtractor, SymbolExtractionConfig
     from .embedding_engine import EmbeddingEngine, EmbeddingConfig
-    from .similarity_detector import (
-        SimilarityDetector,
-        SimilarityConfig,
-    )
-    from .registry_manager import (
-        RegistryManager,
-        RegistryConfig,
-    )
+    from .chromadb_storage import ChromaDBStorage, ChromaDBConfig
 except ImportError:
     try:
         # Direct execution import
         from lsp_symbol_extractor import LSPSymbolExtractor, SymbolExtractionConfig
         from embedding_engine import EmbeddingEngine, EmbeddingConfig
-        from similarity_detector import (
-            SimilarityDetector,
-            SimilarityConfig,
-        )
-        from registry_manager import (
-            RegistryManager,
-            RegistryConfig,
-        )
+        from chromadb_storage import ChromaDBStorage, ChromaDBConfig
     except ImportError as e:
         context = {
             "required_components": [
                 "LSPSymbolExtractor (Language Server Protocol integration)",
                 "EmbeddingEngine (CodeBERT/transformers)",
-                "SimilarityDetector (Faiss indexing)",
-                "RegistryManager (SQLite storage)",
+                "ChromaDBStorage (Unified vector storage and metadata)",
             ]
         }
         raise CIDependencyError(
@@ -233,8 +217,7 @@ class DuplicateFinderConfig:
     # Component configurations
     extractor_config: Optional[SymbolExtractionConfig] = None
     embedding_config: Optional[EmbeddingConfig] = None
-    similarity_config: Optional[SimilarityConfig] = None
-    registry_config: Optional[RegistryConfig] = None
+    chromadb_config: Optional[ChromaDBConfig] = None
 
     def __post_init__(self):
         """Initialize default configurations - validate all thresholds."""
@@ -301,24 +284,17 @@ class DuplicateFinderConfig:
         if self.embedding_config is None:
             self.embedding_config = EmbeddingConfig(
                 batch_size=self.batch_size,
-                enable_caching=self.enable_caching,
                 max_memory_gb=self.max_memory_gb,
             )
 
-        if self.similarity_config is None:
-            self.similarity_config = SimilarityConfig(
+        if self.chromadb_config is None:
+            self.chromadb_config = ChromaDBConfig(
                 exact_match_threshold=self.exact_duplicate_threshold,
                 high_similarity_threshold=self.high_similarity_threshold,
                 medium_similarity_threshold=self.medium_similarity_threshold,
                 low_similarity_threshold=self.low_similarity_threshold,
                 batch_size=self.batch_size,
-                enable_caching=self.enable_caching,
-            )
-
-        if self.registry_config is None:
-            self.registry_config = RegistryConfig(
-                enable_caching=self.enable_caching,
-                max_entries=self.max_symbols,
+                max_memory_gb=self.max_memory_gb,
             )
 
 
@@ -343,7 +319,7 @@ class DuplicateResult:
 
 class DuplicateFinder:
     """
-    Main orchestrator for duplicate detection using ALL 4 core components.
+    Main orchestrator for duplicate detection using ChromaDB unified storage.
 
     FAIL-FAST BEHAVIOR: Exits immediately if any core component fails.
     NO FALLBACKS or graceful degradation - complete success or exit.
@@ -351,8 +327,7 @@ class DuplicateFinder:
     Required Components:
     - LSPSymbolExtractor: Language Server Protocol integration for semantic analysis
     - EmbeddingEngine: CodeBERT/transformers for semantic embeddings
-    - SimilarityDetector: Faiss indexing for similarity search
-    - RegistryManager: SQLite storage for caching and registry
+    - ChromaDBStorage: Unified vector storage, metadata, and persistence
 
     Any component failure → sys.exit(1) with clear error message
     """
@@ -371,7 +346,7 @@ class DuplicateFinder:
         self.tech_detector = TechStackDetector()
         self.result_formatter = ResultFormatter()
 
-        # Initialize ALL 4 core components - FAIL FAST if any unavailable
+        # Initialize 3 core components - FAIL FAST if any unavailable
         try:
             self.symbol_extractor = LSPSymbolExtractor(
                 self.config.extractor_config, self.project_root
@@ -399,21 +374,15 @@ class DuplicateFinder:
             sys.exit(1)
 
         try:
-            self.similarity_detector = SimilarityDetector(
-                self.config.similarity_config, self.project_root
+            self.chromadb_storage = ChromaDBStorage(
+                self.config.chromadb_config, self.project_root
             )
         except Exception as e:
+            print(f"FATAL: ChromaDBStorage initialization failed: {e}", file=sys.stderr)
             print(
-                f"FATAL: SimilarityDetector initialization failed: {e}", file=sys.stderr
+                "Required: ChromaDB for unified vector storage and metadata",
+                file=sys.stderr,
             )
-            print("Required: Faiss for similarity indexing and search", file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            self.registry_manager = RegistryManager(self.project_root)
-        except Exception as e:
-            print(f"FATAL: RegistryManager initialization failed: {e}", file=sys.stderr)
-            print("Required: SQLite for symbol registry and caching", file=sys.stderr)
             sys.exit(1)
 
         # Validate all components are functional
@@ -449,22 +418,13 @@ class DuplicateFinder:
             print(f"FATAL: EmbeddingEngine validation failed: {e}", file=sys.stderr)
             sys.exit(1)
 
-        # Test SimilarityDetector
+        # Test ChromaDBStorage
         try:
-            detector_info = self.similarity_detector.get_detector_info()
-            if not detector_info.get("is_available", False):
-                raise Exception("SimilarityDetector not available")
+            storage_info = self.chromadb_storage.get_storage_info()
+            if not storage_info.get("is_available", False):
+                raise Exception("ChromaDBStorage not available")
         except Exception as e:
-            print(f"FATAL: SimilarityDetector validation failed: {e}", file=sys.stderr)
-            sys.exit(1)
-
-        # Test RegistryManager
-        try:
-            registry_info = self.registry_manager.get_registry_info()
-            if not registry_info.get("is_available", False):
-                raise Exception("RegistryManager not available")
-        except Exception as e:
-            print(f"FATAL: RegistryManager validation failed: {e}", file=sys.stderr)
+            print(f"FATAL: ChromaDBStorage validation failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     def set_progress_callback(self, callback) -> None:
@@ -610,50 +570,36 @@ class DuplicateFinder:
 
         self._stats["embeddings_generated"] = len(embeddings)
 
-        # Build similarity index - FAIL FAST if component fails
+        # Store symbols and embeddings in ChromaDB - FAIL FAST if component fails
         self._update_progress(
             ProgressStage.BUILDING_INDEX,
-            "Building similarity search index",
+            "Storing symbols and embeddings in ChromaDB",
             50.0,
         )
         try:
-            success = self.similarity_detector.build_index(embeddings, filtered_symbols)
+            success = self.chromadb_storage.store_symbols(filtered_symbols, embeddings)
         except Exception as e:
-            self._handle_fatal_error(
-                f"Similarity index building failed: {e}", CISimilarityError
-            )
+            self._handle_fatal_error(f"ChromaDB storage failed: {e}", CISimilarityError)
 
         if not success:
             self._handle_fatal_error(
-                "Failed to build similarity index", CISimilarityError
+                "Failed to store symbols in ChromaDB", CISimilarityError
             )
 
-        # Find similar pairs - FAIL FAST if component fails
+        # Find similar pairs using ChromaDB - FAIL FAST if component fails
         self._update_progress(
             ProgressStage.FINDING_DUPLICATES,
             "Finding duplicate symbol pairs",
             70.0,
         )
         try:
-            duplicates = self._find_similar_pairs(
+            duplicates = self._find_similar_pairs_chromadb(
                 filtered_symbols, embeddings, threshold
             )
         except Exception as e:
             self._handle_fatal_error(
                 f"Similar pairs finding failed: {e}", CISimilarityError
             )
-
-        # Update registry with results - FAIL FAST if component fails
-        if self.config.enable_caching:
-            self._update_progress(
-                ProgressStage.UPDATING_REGISTRY,
-                "Updating symbol registry",
-                80.0,
-            )
-            try:
-                self._update_registry_with_results(filtered_symbols, embeddings)
-            except Exception as e:
-                self._handle_fatal_error(f"Registry update failed: {e}", CISystemError)
 
         return duplicates
 
@@ -924,22 +870,20 @@ class DuplicateFinder:
         return filtered
 
     def _handle_incremental_updates(self, symbols: List[Symbol]) -> List[Symbol]:
-        """Handle incremental updates using registry manager - NO FALLBACK."""
-        # Save symbols to registry
-        self.registry_manager.save_symbols(symbols)
-
+        """Handle incremental updates using ChromaDB storage - NO FALLBACK."""
+        # ChromaDB handles incremental updates automatically through upsert
         # For now, return all symbols since incremental filtering isn't implemented yet
         # TODO: Implement proper incremental update filtering based on file modification times
         return symbols
 
-    def _find_similar_pairs(
+    def _find_similar_pairs_chromadb(
         self, symbols: List[Symbol], embeddings: np.ndarray, threshold: float
     ) -> List[DuplicateResult]:
-        """Find similar symbol pairs using similarity detector."""
+        """Find similar symbol pairs using ChromaDB storage."""
         duplicates = []
 
-        # Perform batch similarity search - NO FALLBACK
-        similarity_results = self.similarity_detector.batch_similarity_search(
+        # Perform batch similarity search using ChromaDB - NO FALLBACK
+        similarity_results = self.chromadb_storage.batch_similarity_search(
             embeddings, threshold
         )
 
@@ -956,7 +900,11 @@ class DuplicateFinder:
                     continue
 
                 processed_pairs.add(pair_id)
-                match_symbol = symbols[match.match_index]
+                match_symbol = (
+                    symbols[match.match_index]
+                    if match.match_symbol is None
+                    else match.match_symbol
+                )
 
                 # Create duplicate result
                 duplicate_result = self._create_duplicate_result(
@@ -1001,21 +949,11 @@ class DuplicateFinder:
             comparison_type=comparison_type,
             embedding_similarity=similarity_score,
             details={
-                "detection_method": "embedding_similarity",
+                "detection_method": "chromadb_similarity",
                 "embedding_engine": self.embedding_engine.get_engine_info()["method"],
-                "similarity_detector": self.similarity_detector.get_detector_info()[
-                    "method"
-                ],
+                "storage_system": self.chromadb_storage.get_storage_info()["method"],
             },
         )
-
-    def _update_registry_with_results(
-        self, symbols: List[Symbol], embeddings: np.ndarray
-    ) -> None:
-        """Update registry with symbols and their embeddings - NO FALLBACK."""
-        # Save symbols and embeddings to registry
-        self.registry_manager.save_symbols(symbols)
-        self.registry_manager.save_embeddings(embeddings)
 
     def _detect_changed_files(self) -> List[Path]:
         """Detect changed files using registry manager."""
@@ -1096,13 +1034,11 @@ class DuplicateFinder:
             "component_info": {
                 "symbol_extractor": self.symbol_extractor.get_parser_info(),
                 "embedding_engine": self.embedding_engine.get_engine_info(),
-                "similarity_detector": self.similarity_detector.get_detector_info(),
-                "registry_manager": self.registry_manager.get_registry_stats(),
+                "chromadb_storage": self.chromadb_storage.get_storage_info(),
             },
             "configuration": {
                 "max_symbols": self.config.max_symbols,
                 "batch_size": self.config.batch_size,
-                "enable_caching": self.config.enable_caching,
                 "enable_incremental": self.config.enable_incremental,
             },
             "stats": self._stats.copy(),
@@ -1154,8 +1090,7 @@ class DuplicateFinder:
             "components": {
                 "symbol_extractor": self.symbol_extractor.get_parser_info(),
                 "embedding_engine": self.embedding_engine.get_engine_info(),
-                "similarity_detector": self.similarity_detector.get_detector_info(),
-                "registry_manager": self.registry_manager.get_registry_stats(),
+                "chromadb_storage": self.chromadb_storage.get_storage_info(),
             },
             "stats": self._stats.copy(),
             "project_root": str(self.project_root),
@@ -1167,28 +1102,11 @@ class DuplicateFinder:
         FAIL FAST on component failure.
         """
         if clear_caches:
-            # Clear component caches - FAIL if any component fails
+            # Clear ChromaDB collection - ChromaDB handles all caching internally
             try:
-                self.embedding_engine.clear_cache()
+                self.chromadb_storage.clear_collection()
             except Exception as e:
-                print(
-                    f"FATAL: EmbeddingEngine cache clear failed: {e}", file=sys.stderr
-                )
-                sys.exit(1)
-
-            try:
-                self.similarity_detector.clear_index()
-            except Exception as e:
-                print(
-                    f"FATAL: SimilarityDetector index clear failed: {e}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-            try:
-                self.registry_manager.cleanup_stale_entries()
-            except Exception as e:
-                print(f"FATAL: RegistryManager cleanup failed: {e}", file=sys.stderr)
+                print(f"FATAL: ChromaDB collection clear failed: {e}", file=sys.stderr)
                 sys.exit(1)
 
         # Reset stats
@@ -1206,7 +1124,7 @@ def main():
     """Main entry point for testing duplicate finder functionality."""
 
     parser = argparse.ArgumentParser(
-        description="Duplicate detection using integrated core components"
+        description="Duplicate detection using ChromaDB unified storage"
     )
     parser.add_argument("--project-root", type=Path, help="Project root directory")
     parser.add_argument(
@@ -1277,11 +1195,10 @@ def main():
             status = info.get("status", info.get("is_available", "available"))
             print(f"  {component}: {status}")
 
-        print("\nAll 4 core components verified functional:")
+        print("\nAll 3 core components verified functional:")
         print("  - LSPSymbolExtractor: Language servers loaded")
         print("  - EmbeddingEngine: CodeBERT/transformers available")
-        print("  - SimilarityDetector: Faiss indexing operational")
-        print("  - RegistryManager: SQLite storage accessible")
+        print("  - ChromaDBStorage: Unified vector storage operational")
 
 
 if __name__ == "__main__":

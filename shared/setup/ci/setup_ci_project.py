@@ -308,6 +308,55 @@ jobs:
         mkdir -p .ci-registry/cache
         mkdir -p .ci-registry/backups
 
+    - name: Check initial indexing status
+      id: indexing-check
+      run: |
+        if [ -f ".ci-registry/ci_config.json" ]; then
+          cd shared && PYTHONPATH=.. python ci/core/chromadb_storage.py \\
+            --project-root .. \\
+            --check-indexing \\
+            --output json > ../indexing_status.json
+
+          # Create Python script to parse indexing status
+          cat > ../parse_status.py << 'EOF'
+import json
+import sys
+
+try:
+    with open('indexing_status.json', 'r') as f:
+        data = json.load(f)
+    print(str(data.get('initial_index_completed', False)).lower())
+except Exception as e:
+    print('false')
+    sys.exit(0)
+EOF
+
+          initial_completed=$(python ../parse_status.py)
+          rm -f ../parse_status.py
+
+          echo "initial_completed=$initial_completed" >> $GITHUB_OUTPUT
+          echo "Initial indexing completed: $initial_completed"
+
+          if [ "$initial_completed" = "true" ]; then
+            echo "Initial indexing already completed - proceeding with incremental analysis"
+          else
+            echo "Initial indexing required - will run full scan first"
+          fi
+        else
+          echo "initial_completed=false" >> $GITHUB_OUTPUT
+          echo "No CI config found - assuming fresh setup"
+        fi
+
+    - name: Run initial full scan
+      if: steps.indexing-check.outputs.initial_completed == 'false'
+      run: |
+        echo "Running initial full codebase scan..."
+        cd shared && PYTHONPATH=.. python ci/core/chromadb_storage.py \\
+          --project-root .. \\
+          --full-scan
+
+        echo "Initial scan completed - ChromaDB now contains full codebase index"
+
     - name: Run duplicate detection
       run: |
         cd shared && PYTHONPATH=.. python ci/integration/orchestration_bridge.py \\

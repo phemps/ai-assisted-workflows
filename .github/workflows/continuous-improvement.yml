@@ -27,6 +27,35 @@ jobs:
           pip install chromadb transformers torch sentence-transformers numpy scipy
           pip install multilspy
 
+      - name: Setup language server dependencies
+        run: |
+          # Install Go and gopls for Go language support
+          echo "Installing Go language server dependencies..."
+          if ! command -v go &> /dev/null; then
+            # Download and install Go
+            wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+            echo "/usr/local/go/bin" >> $GITHUB_PATH
+            export PATH=$PATH:/usr/local/go/bin
+          fi
+
+          # Install gopls
+          go install golang.org/x/tools/gopls@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+          # Install .NET for C# language support
+          echo "Installing .NET for C# language server..."
+          wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y dotnet-sdk-6.0
+
+          # Verify installations
+          echo "Verifying language server installations..."
+          go version || echo "Go installation failed"
+          gopls version || echo "gopls installation failed"
+          dotnet --version || echo ".NET installation failed"
+
       - name: Verify multilspy installation
         run: |
           python -c "import multilspy; print('multilspy library installed successfully')"

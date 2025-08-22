@@ -137,7 +137,20 @@ shared/tests/integration/ci_config_test.json  # ← Used directly
    ```
    - Note: ChromaDB replaced faiss-cpu in the latest implementation
 
-4. **Path confusion**
+4. **"Failed to initialize go/csharp language server"** (warnings, not errors)
+   - These are informational warnings for optional language support
+   - **Go language support**: Install Go runtime and gopls
+   ```bash
+   brew install go
+   go install golang.org/x/tools/gopls@latest
+   ```
+   - **C# language support**: Install .NET or Mono runtime
+   ```bash
+   brew install --cask dotnet  # or: brew install mono
+   ```
+   - **Impact**: Without these, Go/C# files won't be analyzed (Python/JS/TS still work perfectly)
+
+5. **Path confusion**
    - Always run from `/Users/adamjackson/LocalDev/ai-assisted-workflows` (project root)
    - Use relative paths in commands as shown above
    - **Critical**: All imports use `shared.` prefix for consistency

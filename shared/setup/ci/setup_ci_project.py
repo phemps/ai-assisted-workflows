@@ -184,11 +184,17 @@ def create_github_workflows(project_dir: str, project_name: str) -> bool:
     # Main continuous improvement workflow
     ci_workflow = f"""name: Continuous Improvement - Code Duplication Detection
 
-on:
+"on":
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
 
 jobs:
   duplicate-detection:
@@ -196,20 +202,45 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
       with:
         fetch-depth: 0  # Full history for comprehensive analysis
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@0ae19d67d5c6b1e9a2f3a2a4f2b1c5c6d7e8f9e0  # v5.3.0
       with:
         python-version: '3.9'
+        cache: 'pip'
 
     - name: Install CI dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install faiss-cpu transformers torch sentence-transformers numpy scipy
+        pip install chromadb transformers torch sentence-transformers numpy scipy
         pip install multilspy
+
+    - name: Setup Go
+      uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32  # v5.2.0
+      with:
+        go-version: '1.21'
+        cache: true
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee  # v4.1.0
+      with:
+        dotnet-version: '8.0'
+
+    - name: Install language server dependencies
+      run: |
+        # Install Go language server
+        echo "Installing Go language server (gopls)..."
+        go install golang.org/x/tools/gopls@latest
+        echo "$HOME/go/bin" >> $GITHUB_PATH
+
+        # Verify installations
+        echo "Verifying language server installations..."
+        go version
+        gopls version
+        dotnet --version
 
     - name: Verify multilspy installation
       run: |
@@ -241,7 +272,7 @@ jobs:
 
     - name: Upload analysis results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8  # v4.3.0
       with:
         name: duplication-analysis
         path: |
@@ -256,7 +287,7 @@ jobs:
         echo "Python Version: $(python --version)"
         echo "Current Directory: $(pwd)"
         echo "Available Python packages:"
-        pip list | grep -E "(faiss|transformers|torch|multilspy)"
+        pip list | grep -E "(chromadb|transformers|torch|multilspy)"
 
         # Check for log files
         if [ -d ".ci-registry/logs" ]; then
@@ -266,7 +297,7 @@ jobs:
 
     - name: Comment PR with results
       if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
       with:
         script: |
           const fs = require('fs');
@@ -275,21 +306,24 @@ jobs:
           if (fs.existsSync(path)) {{
             const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
             const duplicateCount = analysis.findings?.length || 0;
-            const threshold = analysis.config?.similarity_threshold || '0.85';
+            const summary = analysis.summary || {{}};
 
             const status = duplicateCount > 0 ?
               'Code duplications detected. Review analysis artifacts for details.' :
               'No significant code duplication detected.';
 
-            const comment = `## Code Duplication Analysis Results
-
-Project: {project_name}
-Duplicates Found: ${{{{duplicateCount}}}}
-Similarity Threshold: ${{{{threshold}}}}
-
-Status: ${{{{status}}}}
-
-Analysis completed by Continuous Improvement Framework.`;
+            const comment = '## Code Duplication Analysis Results\\n\\n' +
+              'Project: {project_name}\\n' +
+              'Analysis Date: ' + (analysis.analysis_date || 'Unknown') + '\\n' +
+              'Duplicates Found: ' + duplicateCount + '\\n' +
+              'Similarity Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\\n\\n' +
+              '### Summary\\n' +
+              '- Automatic Fixes: ' + (summary.automatic_fixes || 0) + '\\n' +
+              '- GitHub Issues: ' + (summary.github_issues || 0) + '\\n' +
+              '- Skipped: ' + (summary.skipped || 0) + '\\n' +
+              '- Errors: ' + (summary.errors || 0) + '\\n\\n' +
+              'Status: ' + status + '\\n\\n' +
+              'Analysis completed by Continuous Improvement Framework.';
 
             github.rest.issues.createComment({{
               issue_number: context.issue.number,

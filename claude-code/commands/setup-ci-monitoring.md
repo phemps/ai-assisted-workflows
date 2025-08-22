@@ -12,6 +12,23 @@
 5. **Expected**: All packages (MCP, CodeBERT, ChromaDB, transformers) installed successfully with user consent
 6. **Note**: Script follows fail-fast behavior - exits clearly if dependencies unavailable
 
+7. **Action**: Install language server dependencies for comprehensive language support
+8. **Languages Supported**: Python, TypeScript, JavaScript, Java, Rust (built-in) + Go, C# (automatically installed)
+9. **Local Development Dependencies** (optional for user setup):
+
+   ```bash
+   # For Go language support (local development)
+   brew install go                           # Install Go runtime
+   go install golang.org/x/tools/gopls@latest  # Install Go language server
+
+   # For C# language support (local development)
+   brew install --cask dotnet               # Install .NET runtime (macOS)
+   # OR: brew install mono                  # Alternative: Mono runtime
+   ```
+
+10. **GitHub Actions**: Go and C# language servers automatically installed in CI workflows
+11. **Impact**: GitHub Actions workflows include full language support. For local duplicate detection, Go/C# files require the runtime dependencies above.
+
 **STOP** → Dependencies installed. Ready to analyze environment?
 
 ## Phase 2: Environment Analysis

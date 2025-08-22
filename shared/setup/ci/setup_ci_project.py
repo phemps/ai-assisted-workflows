@@ -218,29 +218,73 @@ jobs:
         pip install chromadb transformers torch sentence-transformers numpy scipy
         pip install multilspy
 
+    - name: Read project languages
+      id: languages
+      run: |
+        if [ -f ".ci-registry/ci_config.json" ]; then
+          languages=$(python -c "
+          import json, sys
+          try:
+              with open('.ci-registry/ci_config.json') as f:
+                  config = json.load(f)
+              langs = config.get('project', {{}}).get('languages', [])
+              print(','.join(langs))
+          except Exception as e:
+              print('', file=sys.stderr)  # Empty fallback
+              sys.exit(0)
+          ") || languages=""
+          echo "detected_languages=$languages" >> $GITHUB_OUTPUT
+          echo "Detected project languages: $languages"
+        else
+          echo "detected_languages=" >> $GITHUB_OUTPUT
+          echo "No CI config found - skipping language-specific installations"
+        fi
+
     - name: Setup Go
+      if: contains(steps.languages.outputs.detected_languages, 'go')
       uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32  # v5.2.0
       with:
         go-version: '1.21'
         cache: true
 
     - name: Setup .NET
+      if: contains(steps.languages.outputs.detected_languages, 'csharp')
       uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee  # v4.1.0
       with:
         dotnet-version: '8.0'
 
     - name: Install language server dependencies
       run: |
-        # Install Go language server
-        echo "Installing Go language server (gopls)..."
-        go install golang.org/x/tools/gopls@latest
-        echo "$HOME/go/bin" >> $GITHUB_PATH
+        # Install language servers based on detected languages
+        languages="${{{{ steps.languages.outputs.detected_languages }}}}"
+        echo "Installing language servers for: $languages"
 
-        # Verify installations
-        echo "Verifying language server installations..."
-        go version
-        gopls version
-        dotnet --version
+        if [[ "$languages" == *"go"* ]]; then
+          echo "Installing Go language server (gopls)..."
+          go install golang.org/x/tools/gopls@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+          # Validate installation
+          if command -v gopls >/dev/null 2>&1; then
+            go version
+            gopls version
+            echo "✅ gopls installed successfully"
+          else
+            echo "❌ gopls installation failed" >&2
+            exit 1
+          fi
+        else
+          echo "Skipping Go language server installation"
+        fi
+
+        if [[ "$languages" == *"csharp"* ]]; then
+          echo "Verifying .NET installation..."
+          dotnet --version
+        else
+          echo "Skipping .NET language server verification"
+        fi
+
+        echo "Language server setup complete"
 
     - name: Verify multilspy installation
       run: |

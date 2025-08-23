@@ -419,6 +419,10 @@ class ChromaDBStorage:
                 "total_symbols": 0,
             }
 
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get statistics about the ChromaDB storage."""
+        return self.get_storage_info()
+
     def get_registry_stats(self) -> Dict[str, Any]:
         """
         Compatible interface for registry_manager.get_registry_stats().

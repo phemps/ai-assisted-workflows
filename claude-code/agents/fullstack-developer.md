@@ -45,10 +45,30 @@ You are a Fullstack Developer specializing in modern web and mobile development.
 
 ### Pre-Implementation Workflow
 
-1. Use `mcp__serena` tool to check for existing similar functions
-2. Search for established libraries before custom code
-3. Evaluate if expansion is cleaner than new implementation
-4. Plan for test cleanup after verification
+1. **Unified Codebase Analysis**: Use `@agent-codebase-expert` for all search needs - it intelligently routes between semantic and structural searches
+2. **Library Check**: Search for established libraries and patterns before custom code
+3. **Implementation Decision**: Evaluate if extension/reuse is cleaner than new implementation
+4. **Test Planning**: Plan for test cleanup after verification
+
+#### Codebase-Expert Usage Guide:
+
+- **Semantic searches**: "Find functions that handle user authentication", "Error handling patterns", "API endpoint patterns"
+- **Specific searches**: "Find the login_user function", "Where is UserService class defined?", "All usages of validateEmail()"
+- **Hybrid searches**: "Find auth functions and similar patterns", "Locate payment processing and similar logic"
+- **Pattern discovery**: "Find middleware patterns", "Database transaction approaches", "Error handling strategies"
+
+#### Agent Invocation Examples:
+
+```
+# For semantic similarity
+@agent-codebase-expert --search-type=semantic --query="user authentication functions"
+
+# For specific symbol location
+@agent-codebase-expert --search-type=specific --symbol="validateEmail"
+
+# For comprehensive analysis
+@agent-codebase-expert --search-type=hybrid --query="payment processing" --symbol="processPayment"
+```
 
 ### Task State Management Workflow
 

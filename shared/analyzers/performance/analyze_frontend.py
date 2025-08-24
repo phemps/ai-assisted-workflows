@@ -723,66 +723,172 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
     ) -> bool:
         """Check if a detected issue is likely a false positive."""
         line_lower = line_content.lower()
+        line_stripped = line_content.strip()
 
-        # Skip comments
-        comment_indicators = ["//", "#", "/*", "*", "<!--", "'''", '"""']
+        # Skip comments and documentation
+        comment_indicators = [
+            "//",
+            "#",
+            "/*",
+            "*",
+            "<!--",
+            "'''",
+            '"""',
+            "* @",
+            "/**",
+            "*/",
+        ]
         for indicator in comment_indicators:
-            if line_content.strip().startswith(indicator):
+            if line_stripped.startswith(indicator):
                 return True
 
-        # Skip test files and config files
-        if any(
-            word in line_lower
-            for word in [
-                "test",
-                "spec",
-                "mock",
-                "fixture",
-                "storybook",
-                "config",
-                "example",
-                ".d.ts",
+        # Skip test files, specs, mocks, and config files
+        test_indicators = [
+            "test",
+            "spec",
+            "mock",
+            "fixture",
+            "storybook",
+            "config",
+            "example",
+            ".d.ts",
+            "jest",
+            "vitest",
+            "mocha",
+            "cypress",
+            "playwright",
+            "setup",
+            "teardown",
+            "beforeeach",
+            "aftereach",
+        ]
+        if any(indicator in line_lower for indicator in test_indicators):
+            return True
+
+        # Skip documentation and metadata
+        doc_indicators = [
+            "@example",
+            "@param",
+            "@returns",
+            "@type",
+            "@description",
+            "docstring",
+            "readme",
+            "documentation",
+            "license",
+            "copyright",
+        ]
+        if any(indicator in line_lower for indicator in doc_indicators):
+            return True
+
+        # Skip package files and build artifacts
+        package_indicators = [
+            "package.json",
+            "package-lock.json",
+            "yarn.lock",
+            "node_modules",
+            ".min.",
+            "bundle.",
+            "chunk.",
+            "vendor.",
+            "polyfill.",
+            "shim.",
+        ]
+        if any(indicator in line_lower for indicator in package_indicators):
+            return True
+
+        # Skip very short lines or lines with minimal content
+        if len(line_stripped) < 10 or line_stripped in [
+            "",
+            "{",
+            "}",
+            "(",
+            ")",
+            "[",
+            "]",
+        ]:
+            return True
+
+        # Skip lines that are mostly punctuation (generated code)
+        if len([c for c in line_stripped if c.isalnum()]) < len(line_stripped) * 0.3:
+            return True
+
+        # Category-specific false positive checks with more context
+        if category == "react":
+            react_optimized = [
+                "memo(",
+                "usememo(",
+                "usecallback(",
+                "react.memo",
+                "usememo",
+                "usecallback",
+                "useoptimistic",
+                "usetransition",
             ]
-        ):
-            return True
+            if any(opt in line_lower for opt in react_optimized):
+                return True
 
-        # Skip documentation
-        if any(
-            word in line_lower
-            for word in ["@example", "@param", "docstring", "readme", "documentation"]
-        ):
-            return True
+            # Skip React library internals
+            if any(
+                internal in line_lower
+                for internal in ["react-dom", "__react", "_react"]
+            ):
+                return True
 
-        # Skip package.json and lock files
-        if any(
-            word in line_lower
-            for word in [
-                "package.json",
-                "package-lock.json",
-                "yarn.lock",
-                "node_modules",
+        if category == "bundle":
+            bundle_optimized = [
+                "dynamic",
+                "lazy",
+                "import(",
+                "loadable",
+                "loadasync",
+                "code-splitting",
+                "webpack:",
+                "rollup:",
             ]
-        ):
+            if any(opt in line_lower for opt in bundle_optimized):
+                return True
+
+        if category == "css":
+            css_optimized = [
+                "transform",
+                "opacity",
+                "will-change",
+                "contain:",
+                "gpu",
+                "hardware",
+                "accelerated",
+            ]
+            if any(opt in line_lower for opt in css_optimized):
+                return True
+
+        # Skip JavaScript engine/browser internals
+        browser_internals = [
+            "__proto__",
+            "__defineGetter__",
+            "__defineSetter__",
+            "Object.defineProperty",
+            "Object.create",
+            "JSON.stringify",
+        ]
+        if any(internal in line_content for internal in browser_internals):
             return True
 
-        # Category-specific false positive checks
-        if category == "react" and any(
-            word in line_lower for word in ["memo(", "usememo(", "usecallback("]
-        ):
-            return True  # Already optimized
+        # Skip common library method chains that are not performance issues
+        safe_patterns = ["console.", "Math.", "Date.", "Array.", "Object.", "String."]
+        if any(pattern in line_content for pattern in safe_patterns):
+            # Only flag if it's in a loop context
+            if not any(
+                loop in line_lower
+                for loop in ["for ", "while ", "foreach", ".map(", ".filter("]
+            ):
+                return True
 
-        if category == "bundle" and any(
-            word in line_lower for word in ["dynamic", "lazy", "import("]
+        # Skip TypeScript/JavaScript type definitions and interfaces
+        if any(
+            ts_pattern in line_lower
+            for ts_pattern in ["interface ", "type ", "declare "]
         ):
-            return True  # Already using dynamic imports
-
-        if category == "css" and any(
-            word in line_lower for word in ["transform", "opacity", "will-change"]
-        ):
-            return True  # GPU-accelerated properties
-
-        # Skip very short lines (likely not real issues)
-        if len(line_content.strip()) < 10:
             return True
 
         return False

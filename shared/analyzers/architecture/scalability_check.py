@@ -97,44 +97,48 @@ class ScalabilityAnalyzer(BaseAnalyzer):
 
     def _init_scalability_patterns(self):
         """Initialize all scalability pattern definitions."""
-        # Database scalability patterns
+        # Database scalability patterns (more specific)
         self.db_patterns = {
             "n_plus_one": {
                 "indicators": [
-                    r"for\s+\w+\s+in\s+\w+.*:\s*\n.*\.(get|find|query)\(",
-                    r"\.all\(\).*for\s+",
-                    r"while\s+.*:\s*\n.*\.(get|find|query)\(",
-                    r"forEach.*\.(get|find|query)\(",
+                    # Only flag when loops explicitly contain database operations
+                    r"for\s+\w+\s+in\s+.*\.all\(\).*:\s*\n.*\.(get|find|query|execute)\(",
+                    r"for\s+\w+\s+in\s+.*:\s*\n.*\s+.*\.(get|find|query)\(.*\w+\.id",
+                    r"forEach\([^}]*=>\s*[^}]*\.(get|find|query)\(.*\w+\.id",
+                    r"map\([^}]*=>\s*[^}]*\.(get|find|query)\(",
                 ],
                 "severity": "high",
                 "description": "Potential N+1 query problem",
             },
             "missing_indexes": {
                 "indicators": [
-                    r"WHERE\s+\w+\s*=",
-                    r"ORDER\s+BY\s+\w+",
-                    r"\.filter\(\w+\s*=",
-                    r"\.where\(\w+\s*=",
+                    # Only flag SQL queries without checking for existing indexes
+                    r"SELECT.*FROM\s+\w+\s+WHERE\s+\w+\s*=.*(?!.*INDEX|.*INDEXED)",
+                    r"ORDER\s+BY\s+\w+.*(?!.*INDEX)",
+                    # Only flag ORM queries that look like they need indexing
+                    r"\.filter\(\w+__exact\s*=|\.filter\(\w+\s*=.*\)\.order_by\(",
                 ],
                 "severity": "medium",
                 "description": "Query without explicit index consideration",
             },
             "large_result_sets": {
                 "indicators": [
-                    r"\.all\(\)",
-                    r"SELECT\s+\*\s+FROM",
-                    r"fetchall\(\)",
-                    r"find\(\{\}\)",
+                    # Only flag queries explicitly getting all records without limits
+                    r"SELECT\s+\*\s+FROM\s+\w+(?!.*LIMIT|.*WHERE|.*TOP)",
+                    r"\.all\(\)(?!.*\[:|\[:\d+\])",  # .all() without slicing
+                    r"fetchall\(\)(?!.*WHERE)",  # fetchall without WHERE
+                    r"find\(\{\}\)(?!.*limit|.*skip)",  # MongoDB find all without limits
                 ],
                 "severity": "medium",
                 "description": "Potentially unbounded result set",
             },
             "no_pagination": {
                 "indicators": [
-                    r"\.all\(\)",
-                    r"fetchall\(\)",
-                    r"SELECT.*FROM.*(?!LIMIT)",
-                    r"find\(\)(?!\.limit)",
+                    # Only flag queries that should have pagination
+                    r"SELECT.*FROM.*users.*(?!.*LIMIT|.*OFFSET)",
+                    r"SELECT.*FROM.*orders.*(?!.*LIMIT|.*OFFSET)",
+                    r"SELECT.*FROM.*products.*(?!.*LIMIT|.*OFFSET)",
+                    r"find\(\)\.count\(\)\s*>\s*1000",  # Large counts without pagination
                 ],
                 "severity": "medium",
                 "description": "Query without pagination",
@@ -219,32 +223,38 @@ class ScalabilityAnalyzer(BaseAnalyzer):
             },
         }
 
-        # Architecture scalability patterns
+        # Architecture scalability patterns (refined to reduce false positives)
         self.architecture_patterns = {
             "tight_coupling": {
                 "indicators": [
-                    r"import\s+\w+\.\w+\.\w+\.\w+",  # Deep imports
-                    r"from\s+\w+\.\w+\.\w+\.\w+",
-                    r"\w+\.\w+\.\w+\.\w+\(",  # Deep method chaining
+                    # Only flag when there are multiple deep imports in same file indicating tight coupling
+                    r"(?:import|from)\s+\w+\.\w+\.\w+\.\w+.*\n(?:.*\n){0,5}(?:import|from)\s+\w+\.\w+\.\w+\.\w+",
+                    # Deep method chaining with mutations (indicates tight coupling)
+                    r"\w+\.\w+\.\w+\.\w+\.\w+\(",
+                    # Direct access to internal properties across modules
+                    r"\w+\.\w+\._\w+\.\w+\(",
                 ],
                 "severity": "medium",
                 "description": "Tight coupling that may hinder scaling",
             },
             "hardcoded_config": {
                 "indicators": [
-                    r'host\s*=\s*[\'"]localhost[\'"]',
-                    r"port\s*=\s*\d+",
-                    r'password\s*=\s*[\'"]',
-                    r'url\s*=\s*[\'"]http://',
-                    r'database\s*=\s*[\'"]',
+                    # More specific hardcoded config patterns
+                    r'host\s*=\s*[\'"](?:localhost|127\.0\.0\.1)[\'"]',
+                    r"port\s*=\s*(?:3000|8080|5432|3306)(?!\s*\+|\s*\*)",  # Common hardcoded ports
+                    r'password\s*=\s*[\'"][^\'"]{6,}[\'"]',  # Actual passwords, not empty
+                    r'(?:DATABASE_|DB_)URL\s*=\s*[\'"](?:postgres|mysql|mongodb)://[^\'\"]*[\'"]',
+                    r'api_key\s*=\s*[\'"][a-zA-Z0-9]{20,}[\'"]',  # Actual API keys
                 ],
                 "severity": "high",
                 "description": "Hardcoded configuration limits scalability",
             },
             "single_responsibility": {
                 "indicators": [
-                    r"class\s+\w+.*:\s*(?:\n.*){50,}",  # Very large classes
-                    r"def\s+\w+.*:\s*(?:\n.*){30,}",  # Very large methods
+                    # Only flag extremely large classes/methods that clearly violate SRP
+                    r"class\s+\w+.*:\s*(?:\n.*){100,}",  # Very large classes (100+ lines)
+                    r"def\s+\w+.*:\s*(?:\n.*){50,}",  # Large methods (50+ lines)
+                    r"def\s+\w+.*(?:and|or).*(?:and|or).*\(",  # Method names with multiple conjunctions
                 ],
                 "severity": "medium",
                 "description": "Violation of single responsibility principle",
@@ -458,30 +468,98 @@ class ScalabilityAnalyzer(BaseAnalyzer):
     ) -> bool:
         """Determine if a scalability issue should be flagged based on context."""
 
-        # Only flag database patterns if they're in complex functions
-        if pattern_name in ["n_plus_one", "missing_indexes", "large_result_sets"]:
-            # Only flag if function has high complexity (indicates real logic)
-            return lizard_metrics.get("max_ccn", 0) > 5
+        # Skip if in test files, specs, or configuration files
+        context_lower = context.lower()
+        if any(
+            marker in context_lower
+            for marker in ["test", "spec", "mock", "fixture", "stub", "config", "setup"]
+        ):
+            return False
 
-        # Only flag synchronous I/O if in complex context
-        if pattern_name == "synchronous_io":
-            # Check if it's in a loop or complex function
+        # Only flag database patterns if they're in complex functions with real database usage
+        if pattern_name in [
+            "n_plus_one",
+            "missing_indexes",
+            "large_result_sets",
+            "no_pagination",
+        ]:
+            # Require higher complexity AND evidence of actual database usage
+            has_db_context = any(
+                db_term in content.lower()
+                for db_term in [
+                    "select",
+                    "insert",
+                    "update",
+                    "delete",
+                    "query",
+                    "orm",
+                    "model",
+                    "database",
+                    "table",
+                    "sequelize",
+                    "mongoose",
+                    "prisma",
+                ]
+            )
             return (
-                "for " in context
-                or "while " in context
-                or lizard_metrics.get("max_ccn", 0) > 8
+                lizard_metrics.get("max_ccn", 0) > 10
+                and has_db_context
+                and lizard_metrics.get("total_functions", 0) > 2
             )
 
-        # Only flag hardcoded config if file has meaningful complexity
+        # Only flag synchronous I/O if in performance-critical context
+        if pattern_name == "synchronous_io":
+            # Require explicit loop context AND complex function
+            has_loop = any(
+                loop in context_lower for loop in ["for ", "while ", "foreach"]
+            )
+            return (
+                has_loop
+                and lizard_metrics.get("max_ccn", 0) > 12
+                and "await" not in context_lower
+            )  # Not if already using async
+
+        # Only flag hardcoded config if it's in actual configuration context
         if pattern_name == "hardcoded_config":
-            return lizard_metrics.get("total_functions", 0) > 1
+            has_config_context = any(
+                term in content.lower()
+                for term in ["config", "environment", "settings", "connection"]
+            )
+            return lizard_metrics.get("total_functions", 0) > 3 and has_config_context
 
-        # Only flag memory leaks in substantial files
+        # Only flag memory leaks in substantial, long-running code
         if pattern_name == "memory_leaks":
-            return lizard_metrics.get("total_functions", 0) > 3
+            return (
+                lizard_metrics.get("total_functions", 0) > 5
+                and lizard_metrics.get("max_ccn", 0) > 8
+            )
 
-        # Default: flag if there's any meaningful code
-        return lizard_metrics.get("total_functions", 0) > 0
+        # Only flag tight coupling in files with significant complexity
+        if pattern_name == "tight_coupling":
+            return (
+                lizard_metrics.get("total_functions", 0) > 4
+                and lizard_metrics.get("max_ccn", 0) > 10
+            )
+
+        # Only flag thread safety in concurrent code
+        if pattern_name == "thread_safety":
+            has_concurrent_context = any(
+                term in content.lower()
+                for term in [
+                    "thread",
+                    "async",
+                    "concurrent",
+                    "parallel",
+                    "multiprocess",
+                ]
+            )
+            return lizard_metrics.get("max_ccn", 0) > 8 and has_concurrent_context
+
+        # Default: only flag in complex, substantial files
+        return (
+            lizard_metrics.get("total_functions", 0) > 3
+            and lizard_metrics.get("max_ccn", 0) > 8
+        )
 
     def _calculate_confidence(
         self, pattern_name: str, context: str, lizard_metrics: Dict

@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from .module_base import CIAnalysisModule
 from .cli_utils import CLIBase
 from .config_factory import ConfigFactory
+from .vendor_detector import VendorDetector
 
 
 @dataclass
@@ -170,6 +171,14 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
         # Initialize common utilities (available from CIAnalysisModule)
         self.tech_detector = self.TechStackDetector()
 
+        # Initialize vendor detector with project root
+        project_root = (
+            Path(self.config.target_path).resolve()
+            if hasattr(self.config, "target_path") and self.config.target_path != "."
+            else None
+        )
+        self.vendor_detector = VendorDetector(project_root)
+
         # Analysis tracking
         self.files_processed = 0
         self.files_skipped = 0
@@ -223,6 +232,35 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             if skip_pattern in file_path.parts:
                 return False
 
+        # Enhanced skip pattern checking for dot directories and paths
+        path_str = str(file_path).lower()
+        path_parts = file_path.parts
+
+        # Skip common build/cache directories that might not be in skip_patterns
+        skip_path_patterns = [
+            ".angular",
+            ".next",
+            ".nuxt",
+            ".cache",
+            ".tmp",
+            "tmp",
+            "cache",
+            "generated",
+            "__generated__",
+            "auto",
+            "node_modules/.cache",
+            "dist/cache",
+            "build/cache",
+        ]
+
+        for skip_pattern in skip_path_patterns:
+            if skip_pattern in path_str or skip_pattern in path_parts:
+                self.log_operation(
+                    "file_skipped_pattern",
+                    {"file": str(file_path), "pattern": skip_pattern},
+                )
+                return False
+
         # Check file extension
         suffix = file_path.suffix.lower()
         if suffix not in self.config.code_extensions:
@@ -238,6 +276,20 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
                 )
                 return False
         except (OSError, FileNotFoundError):
+            return False
+
+        # Check for vendor/third-party code using vendor detector
+        if self.vendor_detector.should_exclude_file(file_path):
+            vendor_detection = self.vendor_detector.detect_vendor_code(file_path)
+            self.log_operation(
+                "file_skipped_vendor",
+                {
+                    "file": str(file_path),
+                    "confidence": vendor_detection.confidence,
+                    "reasons": vendor_detection.reasons[:2],  # Limit to first 2 reasons
+                    "detected_library": vendor_detection.detected_library,
+                },
+            )
             return False
 
         return True

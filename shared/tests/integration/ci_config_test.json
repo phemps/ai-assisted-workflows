@@ -35,7 +35,10 @@
         "todos"
       ],
       "files": ["*.min.js", "*.bundle.js", "*.map"],
-      "patterns": ["test_codebase/monorepo/**/*", "test_codebase/python/**/*"]
+      "patterns": [
+        "test_codebase/juice-shop-monorepo/**/*",
+        "test_codebase/python/**/*"
+      ]
     },
     "quality_gates": {
       "enabled": false,

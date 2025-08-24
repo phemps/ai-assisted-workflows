@@ -40,7 +40,6 @@ class AnalysisRunner:
             "performance_sqlfluff": "performance/sqlfluff_analyzer.py",  # Replaces profile_database.py
             # Code quality analysis
             "code_quality": "quality/complexity_lizard.py",
-            "code_quality_metrics": "quality/complexity_lizard.py",
             "code_quality_coverage": "quality/coverage_analysis.py",
             # Architecture analysis
             "architecture_patterns": "architecture/pattern_evaluation.py",
@@ -75,7 +74,6 @@ class AnalysisRunner:
             "performance_flake8",
             "performance_sqlfluff",
             "code_quality",
-            "code_quality_metrics",
             "architecture_patterns",
             "architecture_scalability",
             "architecture_coupling",
@@ -291,7 +289,6 @@ class AnalysisRunner:
         quality_total = 0
         for category in [
             "code_quality",
-            "code_quality_metrics",
             "code_quality_coverage",
         ]:
             quality_total += summary["by_category"].get(category, {}).get("total", 0)

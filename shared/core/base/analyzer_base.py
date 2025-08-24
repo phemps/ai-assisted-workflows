@@ -45,7 +45,7 @@ class AnalyzerConfig:
     # Core settings
     target_path: str = "."
     output_format: str = "json"
-    min_severity: str = "low"
+    min_severity: str = "medium"
     summary_mode: bool = False
 
     # File filtering
@@ -111,7 +111,7 @@ class AnalyzerConfig:
     # Analysis settings
     max_files: Optional[int] = None
     max_file_size_mb: int = 5
-    batch_size: int = 50
+    batch_size: int = 200
     timeout_seconds: Optional[int] = None
 
     # Severity filtering

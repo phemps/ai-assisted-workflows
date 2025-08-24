@@ -322,7 +322,6 @@ def main():
         / "security"
         / "detect_secrets_analyzer.py",
         "semgrep": shared_analyzers_dir / "security" / "semgrep_analyzer.py",
-        "sqlfluff": shared_analyzers_dir / "performance" / "sqlfluff_analyzer.py",
     }
 
     analyzer_script = analyzer_mapping.get(args.analyzer)

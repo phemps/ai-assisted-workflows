@@ -56,18 +56,26 @@ A comprehensive development automation system that creeates workflow commands, P
 
 ## Evals, Testing & Quality Systems
 
-### E2E Analyser test
+### E2E Analyser tests
+
+**Complete Analysis Suite** - All 11 analyzers across 4 categories:
 
 ```bash
 # Run all analyzer integration tests
-cd shared && python -m tests/integration/test_all_analyzers.py -v
+cd shared && python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --output-format json
 
-# Test individual analyzer
-PYTHONPATH=shared python shared/analyzers/quality/complexity_lizard.py test_codebase/monorepo
-
-# Test analysis engine
-PYTHONPATH=shared python shared/analyzers/quality/analysis_engine.py test_codebase/monorepo --min-severity medium
+# Test individual analyzer example
+cd shared && PYTHONPATH=. python analyzers/security/semgrep_analyzer.py ../test_codebase/juice-shop-monorepo --output-format json --max-files 10
 ```
+
+**Analyzer Categories:**
+
+- **Security (2)**: `semgrep` (vulnerabilities), `detect_secrets` (secrets)
+- **Performance (4)**: `frontend`, `flake8`, `baseline`, `sqlfluff` (SQL optimization)
+- **Quality (2)**: `complexity_lizard`, `coverage_analysis`
+- **Architecture (3)**: `pattern_evaluation`, `scalability_check`, `coupling_analysis`
+
+**Options**: `--output-format json`, `--max-files N`, `--min-severity medium`, `--verbose`
 
 ### Security Analyzer Evaluation
 
@@ -109,12 +117,11 @@ python test_security_analysers.py --analyzer semgrep --max-files 10
 
 - **detect_secrets**: API keys, private keys, high entropy strings, authentication tokens
 - **semgrep**: SQL injection, XSS, authentication bypasses, hardcoded credentials
-- **sqlfluff**: SQL performance issues, anti-patterns, security flaws in SQL files
 - Each analyzer is only tested against vulnerabilities it's designed to find
 
 **Options:**
 
-- `--analyzer`: Choose specific analyzer (detect_secrets, semgrep, sqlfluff)
+- `--analyzer`: Choose specific analyzer (detect_secrets, semgrep)
 - `--applications`: Test specific applications only
 - `--max-files`: Limit number of files scanned per application
 - `--verbose`: Show detailed execution progress and debug information

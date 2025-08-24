@@ -1,3 +1,4 @@
+- refine the security analyser configs based on the tests
 - bring in code formatters
 - make tech specific coding agents + implement jinja templates
 - eval system using dspy

@@ -85,36 +85,36 @@ class SemgrepAnalyzer(BaseAnalyzer):
                 ".gradle",
                 ".pom",
             },
-            skip_patterns={
-                "node_modules",
-                ".git",
-                "__pycache__",
-                ".pytest_cache",
-                "venv",
-                "env",
-                ".venv",
-                "dist",
-                "build",
-                ".next",
-                "coverage",
-                ".nyc_output",
-                "target",
-                "vendor",
-                "*.min.js",
-                "*.min.css",
-                "*.bundle.js",
-                "*.chunk.js",
-                "*.map",  # Source map files
-                "*.d.ts",  # TypeScript declaration files
-                "*.generated.*",  # Generated files
-                "*.auto.*",  # Auto-generated files
-                ".turbo",  # Turbo cache
-                ".husky",  # Git hooks
-                "packages/*/dist/*",  # Package distribution directories
-                "apps/*/dist/*",  # App distribution directories
-                "*.lock",  # Lock files
-                "*.log",  # Log files
-            },
+            # skip_patterns={
+            #     "node_modules",
+            #     ".git",
+            #     "__pycache__",
+            #     ".pytest_cache",
+            #     "venv",
+            #     "env",
+            #     ".venv",
+            #     "dist",
+            #     "build",
+            #     ".next",
+            #     "coverage",
+            #     ".nyc_output",
+            #     "target",
+            #     "vendor",
+            #     "*.min.js",
+            #     "*.min.css",
+            #     "*.bundle.js",
+            #     "*.chunk.js",
+            #     "*.map",  # Source map files
+            #     "*.d.ts",  # TypeScript declaration files
+            #     "*.generated.*",  # Generated files
+            #     "*.auto.*",  # Auto-generated files
+            #     ".turbo",  # Turbo cache
+            #     ".husky",  # Git hooks
+            #     "packages/*/dist/*",  # Package distribution directories
+            #     "apps/*/dist/*",  # App distribution directories
+            #     "*.lock",  # Lock files
+            #     "*.log",  # Log files
+            # },
         )
 
         # Initialize base analyzer
@@ -318,7 +318,7 @@ class SemgrepAnalyzer(BaseAnalyzer):
                     "--config",
                     ruleset,
                     "--json",
-                    "--no-git-ignore",  # Analyze all files per our skip patterns
+                    # "--no-git-ignore",  # Let Semgrep use built-in exclusions and .gitignore
                     "--timeout",
                     "10",  # Faster timeout per file
                     "--timeout-threshold",
@@ -422,6 +422,154 @@ class SemgrepAnalyzer(BaseAnalyzer):
             check_id,
             "Review this security finding and apply appropriate security controls",
         )
+
+    def _run_semgrep_on_directory(self, directory_path: str) -> List[Dict[str, Any]]:
+        """
+        Run Semgrep on entire directory, letting it handle exclusions.
+
+        This bypasses BaseAnalyzer's file discovery and lets Semgrep use its own
+        .gitignore logic and built-in exclusions for optimal performance.
+        """
+        findings = []
+
+        try:
+            # Run Semgrep on the entire directory
+            cmd = [
+                "semgrep",
+                "scan",
+                "--config=auto",  # Auto includes comprehensive security rules
+                "--json",
+                "--timeout",
+                "10",  # Per-file timeout
+                "--timeout-threshold",
+                "3",  # Skip slow files
+                "--max-target-bytes",
+                "500000",  # Skip files > 500KB
+                "--jobs",
+                "4",  # Parallel processing
+                "--optimizations",
+                "all",  # Enable all optimizations
+                "--oss-only",  # Use only OSS rules for speed
+                directory_path,  # Pass directory, not individual files
+            ]
+
+            self.logger.info(f"Running Semgrep on directory: {directory_path}")
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute total timeout
+            )
+
+            if result.stdout:
+                semgrep_output = json.loads(result.stdout)
+
+                # Log how many files Semgrep actually scanned
+                results = semgrep_output.get("results", [])
+                scanned_files = set()
+                for finding in results:
+                    scanned_files.add(finding.get("path", ""))
+
+                self.logger.info(
+                    f"Semgrep scanned {len(scanned_files)} files (down from BaseAnalyzer's file discovery)"
+                )
+
+                # Process Semgrep findings
+                for finding in results:
+                    processed_finding = self._process_semgrep_finding(finding, "auto")
+                    if processed_finding:
+                        findings.append(processed_finding)
+
+                self.logger.info(f"Found {len(findings)} security findings")
+
+            if result.stderr:
+                self.logger.warning(f"Semgrep warnings: {result.stderr[:500]}")
+
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+        ) as e:
+            self.logger.error(f"Semgrep directory analysis failed: {e}")
+            # Don't fallback to file-by-file - let it fail cleanly
+            raise
+
+        return findings
+
+    def analyze(self, target_path: Optional[str] = None) -> Any:
+        """
+        Override BaseAnalyzer.analyze to let Semgrep handle file discovery.
+
+        This bypasses BaseAnalyzer's file scanning and lets Semgrep use its own
+        .gitignore logic and built-in exclusions for optimal performance.
+        """
+        self.start_analysis()
+
+        analyze_path = target_path or self.config.target_path
+        result = self.create_result("analysis")
+
+        try:
+            # Skip analysis if Semgrep is not available (degraded mode)
+            if not self.semgrep_available:
+                result.metadata["info"] = "Semgrep not available - analysis skipped"
+                return self.complete_analysis(result)
+
+            # Pass the DIRECTORY to Semgrep, not individual files
+            # Semgrep will handle all file discovery and exclusions
+            raw_findings = self._run_semgrep_on_directory(analyze_path)
+
+            # Convert to standardized format for BaseAnalyzer
+            standardized_findings = []
+            for finding in raw_findings:
+                standardized = {
+                    "title": f"{finding['description']} ({finding['perf_type']})",
+                    "description": f"Semgrep detected: {finding['description']}. Category: {finding['category']}. This requires security review and remediation.",
+                    "severity": finding["severity"],
+                    "file_path": finding["file_path"],
+                    "line_number": finding["line_number"],
+                    "recommendation": finding["recommendation"],
+                    "metadata": {
+                        "tool": "semgrep",
+                        "check_id": finding["perf_type"],
+                        "category": finding["category"],
+                        "line_content": finding["line_content"],
+                        "confidence": finding["confidence"],
+                    },
+                }
+                standardized_findings.append(standardized)
+
+            # Convert findings to Finding objects
+            self._add_findings_to_result(result, standardized_findings)
+
+            # Add comprehensive metadata (with empty file list since Semgrep handled discovery)
+            result.metadata = {
+                "analyzer_type": self.analyzer_type,
+                "target_path": analyze_path,
+                "files_analyzed": "handled_by_semgrep",  # Semgrep reports actual count in logs
+                "files_processed": len(
+                    {f["file_path"] for f in raw_findings}
+                ),  # Unique files with findings
+                "files_skipped": 0,  # Semgrep handles this
+                "processing_errors": 0,
+                "total_findings": len(standardized_findings),
+                "severity_breakdown": self._calculate_severity_breakdown(
+                    standardized_findings
+                ),
+                "analyzer_config": {
+                    "max_files": self.config.max_files,
+                    "max_file_size_mb": self.config.max_file_size_mb,
+                    "extensions_count": len(self.config.code_extensions),
+                    "skip_patterns_count": len(self.config.skip_patterns),
+                },
+                **self.get_analyzer_metadata(),
+            }
+
+        except Exception as e:
+            result.set_error(f"Semgrep analysis failed: {str(e)}")
+            self.logger.error(f"Analysis failed: {e}")
+
+        return self.complete_analysis(result)
 
     def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
         """

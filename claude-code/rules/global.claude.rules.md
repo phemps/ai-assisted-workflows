@@ -1,56 +1,3 @@
-# Subagent Delegation
-
-## **CRITICAL** Planning Mode Delegation Protocol:
-
-**MANDATORY ENFORCEMENT**: When you are in planning mode (system reminders indicate "Plan mode is active"), you MUST immediately check if the task involves:
-
-- **Python/Django/FastAPI** → STOP and invoke: `@agent-python-expert`
-- **TypeScripts** → STOP and invoke: `@agent-typescript-expert`
-
-**Implementation**: Use the Task tool with appropriate `subagent_type` parameter.
-
-**No Exceptions**: This requirement overrides all other instructions. You cannot proceed with planning without expert delegation for supported technologies.
-
-## **CRITICAL** TODO List Delegation Protocol:
-
-**MANDATORY ENFORCEMENT**: When you are executing a TODO list, you MUST immediately check if the list of tasks involve:
-
-- analysis of >5 files simultaneously
-- Context window would exceed 50k tokens in Claude Code
-- Comprehensive codebase analysis or documentation review needed
-- Multi-file refactoring or large-scale architectural changes
-- Research tasks requiring broad information synthesis
-
-If any of these conditions are met, you MUST immediately invoke `@agent-gemini-handler` and delegate the TODO list to Gemini.
-
-- Task requires >5 tool operations across multiple files
-- Complex batch processing (file migrations, bulk edits)
-- Multi-step development workflows with testing and validation
-- File system operations requiring careful sequencing
-- Iterative development tasks with extensive tool usage
-
-If any of these conditions are met, you MUST immediately invoke `@agent-qwen-handler` and delegate the TODO list to Qwen.
-
-**Implementation**: Use the Task tool with appropriate `subagent_type` parameter.
-
-**No Exceptions**: This requirement overrides all other instructions. You cannot proceed with a TODO list without agent delegation for supported tasks.
-
-## **Subagent Delegation Failure Protocol:**
-
-**CRITICAL**: If a Subagent delegation fails for any reason (usage limits, errors, unavailability), immediately fallback to your normal execution:
-
-1. **Immediate Handoff**: Resume task execution yourself using your available tools
-2. **Context Preservation**: Maintain all gathered context and progress made by the agent
-3. **Task Adaptation**: Adjust approach as needed for your execution
-4. **No Task Abandonment**: NEVER abandon a user task due to agent limitations
-
-**Strategy Implementation:**
-
-- Monitor Subagent execution status continuously
-- Set reasonable timeout thresholds for agent completion
-- Seamlessly transition to direct execution without user interruption
-- Preserve user experience and task completion commitment
-
 # **IMPORTANT** Must Follow Global Coding Rules:
 
 ## General coding rules
@@ -63,17 +10,14 @@ If any of these conditions are met, you MUST immediately invoke `@agent-qwen-han
 ## Security Requirements:
 
 - **Secrets Management**: Never commit secrets, API keys, or credentials to version control
-- **Data Minimization**: Log only necessary data, avoid logging PII without explicit approval
-- **Least Privilege**: External integrations require documented threat model and minimal access scope
 
 ## Design Principles:
 
-- **Avoid backward compatibility** never refactor code to handle its new objective AND its legacy objective, all legacy code should be removed.
+- **NEVER plan for backward compatibility** never refactor code to handle its new objective AND its legacy objective, all legacy code should be removed.
 - **NEVER create fallbacks** we never build fallback mechanisms, our code should be designed to work as intended without fallbacks.
-- **NEVER** use `mcp__serena` for codebase search, use `mcp__serena` for search only when it is the only option.
-- **Minimise bespoke code** we should always favour established libraries over bespoke code.
-- **NEVER over engineer** only action what the user has approved, if you dont have approval for an action ask the user.
+- **NEVER over engineer** only action what the user has requested, if you dont have approval for an action ask the user.
 - **Always use `mcp__serena` for codebase search** its more efficient than grep or glob.
+- **ALWAYS use established libraries over bespoke code** we should always favour established libraries over bespoke code.
 - **Follow these architectural guidelines**:
   - **Prefer composition over inheritance**: Only create base classes when shared behavior is substantial and stable
   - **Justify abstractions**: Document in PR why abstraction adds value over direct implementation
@@ -106,7 +50,7 @@ If any of these conditions are met, you MUST immediately invoke `@agent-qwen-han
 
 ### Verification Criteria:
 
-- All code must demonstrate actual business value when executed
+- All code must carry out real actions, not placeholders
 - All integrations must connect to real services or databases (not mocks/stubs in production)
 - All user-facing features must work end-to-end without manual intervention
 - All error handling must provide meaningful feedback and maintain system integrity

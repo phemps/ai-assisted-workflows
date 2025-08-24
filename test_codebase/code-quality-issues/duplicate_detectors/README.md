@@ -1,3 +1,7 @@
+# Test Commands for Security analysis
+
+
+
 # Test Commands for Duplicate Detection
 
 This directory contains permanent test fixtures for the continuous improvement system's duplicate detection capabilities. Below are the correct commands for testing.
@@ -73,7 +77,7 @@ PYTHONPATH=. python shared/ci/core/chromadb_storage.py \
   --project-root test_codebase/duplicate_detectors \
   --check-indexing
 
-# Test full scan functionality  
+# Test full scan functionality
 PYTHONPATH=. python shared/ci/core/chromadb_storage.py \
   --project-root test_codebase/duplicate_detectors \
   --full-scan
@@ -108,7 +112,7 @@ print('✅ OrchestrationBridge initialized successfully')
 ```
 test_codebase/duplicate_detectors/
 ├── language_detector.py          # Test fixture 1
-├── tech_stack_detector.py        # Test fixture 2  
+├── tech_stack_detector.py        # Test fixture 2
 ├── README.md                     # Documentation
 ├── TEST_COMMANDS.md              # This file
 └── .ci-registry/                  # Created dynamically for caching

@@ -241,6 +241,24 @@ class SemgrepAnalyzer(BaseAnalyzer):
                 "--oss-only",  # Use only OSS rules for speed
             ]
 
+            # Add custom Rust security rules if analyzing Rust files
+            import os
+
+            rust_files = [fp for fp in file_paths if fp.endswith(".rs")]
+            if rust_files:
+                rust_rules_path = os.path.join(
+                    os.path.dirname(__file__), "rules", "rust-security.yml"
+                )
+                if os.path.exists(rust_rules_path):
+                    cmd.extend(["--config", rust_rules_path])
+                    # Debug output for custom rules
+                    import sys
+
+                    print(
+                        f"Added custom Rust rules for {len(rust_files)} Rust files: {rust_rules_path}",
+                        file=sys.stderr,
+                    )
+
             # Add all file paths to analyze in batch
             cmd.extend(file_paths)
 
@@ -475,6 +493,18 @@ class SemgrepAnalyzer(BaseAnalyzer):
             "r/security",  # OWASP Top 10 and general security
             "r/secrets",  # Hardcoded secrets detection
         ]
+
+        # Add custom Rust security rules if analyzing Rust code
+        import os
+
+        rust_rules_path = os.path.join(
+            os.path.dirname(__file__), "rules", "rust-security.yml"
+        )
+        if os.path.exists(rust_rules_path):
+            rulesets.append(rust_rules_path)
+            print(f"Added custom Rust rules: {rust_rules_path}", file=sys.stderr)
+
+        print(f"Using rulesets: {rulesets}", file=sys.stderr)
 
         findings = self._run_semgrep_analysis(target_path, rulesets)
 

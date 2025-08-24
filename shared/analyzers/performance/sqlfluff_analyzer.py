@@ -399,7 +399,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
         import re
 
         sql_indicators = [
-            r"\bSELECT\s+\w+\s+FROM\b",
+            r"\bSELECT\s+.*\s+FROM\b",  # Fixed to match multiple columns
             r"\bINSERT\s+INTO\s+\w+\b",
             r"\bUPDATE\s+\w+\s+SET\b",
             r"\bDELETE\s+FROM\s+\w+\b",
@@ -414,10 +414,12 @@ class SQLFluffAnalyzer(BaseAnalyzer):
         content_upper = content.upper()
         return any(re.search(pattern, content_upper) for pattern in sql_indicators)
 
-    def _extract_sql_from_code(self, content: str, file_path: str) -> List[str]:
+    def _extract_sql_from_code(
+        self, content: str, file_path: str
+    ) -> List[tuple[str, int]]:
         """Extract SQL queries from code files with improved accuracy."""
         # Quick exit if no SQL indicators
-        if not self._has_sql_indicators(content, file_path):
+        if not self._has_sql_indicators(content, str(file_path)):
             return []
 
         sql_queries = []
@@ -438,6 +440,8 @@ class SQLFluffAnalyzer(BaseAnalyzer):
             matches = re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE)
             for match in matches:
                 query = match.group(0).strip()
+                # Calculate line number from content position
+                line_number = content[: match.start()].count("\n") + 1
 
                 # Clean up query delimiters
                 query = re.sub(r'^["\']|["\']$|^`|`$', "", query)
@@ -446,7 +450,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
 
                 # Filter out false positives
                 if self._is_valid_sql_query(query):
-                    sql_queries.append(query)
+                    sql_queries.append((query, line_number))
 
         return sql_queries
 
@@ -516,15 +520,15 @@ class SQLFluffAnalyzer(BaseAnalyzer):
                 if str(file_path).endswith(
                     (".sql", ".ddl", ".dml", ".psql", ".mysql", ".sqlite")
                 ):
-                    # Pure SQL file - use content directly
-                    file_to_queries[str(file_path)] = [content]
+                    # Pure SQL file - use content directly with line 1
+                    file_to_queries[str(file_path)] = [(content, 1)]
                     all_sql_queries.append((content, str(file_path)))
                 else:
                     # Code file - extract SQL queries
                     sql_queries = self._extract_sql_from_code(content, str(file_path))
                     if sql_queries:
                         file_to_queries[str(file_path)] = sql_queries
-                        for query in sql_queries:
+                        for query, line_number in sql_queries:
                             all_sql_queries.append((query, str(file_path)))
 
             except Exception as e:
@@ -665,11 +669,16 @@ exclude_rules = L003,L010
                 violation_line = violation.get("line_no", 0)
 
                 # Find which query this violation belongs to
+                query_info = None
                 for pos in query_positions:
                     if violation_line >= pos["start_line"]:
                         query_info = pos
                     else:
                         break
+
+                # Skip violations that don't belong to any tracked query
+                if query_info is None:
+                    continue
 
                 # Adjust line number to be relative to original file
                 adjusted_line = violation_line - query_info["start_line"] + 1
@@ -747,7 +756,7 @@ exclude_rules = L003,L010
             if str(file_path).endswith(
                 (".sql", ".ddl", ".dml", ".psql", ".mysql", ".sqlite")
             ):
-                sql_queries = [content]
+                sql_queries = [(content, 1)]  # Pure SQL file, starts at line 1
             else:
                 sql_queries = self._extract_sql_from_code(content, str(file_path))
 
@@ -756,7 +765,7 @@ exclude_rules = L003,L010
 
             # Run SQLFluff on each query (legacy single-file mode)
             all_findings = []
-            for sql_query in sql_queries:
+            for sql_query, line_number in sql_queries:
                 findings = self._run_sqlfluff_analysis(target_path, sql_query)
                 for finding in findings:
                     # Convert to standardized format with title field

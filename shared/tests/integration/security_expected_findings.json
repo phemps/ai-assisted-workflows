@@ -14,7 +14,10 @@
         "owasp_top_10": {
           "A01_injection": {
             "sql_injection": {
-              "locations": ["app/routes/contributions.js", "app/routes/allocations.js"],
+              "locations": [
+                "app/routes/contributions.js",
+                "app/routes/allocations.js"
+              ],
               "severity": "critical",
               "cwe": "CWE-89",
               "description": "NoSQL injection in MongoDB queries"
@@ -147,7 +150,10 @@
         "owasp_top_10": {
           "A01_injection": {
             "sql_injection": {
-              "locations": ["vulnerabilities/sqli/source/low.php", "vulnerabilities/sqli_blind/source/low.php"],
+              "locations": [
+                "vulnerabilities/sqli/source/low.php",
+                "vulnerabilities/sqli_blind/source/low.php"
+              ],
               "severity": "critical",
               "cwe": "CWE-89",
               "description": "SQL injection vulnerabilities"
@@ -200,13 +206,17 @@
         "owasp_top_10": {
           "A01_injection": {
             "sql_injection": {
-              "locations": ["src/main/java/com/example/webapp/controller/UserController.java"],
+              "locations": [
+                "src/main/java/com/example/webapp/controller/UserController.java"
+              ],
               "severity": "critical",
               "cwe": "CWE-89",
               "description": "SQL injection in authentication and profile endpoints"
             },
             "command_injection": {
-              "locations": ["src/main/java/com/example/webapp/controller/UserController.java"],
+              "locations": [
+                "src/main/java/com/example/webapp/controller/UserController.java"
+              ],
               "severity": "critical",
               "cwe": "CWE-78",
               "description": "OS command injection via executeCommand endpoint"
@@ -214,7 +224,10 @@
           },
           "A03_sensitive_data": {
             "hardcoded_secrets": {
-              "locations": ["src/main/java/com/example/webapp/service/UserService.java", "src/main/resources/application.properties"],
+              "locations": [
+                "src/main/java/com/example/webapp/service/UserService.java",
+                "src/main/resources/application.properties"
+              ],
               "severity": "critical",
               "cwe": "CWE-798",
               "description": "Multiple hardcoded secrets including API keys, JWT secrets, and database passwords"
@@ -222,7 +235,9 @@
           },
           "A03_cross_site_scripting": {
             "xss": {
-              "locations": ["src/main/java/com/example/webapp/controller/UserController.java"],
+              "locations": [
+                "src/main/java/com/example/webapp/controller/UserController.java"
+              ],
               "severity": "high",
               "cwe": "CWE-79",
               "description": "Cross-site scripting in search functionality"
@@ -230,7 +245,9 @@
           },
           "A06_vulnerable_components": {
             "path_traversal": {
-              "locations": ["src/main/java/com/example/webapp/service/UserService.java"],
+              "locations": [
+                "src/main/java/com/example/webapp/service/UserService.java"
+              ],
               "severity": "high",
               "cwe": "CWE-22",
               "description": "Path traversal in file processing"
@@ -238,7 +255,9 @@
           },
           "A08_software_integrity": {
             "insecure_deserialization": {
-              "locations": ["src/main/java/com/example/webapp/service/UserService.java"],
+              "locations": [
+                "src/main/java/com/example/webapp/service/UserService.java"
+              ],
               "severity": "high",
               "cwe": "CWE-502",
               "description": "Insecure object deserialization"
@@ -255,7 +274,10 @@
         "owasp_top_10": {
           "A01_injection": {
             "sql_injection": {
-              "locations": ["internal/handlers/auth.go", "internal/handlers/users.go"],
+              "locations": [
+                "internal/handlers/auth.go",
+                "internal/handlers/users.go"
+              ],
               "severity": "critical",
               "cwe": "CWE-89",
               "description": "SQL injection in authentication and user retrieval"
@@ -269,7 +291,10 @@
           },
           "A03_sensitive_data": {
             "hardcoded_secrets": {
-              "locations": ["internal/handlers/auth.go", "internal/models/user.go"],
+              "locations": [
+                "internal/handlers/auth.go",
+                "internal/models/user.go"
+              ],
               "severity": "critical",
               "cwe": "CWE-798",
               "description": "Database passwords, JWT secrets, and API keys"
@@ -452,7 +477,13 @@
           },
           "A03_sensitive_data": {
             "hardcoded_secrets": {
-              "locations": ["Controllers/AuthController.cs", "Services/AuthService.cs", "Services/UserService.cs", "Data/ApplicationDbContext.cs", "appsettings.json"],
+              "locations": [
+                "Controllers/AuthController.cs",
+                "Services/AuthService.cs",
+                "Services/UserService.cs",
+                "Data/ApplicationDbContext.cs",
+                "appsettings.json"
+              ],
               "severity": "critical",
               "cwe": "CWE-798",
               "description": "Multiple hardcoded secrets including JWT keys, API keys, database passwords, and private keys"
@@ -517,23 +548,44 @@
   "analyzer_mapping": {
     "semgrep_analyzer": {
       "should_detect": [
-        "A01_injection", "A03_cross_site_scripting", "command_injection",
-        "sql_injection", "xss", "hardcoded_secrets", "unsafe_usage",
-        "path_traversal", "template_injection"
+        "A01_injection",
+        "A03_cross_site_scripting",
+        "command_injection",
+        "sql_injection",
+        "xss",
+        "hardcoded_secrets",
+        "unsafe_usage",
+        "path_traversal",
+        "template_injection"
       ],
       "languages": ["javascript", "python", "java", "go", "rust", "csharp"]
     },
     "detect_secrets_analyzer": {
       "should_detect": [
-        "hardcoded_secrets", "plaintext_passwords", "api_keys",
-        "database_credentials", "secret_tokens"
+        "hardcoded_secrets",
+        "plaintext_passwords",
+        "api_keys",
+        "database_credentials",
+        "secret_tokens"
       ],
-      "languages": ["javascript", "python", "java", "go", "php", "rust", "csharp"]
+      "languages": [
+        "javascript",
+        "python",
+        "java",
+        "go",
+        "php",
+        "rust",
+        "csharp"
+      ]
     },
     "sqlfluff_analyzer": {
       "should_detect": [
-        "sql_injection", "performance_issues", "missing_indexes",
-        "select_star", "plaintext_passwords", "pii_exposure"
+        "sql_injection",
+        "performance_issues",
+        "missing_indexes",
+        "select_star",
+        "plaintext_passwords",
+        "pii_exposure"
       ],
       "languages": ["sql"]
     }

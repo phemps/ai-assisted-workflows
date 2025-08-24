@@ -1,7 +1,3 @@
-# Test Commands for Security analysis
-
-
-
 # Test Commands for Duplicate Detection
 
 This directory contains permanent test fixtures for the continuous improvement system's duplicate detection capabilities. Below are the correct commands for testing.

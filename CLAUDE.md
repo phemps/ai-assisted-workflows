@@ -71,41 +71,53 @@ PYTHONPATH=shared python shared/analyzers/quality/analysis_engine.py test_codeba
 
 ### Security Analyzer Evaluation
 
-The evaluation framework tests our security analyzers against known vulnerable applications and generates comprehensive reports.
+The evaluation framework tests our security analyzers against known vulnerable applications and displays results directly in the terminal.
 
 **Quick Start:**
 
 ```bash
-cd test_codebase/eval-framework
+cd shared/tests/integration
 
-# Run evaluation with specific analyzer
-python minimal_evaluator.py detect_secrets
+# Run evaluation with specific analyzer (clean output)
+python test_security_analysers.py --analyzer detect_secrets
 
-# Run evaluation with multiple analyzers
-python minimal_evaluator.py detect_secrets semgrep
+# Run with detailed progress information
+python test_security_analysers.py --analyzer semgrep --verbose
 
-# Run all configured analyzers
-python minimal_evaluator.py
+# Test specific applications only
+python test_security_analysers.py --analyzer detect_secrets --applications test-python test-java
+
+# Run with limited file scanning
+python test_security_analysers.py --analyzer semgrep --max-files 10
 ```
 
 **Output:**
 
 - **Coverage Table**: Shows Issues Found | Issues Expected | Coverage % for each application
-- **Consolidated Findings**: All analyzer results in `debug_results_TIMESTAMP.json`
-- **Summary Metrics**: Total coverage across all tested applications
+- **Summary Metrics**: Total coverage, precision, recall, and F1-scores
+- **Terminal Output Only**: No files written - all results displayed on screen
+- **Clean Default Output**: Only essential progress and final results (use `--verbose` for detailed info)
 
 **Understanding the Results:**
 
 - **Coverage %**: (Issues Found / Issues Expected) × 100 - measures detection quantity
 - **Dynamic Expected Count**: Only counts vulnerabilities that the specific analyzer should detect
-- **Applications**: Tests against NodeGoat, PyGoat, DVWA, WebGoat, etc.
-- **Expected Findings**: Defined in `test_codebase/eval-framework/expected_findings.json`
+- **Applications**: Tests against vulnerable apps across multiple languages
+- **Expected Findings**: Defined in `shared/tests/integration/security_expected_findings.json`
 
 **Analyzer Capabilities:**
 
 - **detect_secrets**: API keys, private keys, high entropy strings, authentication tokens
 - **semgrep**: SQL injection, XSS, authentication bypasses, hardcoded credentials
+- **sqlfluff**: SQL performance issues, anti-patterns, security flaws in SQL files
 - Each analyzer is only tested against vulnerabilities it's designed to find
+
+**Options:**
+
+- `--analyzer`: Choose specific analyzer (detect_secrets, semgrep, sqlfluff)
+- `--applications`: Test specific applications only
+- `--max-files`: Limit number of files scanned per application
+- `--verbose`: Show detailed execution progress and debug information
 
 ### CI Duplicate Detection Test
 
@@ -173,12 +185,14 @@ Tests the complete AI-assisted workflow pipeline:
 │   ├── config/               # Configuration templates and CI workflows
 │   ├── setup/                # Installation scripts and dependency management
 │   └── tests/                # Comprehensive test suite with E2E integration tests
+│       └── integration/      # Integration tests including security analyzer evaluation
+│           ├── test_security_analysers.py  # Security analyzer evaluation framework
+│           └── security_expected_findings.json  # Vulnerability mappings for evaluation
 ├── test_codebase/            # Controlled test applications for validation
 │   ├── vulnerable-apps/      # 9 vulnerable applications with known security issues
 │   ├── clean-apps/           # 5 clean applications for false positive testing
 │   ├── code-quality-issues/  # Applications with code quality problems
 │   └── eval-framework/       # Security analyzer evaluation system
-│       ├── expected_findings.json  # Precise vulnerability mappings
-│       └── minimal_evaluator.py    # Automated analyzer testing
+│       └── minimal_evaluator.py    # Legacy evaluator (deprecated)
 └── todos/                    # Task management and workflow documentation
 ```

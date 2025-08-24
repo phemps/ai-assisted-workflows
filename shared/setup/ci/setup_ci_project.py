@@ -216,8 +216,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install "numpy<2.0.0"
-        pip install chromadb==0.4.24
-        pip install opentelemetry-api==1.25.0 opentelemetry-sdk==1.25.0 opentelemetry-exporter-otlp-proto-grpc==1.25.0
+        pip install opentelemetry-api==1.27.0 opentelemetry-sdk==1.27.0 opentelemetry-exporter-otlp-proto-grpc==1.27.0
+        pip install chromadb
         pip install transformers torch sentence-transformers scipy multilspy
 
     - name: Read project languages

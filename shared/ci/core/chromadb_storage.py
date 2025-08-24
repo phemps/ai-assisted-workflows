@@ -182,12 +182,16 @@ class ChromaDBStorage:
                 settings=Settings(anonymized_telemetry=False, allow_reset=False),
             )
 
-            # Get or create collection
+            # Get or create collection with optimized settings for performance
             self._collection = self._client.get_or_create_collection(
                 name=self.config.collection_name,
                 metadata={
                     "hnsw:space": "cosine",
-                    "description": "Code symbol embeddings for duplicate detection",
+                    "hnsw:construction_ef": 400,  # Higher for better accuracy during build
+                    "hnsw:M": 16,  # Good balance between speed and memory
+                    "hnsw:search_ef": 128,  # Lower for faster search, acceptable accuracy loss
+                    "hnsw:num_threads": 4,  # Parallel processing
+                    "description": "Code symbol embeddings for duplicate detection (optimized)",
                 },
             )
 
@@ -664,6 +668,40 @@ class ChromaDBStorage:
         except Exception as e:
             return {"initial_index_completed": False, "error": str(e)}
 
+    def _create_duplicate_finder_config(self):
+        """Create DuplicateFinderConfig with proper exclusions from CI config"""
+        try:
+            import json
+            from shared.ci.core.semantic_duplicate_detector import DuplicateFinderConfig
+
+            # Try to load CI config
+            ci_config_path = Path(self.project_root) / ".ci-registry" / "ci_config.json"
+            if ci_config_path.exists():
+                with open(ci_config_path, "r") as f:
+                    ci_config = json.load(f)
+
+                exclusions = ci_config.get("project", {}).get("exclusions", {})
+
+                # Build exclude patterns from CI config (same logic as orchestration bridge)
+                exclude_patterns = []
+                exclude_patterns.extend(exclusions.get("files", []))
+                exclude_patterns.extend(exclusions.get("patterns", []))
+
+                # Add directory exclusions as patterns
+                for directory in exclusions.get("directories", []):
+                    exclude_patterns.append(f"{directory}/*")
+                    exclude_patterns.append(f"**/{directory}/*")
+
+                print(f"Using CI config exclusions: {exclude_patterns}")
+                return DuplicateFinderConfig(exclude_file_patterns=exclude_patterns)
+            else:
+                print("No CI config found, using default exclusions")
+                return DuplicateFinderConfig()
+
+        except Exception as e:
+            print(f"Error reading CI config: {e}, using default exclusions")
+            return DuplicateFinderConfig()
+
     def run_full_scan(self) -> bool:
         """Run full codebase scan and update indexing status"""
         print("Starting full codebase scan...")
@@ -672,11 +710,10 @@ class ChromaDBStorage:
             # Import semantic duplicate detector for symbol extraction
             from shared.ci.core.semantic_duplicate_detector import (
                 DuplicateFinder,
-                DuplicateFinderConfig,
             )
 
-            # Create duplicate finder for symbol extraction
-            config = DuplicateFinderConfig()
+            # Load CI config to get proper exclusions
+            config = self._create_duplicate_finder_config()
             finder = DuplicateFinder(config)
 
             # Extract symbols from project
@@ -695,7 +732,7 @@ class ChromaDBStorage:
             embedding_engine = EmbeddingEngine()
 
             # Process in batches to avoid memory issues
-            batch_size = 100
+            batch_size = 200  # Increased batch size for better performance
             total_stored = 0
             files_processed = set()
 

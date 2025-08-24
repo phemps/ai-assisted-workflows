@@ -50,5 +50,12 @@
     "backup_enabled": true,
     "backup_frequency_hours": 6,
     "compression_enabled": true
+  },
+  "indexing": {
+    "initial_index_completed": true,
+    "symbol_count": 2285,
+    "files_processed": 73,
+    "completed_at": "2025-08-24T20:59:22.184849",
+    "last_error": null
   }
 }

@@ -21,6 +21,28 @@ import numpy as np
 
 # ChromaDB imports - fail fast if unavailable
 try:
+    # OpenTelemetry compatibility patch for ChromaDB
+    try:
+        from opentelemetry.sdk import environment_variables
+
+        # Add missing constants for compatibility with older OpenTelemetry versions
+        missing_constants = [
+            "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE",
+            "OTEL_EXPORTER_OTLP_CLIENT_KEY",
+            "OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE",
+            "OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY",
+            "OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE",
+            "OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY",
+            "OTEL_EXPORTER_OTLP_LOGS_CLIENT_CERTIFICATE",
+            "OTEL_EXPORTER_OTLP_LOGS_CLIENT_KEY",
+        ]
+        for const_name in missing_constants:
+            if not hasattr(environment_variables, const_name):
+                setattr(environment_variables, const_name, const_name)
+    except ImportError:
+        # OpenTelemetry not available, ChromaDB might still work
+        pass
+
     import chromadb
     from chromadb.config import Settings
 except ImportError as e:

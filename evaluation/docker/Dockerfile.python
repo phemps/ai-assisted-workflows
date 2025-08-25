@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+# Python-focused image for CLI evaluation
+FROM python:3.11-alpine AS python-eval
+
+# Create non-root user with specific UID/GID
+RUN addgroup -g 1001 evaluator && \
+    adduser -u 1001 -G evaluator -D -s /bin/bash evaluator
+
+# Install essential tools
+RUN apk add --no-cache \
+    curl wget git bash \
+    nodejs npm \
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
+
+# Setup secure directories
+RUN mkdir -p /home/evaluator/workspace /home/evaluator/.cache && \
+    chown -R evaluator:evaluator /home/evaluator
+
+USER evaluator
+WORKDIR /home/evaluator/workspace
+
+# Set up environment
+ENV PATH="/home/evaluator/.local/bin:$PATH"
+
+# Install common Python packages
+RUN pip install --user --no-cache-dir \
+    pyyaml requests black ruff pytest
+
+CMD ["sleep", "infinity"]

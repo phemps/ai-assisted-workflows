@@ -1,0 +1,60 @@
+id: baseline_task_v1
+description: Standard baseline task for evaluating CLI tool performance
+plan_file: test_plan.md
+max_duration_minutes: 30
+features_expected: 5
+
+# KPIs to track
+track_kpis:
+  - K1 # Failed Tool Calls
+  - K2 # Quality Gate Reruns
+  - K9 # Token Spend
+  - K11 # Task Runtime
+  - K12 # API Retry Attempts
+  - K13 # Rate Limit Events
+  - K14 # API Failure Rate
+
+# Test configuration
+test_config:
+  scenario_type: controlled_implementation
+  complexity_level: medium
+  expected_tool_calls: 15-25
+  expected_agent_interactions: 8-12
+
+# Scoring thresholds (for future use)
+thresholds:
+  K1_failed_tools:
+    good: 0-1
+    warning: 2-3
+    critical: 4+
+  K2_quality_reruns:
+    good: 0-1
+    warning: 2-3
+    critical: 4+
+  K9_token_spend:
+    baseline: 0 # Will be set after first run
+    warning_multiplier: 1.5
+    critical_multiplier: 2.0
+  K11_runtime_seconds:
+    baseline: 0 # Will be set after first run
+    warning_multiplier: 1.3
+    critical_multiplier: 1.8
+  K12_api_retry_attempts:
+    good: 0-2
+    warning: 3-5
+    critical: 6+
+  K13_rate_limit_events:
+    good: 0
+    warning: 1-2
+    critical: 3+
+  K14_api_failure_rate:
+    good: 0-5%
+    warning: 5-15%
+    critical: 15%+
+
+# Test metadata
+metadata:
+  created: "2025-01-15"
+  author: "evaluation_system"
+  version: "1.0"
+  purpose: "Baseline measurement for orchestration workflow improvements"

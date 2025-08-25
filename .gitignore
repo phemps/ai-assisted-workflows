@@ -1,6 +1,10 @@
 # AI-Assisted Workflows installation directory
 .claude/
 
+# Evaluation system test workspaces and reports
+evaluation/workspaces/
+evaluation/reports/
+
 # Python
 __pycache__/
 *.py[cod]

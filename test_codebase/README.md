@@ -10,7 +10,7 @@ This directory contains test applications used for validating the AI-Assisted Wo
 - **Purpose**: Main test target for comprehensive analysis
 - **Technology**: Full-stack TypeScript/JavaScript application (Node.js, Express, Angular)
 - **Content**: Intentionally vulnerable e-commerce application with documented security issues
-- **Use Cases**: 
+- **Use Cases**:
   - Architecture analysis (poor separation of concerns, mixed responsibilities)
   - Performance testing (inefficient queries, memory leaks, frontend bottlenecks)
   - Security analysis (OWASP Top 10 vulnerabilities)
@@ -71,7 +71,7 @@ The OWASP Juice Shop contains intentionally vulnerable and poorly designed code 
 
 ## Validation Approach
 
-The test codebase serves multiple validation purposes:
+The test codebase directory serves multiple validation purposes:
 
 1. **Functional Testing**: Verify analyzers correctly identify known issues
 2. **False Positive Testing**: Ensure clean code doesn't trigger false alarms

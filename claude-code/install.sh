@@ -1110,6 +1110,12 @@ show_completion() {
         echo ""
     fi
 
+    echo "Enable Codebase-Expert Agent (AI-powered code search):"
+    echo "  1. /setup-ci-monitoring    (index codebase for semantic search)"
+    echo "  2. /setup-serena-mcp       (enable enhanced LSP support)"
+    echo "  3. Review ci_config.json   (configure directory exclusions)"
+    echo ""
+
     echo "For more information:"
     echo "  View commands: ls $INSTALL_DIR/commands/"
     echo "  Documentation: cat $INSTALL_DIR/CLAUDE.md"

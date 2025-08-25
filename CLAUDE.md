@@ -1,23 +1,20 @@
-# CLAUDE.md
+# Project: AI-Assisted Workflows
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+A comprehensive development automation system that combines Claude Code CLI workflows, Python analysis tools, and an 8-agent orchestration system for intelligent code quality management with AI-powered semantic duplicate detection.
 
-## AI-Assisted Workflows Project
+## Features
 
-A comprehensive development automation system that creeates workflow commands, Python analysis tools, and an 8-agent orchestration system for intelligent code quality management.
+- 8-Agent Orchestration System - Multi-agent workflow coordination with quality gates and CTO escalation
+- 28 Slash Commands - Development workflow automation including security, performance, and architecture analysis
+- 22 Python Analysis Tools - Across 4 categories: Security, Performance, Quality, Architecture, and Root Cause analysis
+- AI-Powered Duplicate Detection - Semantic code analysis using CodeBERT embeddings and ChromaDB vector storage
+- Python Aanalysis Tools - multi-Language Support analysis for 10+ programming languages (Python, TypeScript, Java, Go, Rust, C#, PHP, SQL, Solidity)
+- CI Framework - GitHub Actions workflows with automated quality monitoring and refactoring recommendations
+- Expert Agent System - 6 specialized expert agents for language-specific planning and architecture decisions
+- Security Evaluation Framework - Testing against 14 vulnerable applications with known security issues
+- Cross-Platform Installation - Bash and PowerShell installers for macOS, Linux, and Windows
 
-## Python Analysis Tools Architecture
-
-### Core Infrastructure
-
-**BaseAnalyzer Framework** (`shared/core/base/analyzer_base.py`)
-
-- Abstract base class for all analysis tools
-- Provides shared infrastructure: file scanning, CLI, error handling, result formatting
-- Strict validation with no placeholder logic
-- All 9 inheriting analyzers fully functional with real findings
-
-**Python Analysis Tools** (`shared/analyzers/`)
+### **Python Analysis Tools** (`shared/analyzers/`)
 
 - **Security**: Authentication, secrets detection, vulnerability scanning, input validation
 - **Quality**: Complexity analysis, code duplication, test coverage, pattern classification
@@ -25,14 +22,12 @@ A comprehensive development automation system that creeates workflow commands, P
 - **Performance**: Code profiling, database profiling, bottleneck detection, frontend analysis
 - **Root Cause**: Error patterns, trace execution, recent changes analysis
 
-**CI Framework** (`shared/ci/`)
+### **CI Framework** (`shared/ci/`)
 
 - Semantic duplicate detection using CodeBERT embeddings
 - Dynamic quality gate detection based on tech stack
 - Integration with Serena MCP for efficient code search
 - Metrics collection and recommendation generation
-
-## Agent Systems
 
 ### 8-Agent Orchestration System
 
@@ -54,34 +49,141 @@ A comprehensive development automation system that creeates workflow commands, P
 - **terraform-gcp-expert** - GCP infrastructure development planning, Terraform architecture decisions, and cloud modernization strategies
 - **git-action-expert** - GitHub Actions workflow planning, CI/CD pipeline design, and automation strategy development
 
-## Evals, Testing & Quality Systems
+## Tech Stack
 
-### E2E Analyser tests
+- Languages: Python 3.7+, TypeScript/JavaScript, Bash/Shell, SQL
+- AI/ML Frameworks: ChromaDB, Transformers (Hugging Face), CodeBERT, PyTorch, Sentence-Transformers
+- Security Tools: Semgrep, Detect-secrets, Bandit, Safety, SQLFluff
+- Quality Analysis: Flake8, Pylint, Lizard, Radon, McCabe, Vulture
+- Testing: pytest, pytest-cov, Karma, Jasmine, Custom evaluation frameworks
+- Development Tools: Biome, Ruff, Black, Rich CLI, Click
+- CI/CD: GitHub Actions, Cross-platform workflows
+- Vector Storage: ChromaDB for semantic code search and duplicate detection
 
-**Complete Analysis Suite** - All 11 analyzers across 4 categories:
+## Project Structure
 
-```bash
+ai-assisted-workflows/
+├── claude-code/ # Claude Code CLI workflows and configurations
+│ ├── commands/ # 28 slash commands for development workflows
+│ ├── agents/ # 19 specialized agents (8-agent orchestration + 6 experts + 5 support)
+│ ├── rules/ # Technology-specific coding standards and best practices
+│ ├── templates/ # PRD, subagent, and todo templates
+│ ├── docs/ # CLI documentation and integration guides
+│ └── install.sh/.ps1 # Cross-platform installation scripts
+├── shared/ # Core Python analysis infrastructure
+│ ├── core/base/ # BaseAnalyzer and BaseProfiler frameworks
+│ ├── analyzers/ # 22 analysis tools across 5 categories
+│ │ ├── security/ # Vulnerability scanning and secrets detection
+│ │ ├── quality/ # Code complexity, duplication, and pattern analysis
+│ │ ├── architecture/ # Dependency analysis and scalability checks
+│ │ ├── performance/ # Profiling, bottleneck detection, and optimization
+│ │ └── root_cause/ # Error pattern analysis and trace execution
+│ ├── ci/ # AI-powered continuous improvement system
+│ │ ├── core/ # Semantic duplicate detection with CodeBERT
+│ │ ├── workflows/ # Decision matrix and GitHub integration
+│ │ ├── integration/ # Orchestration bridge and codebase search
+│ │ └── tools/ # ChromaDB search and unified codebase search
+│ ├── config/ # Configuration templates and CI workflows
+│ ├── setup/ # Installation scripts and dependency management
+│ └── tests/ # Comprehensive test suite with E2E integration tests
+│ └── integration/ # Security analyzer evaluation and E2E CI testing
+├── test_codebase/ # Controlled test applications for validation
+│ ├── vulnerable-apps/ # 9 vulnerable applications with known security issues
+│ ├── clean-apps/ # 5 clean applications for false positive testing
+│ └── juice-shop-monorepo/ # Complex real-world application for comprehensive testing
+├── docs/ # Comprehensive project documentation
+│ ├── installation.md # Installation and setup guide
+│ ├── agents.md # Agent orchestration system documentation
+│ ├── analysis-scripts.md # Language support and analysis capabilities
+│ └── workflow-examples.md # Common workflow examples and use cases
+└── todos/ # Task management and workflow documentation
+
+### Key Files:
+
+- CLAUDE.md - Project architecture and component documentation
+- README.md - Quick start guide and feature overview
+- claude-code/install.sh - Main installation script
+- shared/core/base/analyzer_base.py - Base framework for all analysis tools
+- shared/ci/core/semantic_duplicate_detector.py - AI-powered duplicate detection
+
+### Entry Points:
+
+- claude-code/commands/ - 28 slash commands for workflows
+- shared/analyzers/ - Direct Python analysis tool execution
+- shared/tests/integration/ - Comprehensive testing and evaluation frameworks
+
+## Architecture
+
+The system uses a hybrid AI-automation approach combining traditional static analysis with modern ML techniques:
+
+### Core Components:
+
+- BaseAnalyzer Framework: Provides shared infrastructure for all 22 analysis tools with strict validation
+- 8-Agent Orchestration: State-machine workflow management with quality gates and CTO escalation
+- Semantic Analysis Pipeline: LSP symbol extraction → CodeBERT embeddings → ChromaDB storage → similarity search
+- Expert Agent Routing: Language and complexity-based delegation to specialized agents
+- CI Integration: GitHub Actions with incremental analysis and automated refactoring recommendations
+
+### Data Flow:
+
+User Input → Claude Commands → Agent Orchestration → Analysis Tools → Results
+↓
+CI Pipeline → Duplicate Detection → Decision Matrix → Expert Agents → Actions
+
+### Key Integrations:
+
+- ChromaDB: Vector database for semantic code search and duplicate detection
+- Serena MCP: Enhanced codebase search via Language Server Protocol
+- GitHub Actions: Automated CI/CD with quality gate enforcement
+- Multi-Language LSP: Symbol extraction across 10+ programming languages
+
+### Commands
+
+- Setup: ./claude-code/install.sh - Install complete system
+- Analysis: /analyze-security, /analyze-code-quality, /analyze-performance, /analyze-architecture
+- Development: /plan-solution, /plan-refactor, /create-project, /fix-bug
+- Orchestration: /todo-orchestrate implementation-plan.md - Multi-agent workflow execution
+- CI Setup: /setup-ci-monitoring - Configure automated duplicate detection
+- Testing: /add-serena-mcp - Enhanced code search capabilities
+- Python Tools: cd shared && python analyzers/security/semgrep_analyzer.py ../test_codebase/project --output-format json
+
+## Testing
+
+Frameworks: pytest, Custom evaluation frameworks, Integration test suites
+
+Running Tests:
+
 # Run all analyzer integration tests
+
 cd shared && python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --output-format json
 
-# Test individual analyzer example
-cd shared && PYTHONPATH=. python analyzers/security/semgrep_analyzer.py ../test_codebase/juice-shop-monorepo --output-format json --max-files 10
-```
+# Security analyzer evaluation
 
-**Analyzer Categories:**
+cd shared/tests/integration && python test_security_analysers.py --analyzer semgrep --verbose
 
-- **Security (2)**: `semgrep` (vulnerabilities), `detect_secrets` (secrets)
-- **Performance (4)**: `frontend`, `flake8`, `baseline`, `sqlfluff` (SQL optimization)
-- **Quality (2)**: `complexity_lizard`, `coverage_analysis`
-- **Architecture (3)**: `pattern_evaluation`, `scalability_check`, `coupling_analysis`
+# E2E continuous improvement pipeline testing
 
-**Options**: `--output-format json`, `--max-files N`, `--min-severity medium`, `--verbose`
+cd shared && python tests/integration/test_continuous_improvement_e2e.py
 
-### Security Analyzer Evaluation
+# Individual analyzer testing
 
-The evaluation framework tests our security analyzers against known vulnerable applications and displays results directly in the terminal.
+cd shared && python analyzers/security/detect_secrets_analyzer.py ../test_codebase/project --max-files 10
 
-**Quick Start:**
+### Creating New Tests:
+
+- Analysis Tests: Extend shared/tests/integration/ with new analyzer validation
+- Security Tests: Add vulnerable applications to test_codebase/vulnerable-apps/
+- Expected Findings: Update shared/tests/integration/security_expected_findings.json for evaluation
+- Unit Tests: Add to shared/tests/unit/ following BaseAnalyzer patterns
+
+### Test Structure:
+
+- Integration tests validate complete workflows end-to-end
+- Security evaluation tests against 14 applications with 544 known vulnerabilities
+- Unit tests focus on individual component validation
+- E2E tests validate the complete AI-assisted workflow pipeline including duplicate detection and agent orchestration
+
+### Test Commands:
 
 ```bash
 cd shared/tests/integration
@@ -99,107 +201,9 @@ python test_security_analysers.py --analyzer detect_secrets --applications test-
 python test_security_analysers.py --analyzer semgrep --max-files 10
 ```
 
-**Output:**
-
-- **Coverage Table**: Shows Issues Found | Issues Expected | Coverage % for each application
-- **Summary Metrics**: Total coverage, precision, recall, and F1-scores
-- **Terminal Output Only**: No files written - all results displayed on screen
-- **Clean Default Output**: Only essential progress and final results (use `--verbose` for detailed info)
-
-**Understanding the Results:**
-
-- **Coverage %**: (Issues Found / Issues Expected) × 100 - measures detection quantity
-- **Dynamic Expected Count**: Only counts vulnerabilities that the specific analyzer should detect
-- **Applications**: Tests against vulnerable apps across multiple languages
-- **Expected Findings**: Defined in `shared/tests/integration/security_expected_findings.json`
-
-**Analyzer Capabilities:**
-
-- **detect_secrets**: API keys, private keys, high entropy strings, authentication tokens
-- **semgrep**: SQL injection, XSS, authentication bypasses, hardcoded credentials
-- Each analyzer is only tested against vulnerabilities it's designed to find
-
-**Options:**
-
 - `--analyzer`: Choose specific analyzer (detect_secrets, semgrep)
 - `--applications`: Test specific applications only
 - `--max-files`: Limit number of files scanned per application
+- `--min-severity medium`: Filter findings by severity
 - `--verbose`: Show detailed execution progress and debug information
-
-### CI Duplicate Detection Test
-
-**End-to-End Integration Test** (`shared/tests/integration/test_continuous_improvement_e2e.py`)
-
-Tests the complete AI-assisted workflow pipeline:
-
-1. **Semantic Duplicate Detection**: Uses CodeBERT embeddings to identify functionally similar code across files
-2. **CTO Decision Matrix**: Automated decision-making for refactoring complexity and risk assessment
-3. **Orchestration Bridge**: Integration layer connecting duplicate detection with task orchestration
-4. **Todo-Orchestrate Integration**: Seamless handoff to 8-agent system for complex refactoring tasks
-
-**Test Process**:
-
-- Creates temporary test projects with known duplicate patterns
-- Validates LSP symbol extraction and semantic similarity detection
-- Tests filtering of meaningful duplicates (excludes imports, built-ins, trivial matches)
-- Verifies decision matrix logic for auto-refactor vs. CTO escalation
-- Confirms orchestration bridge functionality and task delegation
-
-**Key Validations**:
-
-- Symbol extraction accuracy across multiple languages
-- Semantic similarity thresholds (exact: 1.0, high: 0.8, medium: 0.6)
-- Filter effectiveness for noise reduction
-- Integration with existing CI/CD workflows
-- Performance metrics collection and reporting
-
-## Project Structure
-
-```
-.
-├── claude-code/               # Claude Code CLI workflows and configurations
-│   ├── commands/              # 25+ slash commands for development workflows
-│   ├── agents/                # 19 specialized agents including 6 expert agents
-│   ├── rules/                 # Technology-specific coding standards and best practices
-│   ├── templates/             # PRD, subagent, and todo templates
-│   ├── docs/                  # CLI documentation and guides
-│   └── install.sh             # Cross-platform installation script
-├── docs/                      # Comprehensive project documentation
-│   ├── analysis-scripts.md    # Language support and analysis capabilities
-│   ├── agents.md              # Agent orchestration system documentation
-│   ├── ci-decision-matrix.md  # Code duplication decision criteria
-│   ├── installation.md        # Installation and setup guide
-│   ├── monitoring.md          # Development and CI monitoring systems
-│   └── workflow-examples.md   # Common workflow examples and use cases
-├── eval/                      # Evaluation framework design documents
-├── opencode/                  # OpenCode IDE integration (WIP)
-│   ├── agents/                # OpenCode-specific agent configurations
-│   ├── plugins/               # IDE plugins and extensions
-│   └── rules/                 # OpenCode coding standards
-├── shared/                    # Core Python analysis infrastructure
-│   ├── core/base/             # BaseAnalyzer and BaseProfiler frameworks
-│   ├── analyzers/             # 15+ analysis tools across 4 categories
-│   │   ├── security/          # Vulnerability scanning and secrets detection
-│   │   ├── quality/           # Code complexity, duplication, and pattern analysis
-│   │   ├── architecture/      # Dependency analysis and scalability checks
-│   │   ├── performance/       # Profiling, bottleneck detection, and optimization
-│   │   └── root_cause/        # Error pattern analysis and trace execution
-│   ├── ci/                    # AI-powered continuous improvement system
-│   │   ├── core/              # Semantic duplicate detection with CodeBERT
-│   │   ├── workflows/         # Decision matrix and GitHub integration
-│   │   ├── integration/       # Orchestration bridge and codebase search
-│   │   └── metrics/           # CI metrics collection and reporting
-│   ├── config/               # Configuration templates and CI workflows
-│   ├── setup/                # Installation scripts and dependency management
-│   └── tests/                # Comprehensive test suite with E2E integration tests
-│       └── integration/      # Integration tests including security analyzer evaluation
-│           ├── test_security_analysers.py  # Security analyzer evaluation framework
-│           └── security_expected_findings.json  # Vulnerability mappings for evaluation
-├── test_codebase/            # Controlled test applications for validation
-│   ├── vulnerable-apps/      # 9 vulnerable applications with known security issues
-│   ├── clean-apps/           # 5 clean applications for false positive testing
-│   ├── code-quality-issues/  # Applications with code quality problems
-│   └── eval-framework/       # Security analyzer evaluation system
-│       └── minimal_evaluator.py    # Legacy evaluator (deprecated)
-└── todos/                    # Task management and workflow documentation
-```
+- `--output-format json` Output results in JSON format

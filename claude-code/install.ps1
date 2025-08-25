@@ -897,6 +897,12 @@ function Show-CompletionMessage {
         Write-Output ""
     }
 
+    Write-ColorOutput "Enable Codebase-Expert Agent (AI-powered code search):" -Color $Colors.Yellow
+    Write-Output "  1. /setup-ci-monitoring    (index codebase for semantic search)"
+    Write-Output "  2. /setup-serena-mcp       (enable enhanced LSP support)"
+    Write-Output "  3. Review ci_config.json   (configure directory exclusions)"
+    Write-Output ""
+
     Write-ColorOutput "For help and support:" -Color $Colors.Yellow
     Write-Output "  • Documentation: $ClaudePath\README.md"
     Write-Output "  • Log file: $LOG_FILE"

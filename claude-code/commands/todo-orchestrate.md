@@ -36,15 +36,31 @@ You are the Build Orchestration Manager executing a comprehensive implementation
 
 ## Workflow Orchestration Logic
 
-### Phase 0: Initial Setup
+### Phase 0: Initial Setup and Expert Plan Enhancement
 
 **Parse and Initialize:**
 
 ```
 First use the @agent-plan-manager sub agent to parse implementation plan and create task registry.
-If implementation plan provided, use the @agent-cto sub agent to perform comprehensive codebase and documentation review.
-Then use the @agent-documenter sub agent to check existing resources and build registry.
+
+# Intelligent expert routing with CTO fallback
+If implementation tasks match expert domain AND expert agent exists:
+  - Python development > @agent-python-expert
+  - TypeScript development > @agent-typescript-expert
+  - Infrastructure/Terraform > @agent-terraform-gcp-expert
+  - CI/CD workflows > @agent-git-action-expert
+  - RAG/Search systems > @agent-rag-architecture-expert
+Else:
+  - for all other technologies > @agent-cto
+
+Invoke relevant Subagent with task context and instruction:
+"Enhance the existing implementation plan by directly modifying it with your expert recommendations, whilst keeping the document in its current location."
+
+Then use the @agent-documenter sub agent to check existing documentation resources and build registry.
 Set prototype mode flag if --prototype argument present.
+
+# Plan-manager re-parses updated plan
+Use @agent-plan-manager to re-parse the updated implementation plan
 ```
 
 ### Main Orchestration Loop

@@ -66,15 +66,21 @@
    Glob: "shared/ci/hooks/chromadb_index_hook.py"
    ```
 
-   b. **Try alternate locations**:
+   b. **Try project-level deployment**:
+
+   ```bash
+   Bash: ls ".claude/scripts/ci/hooks/chromadb_index_hook.py"
+   ```
+
+   c. **Try user-level deployment**:
 
    ```bash
    Bash: ls "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
    ```
 
-   c. **Interactive fallback if not found**:
+   d. **Interactive fallback if not found**:
 
-   - List searched locations: `shared/ci/hooks/` and `$HOME/.claude/scripts/ci/hooks/`
+   - List searched locations: `shared/ci/hooks/`, `.claude/scripts/ci/hooks/`, and `$HOME/.claude/scripts/ci/hooks/`
    - Ask user: "Could not locate ChromaDB indexing hook script. Please provide full path to chromadb_index_hook.py:"
    - Validate provided path contains executable Python script
    - Set HOOK_SCRIPT_PATH to user-provided location
@@ -82,7 +88,7 @@
 3. **Action**: Configure Claude Code PostToolUse hooks for real-time indexing
 4. **Tool**: Read - Check existing `.claude/settings.local.json`
 5. **Action**: Merge PostToolUse hook configuration (preserve existing hooks)
-6. **Tool**: Write - Update `.claude/settings.local.json` with:
+6. **Tool**: Write - Update `.claude/settings.local.json` with resolved hook path:
    ```json
    {
      "hooks": {
@@ -92,7 +98,7 @@
            "hooks": [
              {
                "type": "command",
-               "command": "python $CLAUDE_PROJECT_DIR/[HOOK_SCRIPT_PATH]",
+               "command": "python [HOOK_SCRIPT_PATH]",
                "timeout": 5
              }
            ]
@@ -101,6 +107,7 @@
      }
    }
    ```
+   **Note**: Replace `[HOOK_SCRIPT_PATH]` with the actual resolved path from step 2
 7. **Expected**: PostToolUse hooks configured for file modification tools
 
 8. **Action**: Make hook script executable
@@ -195,7 +202,7 @@
 14. **Command**:
     ```bash
     echo '{"tool_name":"Write","tool_input":{"file_path":"test.py"},"tool_response":{"success":true}}' | \
-    CLAUDE_PROJECT_DIR=$(pwd) python shared/ci/hooks/chromadb_index_hook.py
+    CLAUDE_PROJECT_DIR=$(pwd) python $HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py
     ```
 15. **Expected**: Hook executes without errors
 16. **Action**: Verify hook logging

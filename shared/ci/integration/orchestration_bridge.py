@@ -16,6 +16,10 @@ import numpy as np
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# Add path manipulation for shared module imports
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 # Import core duplication detection components - REQUIRED
 try:
     from shared.ci.core.semantic_duplicate_detector import (

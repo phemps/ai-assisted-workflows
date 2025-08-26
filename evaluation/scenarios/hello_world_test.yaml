@@ -1,5 +1,0 @@
-id: hello_world_test
-description: Simple hello world test for Claude CLI OAuth verification
-plan_file: hello_world_plan.md
-max_duration_minutes: 5
-track_kpis: [K1, K2, K9, K11, K12, K13, K14]

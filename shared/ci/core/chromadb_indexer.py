@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
+# Add path manipulation like other analyzers do
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 
 class ChromaDBIndexer:
     """
@@ -271,15 +275,20 @@ class ChromaDBIndexer:
             if not symbols:
                 return True
 
-            # Use ChromaDB storage build_index method for storing symbols
-            success = storage.build_index(
-                symbols,
-                batch_size=min(
-                    50, len(symbols)
-                ),  # Smaller batches for incremental updates
-                show_progress=False,  # Don't show progress for background indexing
-            )
+            # Import and initialize EmbeddingEngine (matches run_full_scan flow)
+            from shared.ci.core.embedding_engine import EmbeddingEngine
 
+            embedding_engine = EmbeddingEngine()
+
+            # Generate embeddings for symbols
+            embeddings = embedding_engine.generate_embeddings(symbols)
+
+            if embeddings is None or len(embeddings) != len(symbols):
+                self.logger.error("Failed to generate embeddings for symbol batch")
+                return False
+
+            # Store symbols and embeddings in ChromaDB
+            success = storage.store_symbols(symbols, embeddings)
             return success
 
         except Exception as e:

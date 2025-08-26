@@ -40,7 +40,7 @@ def check_serena_mcp():
 
     # Check if serena can be accessed via uvx
     success, _, _ = run_command(
-        ["uvx", "--from", "git+https://github.com/oraios/serena", "serena", "--version"]
+        ["uvx", "--from", "git+https://github.com/oraios/serena", "serena", "--help"]
     )
     return success
 
@@ -61,14 +61,25 @@ def get_user_consent(missing_packages, missing_tools):
     print("  - Codebase analysis and symbol extraction")
     print("  - Integration with Claude Code agent system")
 
+    # Check if we're in interactive mode
+    if not sys.stdin.isatty():
+        print("\nNon-interactive environment detected, auto-accepting installation.")
+        return True
+
     while True:
-        response = input("\nWould you like to install them? (y/n): ").lower().strip()
-        if response in ["y", "yes"]:
-            return True
-        elif response in ["n", "no"]:
+        try:
+            response = (
+                input("\nWould you like to install them? (y/n): ").lower().strip()
+            )
+            if response in ["y", "yes"]:
+                return True
+            elif response in ["n", "no"]:
+                return False
+            else:
+                print("Please enter 'y' for yes or 'n' for no.")
+        except (EOFError, KeyboardInterrupt):
+            print("\nInstallation cancelled.")
             return False
-        else:
-            print("Please enter 'y' for yes or 'n' for no.")
 
 
 def install_python_packages(packages):
@@ -77,17 +88,19 @@ def install_python_packages(packages):
 
     # Create requirements content
     requirements = [
-        "numpy<2.0.0",  # Numerical operations - pin to avoid OpenTelemetry conflicts
+        "numpy<2.0.0",  # FIRST - Prevent numpy 2.0 compatibility issues with ChromaDB
+        "chromadb>=0.4.0",  # SECOND - Let ChromaDB install its dependencies (including incompatible OpenTelemetry)
+        # THIRD - Override with pinned OpenTelemetry versions for ChromaDB compatibility
         "opentelemetry-api==1.27.0",  # OpenTelemetry API - pinned version for ChromaDB compatibility
         "opentelemetry-sdk==1.27.0",  # OpenTelemetry SDK - pinned version for ChromaDB compatibility
         "opentelemetry-exporter-otlp-proto-grpc==1.27.0",  # OpenTelemetry OTLP exporter - pinned version
-        "chromadb>=0.4.0",  # Vector database for embeddings
+        # FOURTH - Install remaining ML and analysis packages
         "faiss-cpu>=1.7.0",  # Vector similarity search
         "transformers>=4.21.0",  # CodeBERT embeddings
         "torch>=1.12.0",  # PyTorch for transformers
         "scipy>=1.7.0",  # Scientific computing
         "scikit-learn>=1.0.0",  # Machine learning utilities
-        "sentence-transformers>=2.2.0",  # Semantic embeddings
+        "sentence-transformers>=2.2.2",  # Semantic embeddings
         "tokenizers>=0.13.0",  # Fast tokenization
         "datasets>=2.0.0",  # Dataset utilities
     ]
@@ -133,7 +146,7 @@ def setup_serena_mcp():
             "--from",
             "git+https://github.com/oraios/serena",
             "serena",
-            "--version",
+            "--help",
         ],
         capture_output=True,
     )
@@ -183,6 +196,17 @@ uvx>=0.0.1  # Python package executor for MCP integration
 
 def main():
     """Main function to check and install continuous improvement dependencies."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Install continuous improvement dependencies"
+    )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Auto-accept installation without prompting",
+    )
+    args = parser.parse_args()
     print("Checking Continuous Improvement Dependencies...")
     print("Required: MCP tools, ML packages, and code analysis utilities")
 
@@ -221,13 +245,16 @@ def main():
         print("✓ ML packages ready for duplicate detection")
         return 0
 
-    # Ask for user consent
-    if not get_user_consent(missing_packages, missing_tools):
-        print("Installation cancelled by user.")
-        print("\nNote: Continuous improvement system requires these dependencies")
-        print("Run again when ready to install, or install manually:")
-        print("  pip install faiss-cpu transformers torch sentence-transformers")
-        return 1
+    # Ask for user consent (skip in non-interactive mode)
+    if not args.non_interactive:
+        if not get_user_consent(missing_packages, missing_tools):
+            print("Installation cancelled by user.")
+            print("\nNote: Continuous improvement system requires these dependencies")
+            print("Run again when ready to install, or install manually:")
+            print("  pip install faiss-cpu transformers torch sentence-transformers")
+            return 1
+    else:
+        print("\nRunning in non-interactive mode, auto-accepting installation...")
 
     # Create requirements file
     print("\nPreparing installation...")
@@ -257,7 +284,7 @@ def main():
     if not mcp_success:
         print(f"⚠️  Serena MCP setup failed: {mcp_error}")
         print("   Manual setup required:")
-        print("   uvx --from git+https://github.com/oraios/serena serena --version")
+        print("   uvx --from git+https://github.com/oraios/serena serena --help")
         return 1
 
     print("✓ All continuous improvement dependencies installed successfully!")

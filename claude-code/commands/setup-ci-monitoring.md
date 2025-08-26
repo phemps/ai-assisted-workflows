@@ -49,27 +49,27 @@
 2. **Logic**: Find hook and indexer script locations:
 
    ```bash
-   # Find hook script
-   if [ -f "shared/ci/hooks/chromadb_index_hook.py" ]; then
-     HOOK_SCRIPT_PATH="$(pwd)/shared/ci/hooks/chromadb_index_hook.py"
+   # Find hook script - check deployed locations FIRST
+   if [ -f "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
+     HOOK_SCRIPT_PATH="$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
    elif [ -f ".claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
      HOOK_SCRIPT_PATH="$(pwd)/.claude/scripts/ci/hooks/chromadb_index_hook.py"
-   elif [ -f "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
-     HOOK_SCRIPT_PATH="$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
+   elif [ -f "shared/ci/hooks/chromadb_index_hook.py" ]; then
+     HOOK_SCRIPT_PATH="$(pwd)/shared/ci/hooks/chromadb_index_hook.py"
    fi
 
-   # Find indexer script
-   if [ -f "shared/ci/core/chromadb_indexer.py" ]; then
-     INDEXER_SCRIPT_PATH="$(pwd)/shared/ci/core/chromadb_indexer.py"
+   # Find indexer script - check deployed locations FIRST
+   if [ -f "$HOME/.claude/scripts/ci/core/chromadb_indexer.py" ]; then
+     INDEXER_SCRIPT_PATH="$HOME/.claude/scripts/ci/core/chromadb_indexer.py"
    elif [ -f ".claude/scripts/ci/core/chromadb_indexer.py" ]; then
      INDEXER_SCRIPT_PATH="$(pwd)/.claude/scripts/ci/core/chromadb_indexer.py"
-   elif [ -f "$HOME/.claude/scripts/ci/core/chromadb_indexer.py" ]; then
-     INDEXER_SCRIPT_PATH="$HOME/.claude/scripts/ci/core/chromadb_indexer.py"
+   elif [ -f "shared/ci/core/chromadb_indexer.py" ]; then
+     INDEXER_SCRIPT_PATH="$(pwd)/shared/ci/core/chromadb_indexer.py"
    fi
    ```
 
 3. **Action**: Setup project-specific continuous improvement configuration
-4. **Command**: `python shared/setup/ci/setup_ci_project.py --project-dir $(pwd) --project-name "$PROJECT_NAME" --threshold $THRESHOLD $([ "$AUTO_REFACTOR" = "true" ] && echo "--auto-refactor") $([ -n "$HOOK_SCRIPT_PATH" ] && echo "--hook-script-path '$HOOK_SCRIPT_PATH'") $([ -n "$INDEXER_SCRIPT_PATH" ] && echo "--indexer-script-path '$INDEXER_SCRIPT_PATH'")`
+4. **Command**: `python shared/setup/ci/setup_ci_project.py --project-dir $(pwd) --project-name "$PROJECT_NAME" --threshold $THRESHOLD $([ "$AUTO_REFACTOR" = "true" ] && echo "--auto-refactor") $([ -n "$HOOK_SCRIPT_PATH" ] && echo "--hook-script-path \"$HOOK_SCRIPT_PATH\"") $([ -n "$INDEXER_SCRIPT_PATH" ] && echo "--indexer-script-path \"$INDEXER_SCRIPT_PATH\"")`
 5. **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/
 
 6. **Action**: Initialize code registry database

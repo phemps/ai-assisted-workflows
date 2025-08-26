@@ -113,13 +113,8 @@ def start_background_indexing(
                     relative_files.append(file_path)
             cmd.extend(["--files"] + relative_files)
 
-        # Set up environment with proper Python path
+        # Set up environment - indexer script handles its own imports via sys.path
         env = os.environ.copy()
-        # Add the parent directory of the indexer script to PYTHONPATH for shared.* imports
-        indexer_parent = (
-            indexer_script.parent.parent.parent
-        )  # Go up from ci/core/ to shared parent
-        env["PYTHONPATH"] = str(indexer_parent)
 
         # Start background process with proper detachment
         subprocess.Popen(

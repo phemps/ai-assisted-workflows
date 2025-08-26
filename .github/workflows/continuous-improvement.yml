@@ -1,0 +1,240 @@
+name: Continuous Improvement - Code Duplication Detection
+
+"on":
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  duplicate-detection:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        with:
+          fetch-depth: 0 # Full history for comprehensive analysis
+
+      - name: Setup Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.3.0
+        with:
+          python-version: "3.9"
+          cache: "pip"
+
+      - name: Install CI dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "numpy<2.0.0"
+          pip install opentelemetry-api==1.27.0 opentelemetry-sdk==1.27.0 opentelemetry-exporter-otlp-proto-grpc==1.27.0
+          pip install chromadb
+          pip install transformers torch sentence-transformers scipy multilspy
+
+      - name: Read project languages
+        id: languages
+        run: |
+          if [ -f ".ci-registry/ci_config.json" ]; then
+            languages=$(python -c "
+            import json, sys
+            try:
+                with open('.ci-registry/ci_config.json') as f:
+                    config = json.load(f)
+                langs = config.get('project', {}).get('languages', [])
+                print(','.join(langs))
+            except Exception as e:
+                print('', file=sys.stderr)  # Empty fallback
+                sys.exit(0)
+            ") || languages=""
+            echo "detected_languages=$languages" >> $GITHUB_OUTPUT
+            echo "Detected project languages: $languages"
+          else
+            echo "detected_languages=" >> $GITHUB_OUTPUT
+            echo "No CI config found - skipping language-specific installations"
+          fi
+
+      - name: Setup Go
+        if: contains(steps.languages.outputs.detected_languages, 'go')
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.2.0
+        with:
+          go-version: "1.21"
+          cache: true
+
+      - name: Setup .NET
+        if: contains(steps.languages.outputs.detected_languages, 'csharp')
+        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4.1.0
+        with:
+          dotnet-version: "8.0"
+
+      - name: Install language server dependencies
+        run: |
+          # Install language servers based on detected languages
+          languages="${{ steps.languages.outputs.detected_languages }}"
+          echo "Installing language servers for: $languages"
+
+          if [[ "$languages" == *"go"* ]]; then
+            echo "Installing Go language server (gopls)..."
+            go install golang.org/x/tools/gopls@latest
+            echo "$HOME/go/bin" >> $GITHUB_PATH
+
+            # Validate installation
+            if command -v gopls >/dev/null 2>&1; then
+              go version
+              gopls version
+              echo "✅ gopls installed successfully"
+            else
+              echo "❌ gopls installation failed" >&2
+              exit 1
+            fi
+          else
+            echo "Skipping Go language server installation"
+          fi
+
+          if [[ "$languages" == *"csharp"* ]]; then
+            echo "Verifying .NET installation..."
+            dotnet --version
+          else
+            echo "Skipping .NET language server verification"
+          fi
+
+          echo "Language server setup complete"
+
+      - name: Verify multilspy installation
+        run: |
+          python -c "import multilspy; print('multilspy library installed successfully')"
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.sha }} > changed_files.txt
+          else
+            git diff --name-only HEAD~1 HEAD > changed_files.txt
+          fi
+          echo "files=$(cat changed_files.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          echo "Changed files:"
+          cat changed_files.txt
+
+      - name: Ensure CI registry directory exists
+        run: |
+          mkdir -p .ci-registry/reports
+          mkdir -p .ci-registry/cache
+          mkdir -p .ci-registry/backups
+
+      - name: Check initial indexing status
+        id: indexing-check
+        run: |
+          if [ -f ".ci-registry/ci_config.json" ]; then
+            cd shared && PYTHONPATH=.. python ci/core/chromadb_storage.py \
+              --project-root .. \
+              --check-indexing \
+              --output json > ../indexing_status.json
+
+            # Parse indexing status with inline Python
+            initial_completed=$(python -c "import json; data=json.load(open('indexing_status.json')); print(str(data.get('initial_index_completed', False)).lower())" 2>/dev/null || echo "false")
+
+            echo "initial_completed=$initial_completed" >> $GITHUB_OUTPUT
+            echo "Initial indexing completed: $initial_completed"
+
+            if [ "$initial_completed" = "true" ]; then
+              echo "Initial indexing already completed - proceeding with incremental analysis"
+            else
+              echo "Initial indexing required - will run full scan first"
+            fi
+          else
+            echo "initial_completed=false" >> $GITHUB_OUTPUT
+            echo "No CI config found - assuming fresh setup"
+          fi
+
+      - name: Run initial full scan
+        if: steps.indexing-check.outputs.initial_completed == 'false'
+        run: |
+          echo "Running initial full codebase scan..."
+          cd shared && PYTHONPATH=.. python ci/core/chromadb_storage.py \
+            --project-root .. \
+            --full-scan
+
+          echo "Initial scan completed - ChromaDB now contains full codebase index"
+
+      - name: Run duplicate detection
+        run: |
+          cd shared && PYTHONPATH=.. python ci/integration/orchestration_bridge.py \
+            --project-root .. \
+            --changed-files ${{ steps.changed-files.outputs.files }}
+
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+        with:
+          name: duplication-analysis
+          path: |
+            .ci-registry/reports/
+            .ci-registry/baseline-duplicates.json
+          retention-days: 30
+
+      - name: Collect diagnostic information
+        if: failure()
+        run: |
+          echo "=== Diagnostic Information ==="
+          echo "Python Version: $(python --version)"
+          echo "Current Directory: $(pwd)"
+          echo "Available Python packages:"
+          pip list | grep -E "(chromadb|transformers|torch|multilspy)"
+
+          # Check for log files
+          if [ -d ".ci-registry/logs" ]; then
+            echo "CI Registry logs:"
+            ls -la .ci-registry/logs/
+          fi
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.ci-registry/reports/latest-analysis.json';
+
+            if (fs.existsSync(path)) {
+              const analysis = JSON.parse(fs.readFileSync(path, 'utf8'));
+              const duplicateCount = analysis.findings?.length || 0;
+              const summary = analysis.summary || {};
+
+              const status = duplicateCount > 0 ?
+                'Code duplications detected. Review analysis artifacts for details.' :
+                'No significant code duplication detected.';
+
+              const comment = '## Code Duplication Analysis Results\n\n' +
+                'Project: ai-assisted-workflows\n' +
+                'Analysis Date: ' + (analysis.analysis_date || 'Unknown') + '\n' +
+                'Duplicates Found: ' + duplicateCount + '\n' +
+                'Similarity Threshold: ' + (analysis.config?.similarity_threshold || '0.85') + '\n\n' +
+                '### Summary\n' +
+                '- Automatic Fixes: ' + (summary.automatic_fixes || 0) + '\n' +
+                '- GitHub Issues: ' + (summary.github_issues || 0) + '\n' +
+                '- Skipped: ' + (summary.skipped || 0) + '\n' +
+                '- Errors: ' + (summary.errors || 0) + '\n\n' +
+                'Status: ' + status + '\n\n' +
+                'Analysis completed by Continuous Improvement Framework.';
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Check analysis results
+        run: |
+          if [ -f ".ci-registry/reports/latest-analysis.json" ]; then
+            echo "Analysis completed successfully"
+            cat .ci-registry/reports/latest-analysis.json
+          else
+            echo "No analysis results found"
+          fi

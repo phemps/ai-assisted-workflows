@@ -53,7 +53,80 @@
 5. **Command**: `python shared/ci/core/chromadb_storage.py --init --project $(pwd)`
 6. **Expected**: ChromaDB collection initialized with project symbols and language detection
 
-**STOP** → Configuration created. Ready to setup GitHub Actions workflows?
+**STOP** → Configuration created. Ready to setup real-time indexing hooks?
+
+## Phase 3.5: Real-time Indexing Hook Setup
+
+1. **Action**: Verify ChromaDB indexing hook script availability
+2. **FIRST - Resolve HOOK_SCRIPT_PATH**:
+
+   a. **Try shared CI hooks folder**:
+
+   ```bash
+   Glob: "shared/ci/hooks/chromadb_index_hook.py"
+   ```
+
+   b. **Try alternate locations**:
+
+   ```bash
+   Bash: ls "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
+   ```
+
+   c. **Interactive fallback if not found**:
+
+   - List searched locations: `shared/ci/hooks/` and `$HOME/.claude/scripts/ci/hooks/`
+   - Ask user: "Could not locate ChromaDB indexing hook script. Please provide full path to chromadb_index_hook.py:"
+   - Validate provided path contains executable Python script
+   - Set HOOK_SCRIPT_PATH to user-provided location
+
+3. **Action**: Configure Claude Code PostToolUse hooks for real-time indexing
+4. **Tool**: Read - Check existing `.claude/settings.local.json`
+5. **Action**: Merge PostToolUse hook configuration (preserve existing hooks)
+6. **Tool**: Write - Update `.claude/settings.local.json` with:
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [
+         {
+           "matcher": "Write|Edit|MultiEdit",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "python $CLAUDE_PROJECT_DIR/[HOOK_SCRIPT_PATH]",
+               "timeout": 5
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+7. **Expected**: PostToolUse hooks configured for file modification tools
+
+8. **Action**: Make hook script executable
+9. **Command**: `chmod +x [HOOK_SCRIPT_PATH]`
+10. **Expected**: Hook script has executable permissions
+
+11. **Action**: Test hook configuration
+12. **Command**: Test with empty JSON to verify script handles input gracefully:
+    ```bash
+    echo '{}' | CLAUDE_PROJECT_DIR=$(pwd) python [HOOK_SCRIPT_PATH]
+    ```
+13. **Expected**: Script exits with code 0 (no errors)
+
+14. **Message**: Display to user:
+
+    ```
+    Real-time indexing configured! ChromaDB will automatically index files when you:
+    - Create new files (Write tool)
+    - Edit existing files (Edit tool)
+    - Make multiple edits (MultiEdit tool)
+
+    Configuration saved to .claude/settings.local.json (not committed to git)
+    Hook logs available at: .ci-registry/logs/chromadb_hooks.log
+    ```
+
+**STOP** → Real-time indexing hooks configured. Ready to setup GitHub Actions workflows?
 
 ## Phase 4: GitHub Actions Setup
 
@@ -115,8 +188,22 @@
 8. **Command**: `python shared/ci/integration/orchestration_bridge.py --project-root $(pwd)`
 9. **Expected**: Orchestration bridge runs successfully (may show no duplicates for clean project)
 
-10. **Action**: Create setup completion report
-11. **Format**:
+10. **Action**: Verify real-time indexing hooks are configured
+11. **Tool**: Read - `.claude/settings.local.json`
+12. **Expected**: PostToolUse hooks configured for Write|Edit|MultiEdit
+13. **Action**: Test hook functionality
+14. **Command**:
+    ```bash
+    echo '{"tool_name":"Write","tool_input":{"file_path":"test.py"},"tool_response":{"success":true}}' | \
+    CLAUDE_PROJECT_DIR=$(pwd) python shared/ci/hooks/chromadb_index_hook.py
+    ```
+15. **Expected**: Hook executes without errors
+16. **Action**: Verify hook logging
+17. **Tool**: Read - `.ci-registry/logs/chromadb_hooks.log` (if exists)
+18. **Expected**: Hook activity logged (or log file created for future use)
+
+19. **Action**: Create setup completion report
+20. **Format**:
 
     ````markdown
     ## Continuous Improvement Setup Complete
@@ -134,6 +221,7 @@
     - Serena MCP: $MCP_STATUS
     - Quality Gates: $GATE_COUNT detected
     - Agent Integration: Ready
+    - Real-time Indexing: Active (PostToolUse hooks)
 
     ### Quick Start:
 
@@ -151,7 +239,8 @@
 
     ### Monitoring Setup:
 
-    - Commit hooks: Automatic analysis enabled
+    - Real-time indexing: PostToolUse hooks for Write/Edit/MultiEdit
+    - Hook configuration: .claude/settings.local.json (not committed)
     - GitHub Actions: Workflow configured
     - CTO escalation: Configured for complex refactors
     - Metrics collection: Active

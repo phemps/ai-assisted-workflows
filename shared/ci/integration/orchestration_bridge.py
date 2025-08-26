@@ -121,6 +121,32 @@ class OrchestrationBridge:
                 print(f"FATAL: Cannot initialize DuplicateFinder: {e}", file=sys.stderr)
                 sys.exit(1)
 
+    def _index_changed_files(self, changed_files: List[str]) -> None:
+        """Index changed files in ChromaDB for improved duplicate detection."""
+        try:
+            from shared.ci.core.chromadb_indexer import ChromaDBIndexer
+
+            indexer = ChromaDBIndexer(
+                project_root=str(self.project_root), test_mode=self.test_mode
+            )
+
+            print(f"🗂️ Indexing {len(changed_files)} changed files...")
+            result = indexer.incremental_index(changed_files)
+
+            if result.get("status") == "success":
+                files_processed = result.get("files_processed", 0)
+                symbols_indexed = result.get("symbols_indexed", 0)
+                print(f"✅ Indexed {files_processed} files ({symbols_indexed} symbols)")
+            elif result.get("status") == "skipped":
+                print(f"⏭️ Indexing skipped: {result.get('reason', 'Unknown reason')}")
+            else:
+                error_msg = result.get("error", "Unknown error")
+                print(f"⚠️ Indexing failed: {error_msg}")
+
+        except Exception as e:
+            # Don't fail the entire process if indexing fails
+            print(f"⚠️ Indexing error (continuing anyway): {e}")
+
     def _filter_meaningful_duplicates(
         self, findings: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
@@ -918,7 +944,11 @@ Please proceed with the holistic analysis and create an appropriate refactoring 
             Processing results for GitHub Actions
         """
         try:
-            # Step 1: Analyze for duplicates
+            # Step 1: Index changed files in ChromaDB if provided
+            if changed_files:
+                self._index_changed_files(changed_files)
+
+            # Step 2: Analyze for duplicates
             print("🔍 Analyzing project for code duplication...")
             if changed_files:
                 # Convert to Path objects and run incremental analysis

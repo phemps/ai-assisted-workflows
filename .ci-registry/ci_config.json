@@ -30,7 +30,7 @@
         "target",
         "test_codebase"
       ],
-      "files": ["*.min.js", "*.bundle.js", "*.map"],
+      "files": ["*.min.js", "*.bundle.js", "*.map", "*__init__*"],
       "patterns": ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"]
     },
     "quality_gates": {

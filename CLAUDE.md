@@ -27,6 +27,7 @@ A comprehensive development automation system that combines Claude Code CLI work
 - Semantic duplicate detection using CodeBERT embeddings
 - Dynamic quality gate detection based on tech stack
 - Integration with Serena MCP for efficient code search
+- Real-time indexing via PostToolUse hooks for Write/Edit/MultiEdit operations
 - Metrics collection and recommendation generation
 
 ### 8-Agent Orchestration System

@@ -67,8 +67,14 @@ class QwenInstaller(BaseCLIInstaller):
         Note: Qwen uses OpenAI API key passed at runtime via --openai-api-key flag,
         not during installation. This method stores the key for later use.
         """
+        # Skip auth configuration in OAuth mode
+        auth_mode = os.environ.get("EVALUATOR_AUTH_MODE", "apikey")
+        if auth_mode == "oauth":
+            print("🔐 Skipping auth configuration - OAuth will be handled separately")
+            return True
+
         if not token:
-            token = os.environ.get("QWEN_OAUTH_TOKEN")
+            token = os.environ.get("QWEN_API_KEY")  # Updated env var name
 
         if not token:
             print("⚠️  No API key provided for Qwen")
@@ -163,7 +169,7 @@ def main():
     installer = QwenInstaller()
 
     # Get API key from environment
-    api_key = os.environ.get("QWEN_OAUTH_TOKEN")
+    api_key = os.environ.get("QWEN_API_KEY")
 
     # Install with authentication
     success = installer.install_with_auth(api_key)

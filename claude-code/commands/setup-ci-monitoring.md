@@ -45,50 +45,55 @@
 
 ## Phase 3: Configuration Setup + CTO Integration
 
-1. **Action**: Setup project-specific continuous improvement configuration
-2. **Command**: `python shared/setup/ci/setup_ci_project.py --project-dir $(pwd) --project-name "$PROJECT_NAME" --threshold $THRESHOLD $([ "$AUTO_REFACTOR" = "true" ] && echo "--auto-refactor")`
-3. **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/
+1. **Action**: Detect script paths for hook and indexer
+2. **Logic**: Find hook and indexer script locations:
 
-4. **Action**: Initialize code registry database
-5. **Command**: `python shared/ci/core/chromadb_storage.py --init --project $(pwd)`
-6. **Expected**: ChromaDB collection initialized with project symbols and language detection
+   ```bash
+   # Find hook script
+   if [ -f "shared/ci/hooks/chromadb_index_hook.py" ]; then
+     HOOK_SCRIPT_PATH="$(pwd)/shared/ci/hooks/chromadb_index_hook.py"
+   elif [ -f ".claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
+     HOOK_SCRIPT_PATH="$(pwd)/.claude/scripts/ci/hooks/chromadb_index_hook.py"
+   elif [ -f "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
+     HOOK_SCRIPT_PATH="$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
+   fi
+
+   # Find indexer script
+   if [ -f "shared/ci/core/chromadb_indexer.py" ]; then
+     INDEXER_SCRIPT_PATH="$(pwd)/shared/ci/core/chromadb_indexer.py"
+   elif [ -f ".claude/scripts/ci/core/chromadb_indexer.py" ]; then
+     INDEXER_SCRIPT_PATH="$(pwd)/.claude/scripts/ci/core/chromadb_indexer.py"
+   elif [ -f "$HOME/.claude/scripts/ci/core/chromadb_indexer.py" ]; then
+     INDEXER_SCRIPT_PATH="$HOME/.claude/scripts/ci/core/chromadb_indexer.py"
+   fi
+   ```
+
+3. **Action**: Setup project-specific continuous improvement configuration
+4. **Command**: `python shared/setup/ci/setup_ci_project.py --project-dir $(pwd) --project-name "$PROJECT_NAME" --threshold $THRESHOLD $([ "$AUTO_REFACTOR" = "true" ] && echo "--auto-refactor") $([ -n "$HOOK_SCRIPT_PATH" ] && echo "--hook-script-path '$HOOK_SCRIPT_PATH'") $([ -n "$INDEXER_SCRIPT_PATH" ] && echo "--indexer-script-path '$INDEXER_SCRIPT_PATH'")`
+5. **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/
+
+6. **Action**: Initialize code registry database
+7. **Command**: `python shared/ci/core/chromadb_storage.py --init --project $(pwd)`
+8. **Expected**: ChromaDB collection initialized with project symbols and language detection
 
 **STOP** → Configuration created. Ready to setup real-time indexing hooks?
 
 ## Phase 3.5: Real-time Indexing Hook Setup
 
-1. **Action**: Verify ChromaDB indexing hook script availability
-2. **FIRST - Resolve HOOK_SCRIPT_PATH**:
+1. **Action**: Verify script paths were detected in Phase 3
+2. **Check**: Ensure HOOK_SCRIPT_PATH and INDEXER_SCRIPT_PATH variables are set from Phase 3
+3. **Fallback**: If paths not detected in Phase 3, show error:
 
-   a. **Try shared CI hooks folder**:
-
-   ```bash
-   Glob: "shared/ci/hooks/chromadb_index_hook.py"
+   ```
+   Could not locate required scripts. Expected locations:
+   - Hook: shared/ci/hooks/, .claude/scripts/ci/hooks/, or $HOME/.claude/scripts/ci/hooks/
+   - Indexer: shared/ci/core/, .claude/scripts/ci/core/, or $HOME/.claude/scripts/ci/core/
    ```
 
-   b. **Try project-level deployment**:
-
-   ```bash
-   Bash: ls ".claude/scripts/ci/hooks/chromadb_index_hook.py"
-   ```
-
-   c. **Try user-level deployment**:
-
-   ```bash
-   Bash: ls "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
-   ```
-
-   d. **Interactive fallback if not found**:
-
-   - List searched locations: `shared/ci/hooks/`, `.claude/scripts/ci/hooks/`, and `$HOME/.claude/scripts/ci/hooks/`
-   - Ask user: "Could not locate ChromaDB indexing hook script. Please provide full path to chromadb_index_hook.py:"
-   - Validate provided path contains executable Python script
-   - Set HOOK_SCRIPT_PATH to user-provided location
-
-3. **Action**: Configure Claude Code PostToolUse hooks for real-time indexing
-4. **Tool**: Read - Check existing `.claude/settings.local.json`
-5. **Action**: Merge PostToolUse hook configuration (preserve existing hooks)
-6. **Tool**: Write - Update `.claude/settings.local.json` with resolved hook path:
+4. **Action**: Configure Claude Code PostToolUse hooks for real-time indexing
+5. **Tool**: Read - Check existing `.claude/settings.local.json`
+6. **Action**: Merge PostToolUse hook configuration (preserve existing hooks)
+7. **Tool**: Write - Update `.claude/settings.local.json` with hook command that reads config:
    ```json
    {
      "hooks": {
@@ -98,7 +103,7 @@
            "hooks": [
              {
                "type": "command",
-               "command": "python [HOOK_SCRIPT_PATH]",
+               "command": "python [HOOK_SCRIPT_PATH] --indexer-path \"$(python -c \"import json,os; p='$CLAUDE_PROJECT_DIR/.ci-registry/ci_config.json'; c=json.load(open(p)) if os.path.exists(p) else {}; print(c.get('paths',{}).get('indexer_script',''))\" 2>/dev/null)\"",
                "timeout": 5
              }
            ]
@@ -107,21 +112,21 @@
      }
    }
    ```
-   **Note**: Replace `[HOOK_SCRIPT_PATH]` with the actual resolved path from step 2
-7. **Expected**: PostToolUse hooks configured for file modification tools
+   **Note**: Replace `[HOOK_SCRIPT_PATH]` with the actual resolved path from Phase 3
+8. **Expected**: PostToolUse hooks configured for file modification tools
 
-8. **Action**: Make hook script executable
-9. **Command**: `chmod +x [HOOK_SCRIPT_PATH]`
-10. **Expected**: Hook script has executable permissions
+9. **Action**: Make hook script executable
+10. **Command**: `chmod +x [HOOK_SCRIPT_PATH]`
+11. **Expected**: Hook script has executable permissions
 
-11. **Action**: Test hook configuration
-12. **Command**: Test with empty JSON to verify script handles input gracefully:
+12. **Action**: Test hook configuration
+13. **Command**: Test with empty JSON to verify script handles input gracefully:
     ```bash
-    echo '{}' | CLAUDE_PROJECT_DIR=$(pwd) python [HOOK_SCRIPT_PATH]
+    echo '{}' | CLAUDE_PROJECT_DIR=$(pwd) python [HOOK_SCRIPT_PATH] --indexer-path "$INDEXER_SCRIPT_PATH"
     ```
-13. **Expected**: Script exits with code 0 (no errors)
+14. **Expected**: Script exits with code 0 (no errors)
 
-14. **Message**: Display to user:
+15. **Message**: Display to user:
 
     ```
     Real-time indexing configured! ChromaDB will automatically index files when you:
@@ -202,7 +207,7 @@
 14. **Command**:
     ```bash
     echo '{"tool_name":"Write","tool_input":{"file_path":"test.py"},"tool_response":{"success":true}}' | \
-    CLAUDE_PROJECT_DIR=$(pwd) python $HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py
+    CLAUDE_PROJECT_DIR=$(pwd) python $HOOK_SCRIPT_PATH --indexer-path "$INDEXER_SCRIPT_PATH"
     ```
 15. **Expected**: Hook executes without errors
 16. **Action**: Verify hook logging

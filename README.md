@@ -79,10 +79,11 @@ CI system automatically detects and addresses code duplication through GitHub Ac
 The [Continuous Improvement workflow](.github/workflows/continuous-improvement.yml) runs on every push to `main`/`develop` branches and pull requests, performing these steps:
 
 1. **Change Detection**: Identifies modified files using Git diff or GitHub API
-2. **ML-Powered Analysis**: Uses transformer models to detect similar code segments
-3. **Risk Assessment**: Evaluates duplication impact using our [Decision Matrix](docs/ci-decision-matrix.md)
-4. **Automated Resolution**: Applies fixes for low-risk duplications or creates GitHub issues for complex cases
-5. **PR Feedback**: Comments results directly on pull requests with detailed analysis
+2. **Real-time Indexing**: PostToolUse hooks automatically update ChromaDB index during development
+3. **ML-Powered Analysis**: Uses transformer models to detect similar code segments
+4. **Risk Assessment**: Evaluates duplication impact using our [Decision Matrix](docs/ci-decision-matrix.md)
+5. **Automated Resolution**: Applies fixes for low-risk duplications or creates GitHub issues for complex cases
+6. **PR Feedback**: Comments results directly on pull requests with detailed analysis
 
 ### Decision Logic
 

@@ -257,7 +257,7 @@ class ChromaDBIndexer:
             )
 
             # Extract symbols from the single file
-            symbols = finder._extract_project_symbols(self.project_root, [file_path])
+            symbols = finder._extract_file_symbols(file_path)
 
             return symbols
 

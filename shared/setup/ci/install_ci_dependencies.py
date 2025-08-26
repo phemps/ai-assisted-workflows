@@ -77,10 +77,14 @@ def install_python_packages(packages):
 
     # Create requirements content
     requirements = [
+        "numpy<2.0.0",  # Numerical operations - pin to avoid OpenTelemetry conflicts
+        "opentelemetry-api==1.27.0",  # OpenTelemetry API - pinned version for ChromaDB compatibility
+        "opentelemetry-sdk==1.27.0",  # OpenTelemetry SDK - pinned version for ChromaDB compatibility
+        "opentelemetry-exporter-otlp-proto-grpc==1.27.0",  # OpenTelemetry OTLP exporter - pinned version
+        "chromadb>=0.4.0",  # Vector database for embeddings
         "faiss-cpu>=1.7.0",  # Vector similarity search
         "transformers>=4.21.0",  # CodeBERT embeddings
         "torch>=1.12.0",  # PyTorch for transformers
-        "numpy>=1.21.0",  # Numerical operations
         "scipy>=1.7.0",  # Scientific computing
         "scikit-learn>=1.0.0",  # Machine learning utilities
         "sentence-transformers>=2.2.0",  # Semantic embeddings
@@ -147,7 +151,14 @@ def create_requirements_file():
     requirements_file = requirements_dir / "requirements.txt"
 
     requirements_content = """# Continuous Improvement Framework Dependencies
+# OpenTelemetry dependencies - pinned versions for ChromaDB compatibility
+numpy<2.0.0
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+opentelemetry-exporter-otlp-proto-grpc==1.27.0
+
 # Vector similarity search and embeddings
+chromadb>=0.4.0
 faiss-cpu>=1.7.0
 transformers>=4.21.0
 torch>=1.12.0
@@ -155,7 +166,6 @@ sentence-transformers>=2.2.0
 tokenizers>=0.13.0
 
 # Scientific computing and utilities
-numpy>=1.21.0
 scipy>=1.7.0
 scikit-learn>=1.0.0
 datasets>=2.0.0
@@ -178,10 +188,14 @@ def main():
 
     # Define required packages and tools
     required_packages = [
+        "numpy",
+        "opentelemetry-api",
+        "opentelemetry-sdk",
+        "opentelemetry-exporter-otlp-proto-grpc",
+        "chromadb",
         "faiss-cpu",
         "transformers",
         "torch",
-        "numpy",
         "scipy",
         "scikit-learn",
         "sentence-transformers",

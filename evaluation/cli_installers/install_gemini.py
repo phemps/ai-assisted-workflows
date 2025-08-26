@@ -73,8 +73,14 @@ class GeminiInstaller(BaseCLIInstaller):
 
         Gemini typically uses environment variables for API keys.
         """
+        # Skip auth configuration in OAuth mode
+        auth_mode = os.environ.get("EVALUATOR_AUTH_MODE", "apikey")
+        if auth_mode == "oauth":
+            print("🔐 Skipping auth configuration - OAuth will be handled separately")
+            return True
+
         if not token:
-            token = os.environ.get("GEMINI_OAUTH_TOKEN")
+            token = os.environ.get("GEMINI_API_KEY")  # Updated env var name
 
         if not token:
             print("⚠️  No API key provided for Gemini")
@@ -268,7 +274,7 @@ def main():
     installer = GeminiInstaller()
 
     # Get API key from environment
-    api_key = os.environ.get("GEMINI_OAUTH_TOKEN")
+    api_key = os.environ.get("GEMINI_API_KEY")
 
     # Install with authentication
     success = installer.install_with_auth(api_key)

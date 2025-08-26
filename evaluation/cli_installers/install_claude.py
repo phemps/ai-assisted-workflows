@@ -62,11 +62,17 @@ class ClaudeInstaller(BaseCLIInstaller):
 
     def configure_auth(self, token: Optional[str] = None) -> bool:
         """Configure Claude authentication using setup-token command."""
-        if not token:
-            token = os.environ.get("CLAUDE_AUTH_TOKEN")
+        # Skip auth configuration in OAuth mode
+        auth_mode = os.environ.get("EVALUATOR_AUTH_MODE", "apikey")
+        if auth_mode == "oauth":
+            print("🔐 Skipping auth configuration - OAuth will be handled separately")
+            return True
 
         if not token:
-            print("⚠️  No authentication token provided for Claude")
+            token = os.environ.get("CLAUDE_API_KEY")  # Updated env var name
+
+        if not token:
+            print("⚠️  No API key provided for Claude")
             return True  # Not necessarily an error
 
         print("🔐 Configuring Claude authentication...")
@@ -134,7 +140,7 @@ def main():
     installer = ClaudeInstaller()
 
     # Get token from environment
-    token = os.environ.get("CLAUDE_AUTH_TOKEN")
+    token = os.environ.get("CLAUDE_API_KEY")
 
     # Install with authentication
     success = installer.install_with_auth(token)

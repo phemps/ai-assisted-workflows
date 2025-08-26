@@ -8,6 +8,7 @@ Runs in background to avoid blocking Claude Code operations.
 Usage: Called automatically by Claude Code when PostToolUse events match Write|Edit|MultiEdit
 """
 
+import argparse
 import json
 import os
 import sys
@@ -74,13 +75,12 @@ def is_indexing_enabled(project_root: str) -> bool:
         return False
 
 
-def start_background_indexing(project_root: str, modified_files: List[str]) -> bool:
+def start_background_indexing(
+    project_root: str, modified_files: List[str], indexer_script_path: str
+) -> bool:
     """Start ChromaDB indexing in background process."""
     try:
-        # Path to the ChromaDBIndexer script
-        indexer_script = (
-            Path(project_root) / "shared" / "ci" / "core" / "chromadb_indexer.py"
-        )
+        indexer_script = Path(indexer_script_path)
 
         if not indexer_script.exists():
             print(
@@ -88,7 +88,7 @@ def start_background_indexing(project_root: str, modified_files: List[str]) -> b
             )
             return False
 
-        # Build command
+        # Build command - run indexer directly with absolute path and project root
         cmd = [
             sys.executable,
             str(indexer_script),
@@ -97,9 +97,29 @@ def start_background_indexing(project_root: str, modified_files: List[str]) -> b
             "--incremental",
         ]
 
-        # Add modified files
+        # Add modified files (convert to relative paths from project root)
         if modified_files:
-            cmd.extend(["--files"] + modified_files)
+            relative_files = []
+            for file_path in modified_files:
+                try:
+                    # Convert absolute paths to relative from project root
+                    if os.path.isabs(file_path):
+                        rel_path = os.path.relpath(file_path, project_root)
+                        relative_files.append(rel_path)
+                    else:
+                        relative_files.append(file_path)
+                except ValueError:
+                    # If we can't make it relative, use the original path
+                    relative_files.append(file_path)
+            cmd.extend(["--files"] + relative_files)
+
+        # Set up environment with proper Python path
+        env = os.environ.copy()
+        # Add the parent directory of the indexer script to PYTHONPATH for shared.* imports
+        indexer_parent = (
+            indexer_script.parent.parent.parent
+        )  # Go up from ci/core/ to shared parent
+        env["PYTHONPATH"] = str(indexer_parent)
 
         # Start background process with proper detachment
         subprocess.Popen(
@@ -107,7 +127,8 @@ def start_background_indexing(project_root: str, modified_files: List[str]) -> b
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,  # Detach from parent process
-            cwd=project_root,
+            cwd=project_root,  # Run from project root
+            env=env,
         )
 
         return True
@@ -138,6 +159,13 @@ def log_hook_activity(project_root: str, message: str) -> None:
 
 def main():
     """Main hook entry point."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="ChromaDB indexing hook for Claude Code"
+    )
+    parser.add_argument("--indexer-path", help="Path to chromadb_indexer.py script")
+    args = parser.parse_args()
+
     # Parse input from Claude Code
     hook_data = parse_hook_input()
 
@@ -156,6 +184,13 @@ def main():
         # Indexing not enabled, exit silently
         sys.exit(0)
 
+    # Check if indexer path was provided
+    if not args.indexer_path or not os.path.exists(args.indexer_path):
+        log_hook_activity(
+            project_root, f"Indexer path not provided or invalid: {args.indexer_path}"
+        )
+        sys.exit(0)
+
     # Extract modified files
     modified_files = extract_modified_files(hook_data)
 
@@ -169,7 +204,7 @@ def main():
     log_hook_activity(project_root, log_message)
 
     # Start background indexing
-    success = start_background_indexing(project_root, modified_files)
+    success = start_background_indexing(project_root, modified_files, args.indexer_path)
 
     if success:
         log_hook_activity(

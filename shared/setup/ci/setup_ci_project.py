@@ -105,6 +105,8 @@ def create_ci_config(
     threshold: float,
     auto_refactor: bool,
     languages: List[str],
+    hook_script_path: Optional[str] = None,
+    indexer_script_path: Optional[str] = None,
 ) -> bool:
     """Create CI configuration file."""
     print("Creating CI configuration...")
@@ -162,6 +164,14 @@ def create_ci_config(
             "compression_enabled": True,
         },
     }
+
+    # Add paths section if provided
+    if hook_script_path or indexer_script_path:
+        config["paths"] = {}
+        if hook_script_path:
+            config["paths"]["hook_script"] = hook_script_path
+        if indexer_script_path:
+            config["paths"]["indexer_script"] = indexer_script_path
 
     # Save unified CI configuration
     ci_config_file = Path(project_dir) / ".ci-registry" / "ci_config.json"
@@ -586,6 +596,10 @@ def main():
     parser.add_argument(
         "--auto-refactor", action="store_true", help="Enable automatic refactoring"
     )
+    parser.add_argument(
+        "--hook-script-path", help="Path to ChromaDB indexing hook script"
+    )
+    parser.add_argument("--indexer-script-path", help="Path to ChromaDB indexer script")
 
     args = parser.parse_args()
 
@@ -631,6 +645,8 @@ def main():
             args.threshold,
             args.auto_refactor,
             languages,
+            args.hook_script_path,
+            args.indexer_script_path,
         ):
             return 1
 

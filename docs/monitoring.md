@@ -52,9 +52,19 @@ The `/setup-ci-monitoring` command configures proactive code duplication detecti
 1. **Dependency Check and Setup** - Install continuous improvement dependencies
 2. **Environment Analysis** - Detect project technology stack automatically
 3. **Configuration Setup** - Setup project-specific continuous improvement configuration
-4. **GitHub Actions Setup** - Configure GitHub Actions workflows
-5. **Initial Registry Population** - Perform initial codebase analysis and symbol extraction
-6. **Post-Setup Verification** - Verify all systems are operational
+4. **Real-time Indexing Hooks** - Configure PostToolUse hooks for automatic ChromaDB indexing on file modifications
+5. **GitHub Actions Setup** - Configure GitHub Actions workflows
+6. **Initial Registry Population** - Perform initial codebase analysis and symbol extraction
+7. **Post-Setup Verification** - Verify all systems are operational
+
+### Real-time Code Indexing
+
+After setup, the system automatically maintains an up-to-date code index through:
+
+- **PostToolUse Hooks**: Triggered when Write, Edit, or MultiEdit tools are used in Claude Code
+- **Background Processing**: Non-blocking indexing that doesn't interfere with development workflow
+- **ChromaDB Vector Storage**: Maintains semantic embeddings for efficient duplicate detection
+- **Hook Logs**: Activity logged to `.ci-registry/logs/chromadb_hooks.log` for monitoring
 
 ## Quality Gates
 

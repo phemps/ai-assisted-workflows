@@ -585,3 +585,113 @@ The evaluation framework now provides enterprise-grade CLI tool testing with:
 - **Comprehensive Reporting**: 7 KPIs with configurable thresholds and alerting
 
 Framework is ready for production deployment and can be used to evaluate CLI tool reliability, performance, and API integration quality at scale.
+
+## 2025-08-26: OAuth Authentication in Docker Containers
+
+### Problem Identified
+
+The OAuth authentication for CLI tools in Docker containers is failing with "the input device is not a TTY" error because:
+
+1. **TTY Requirement**: The `docker exec -it` command requires an interactive terminal (TTY)
+2. **Subprocess Limitation**: When run through Python's subprocess module, there's no real TTY available
+3. **Browser Integration**: The OAuth flow needs to open a browser for authentication, which is challenging from within a container
+
+The current implementation in `evaluation/lib/evaluator.py` uses:
+
+- `docker exec -it` to run interactive OAuth commands
+- Commands like `claude -p /login` that expect browser-based authentication
+- Direct stdin/stdout/stderr passthrough for user interaction
+
+### Three Solution Options Explored
+
+#### Option 1: Allocate a Pseudo-TTY Using Python's `pty` Module
+
+- Modify `_setup_oauth_authentication` method to use Python's `pty.spawn()`
+- Create a pseudo-terminal that satisfies Docker's `-it` requirement
+- Browser URLs can be captured and displayed for manual interaction
+- **Pros**: Direct TTY emulation, maintains existing flow
+- **Cons**: Complex PTY handling, platform-specific issues possible
+
+#### Option 2: Use Docker's Browser Integration
+
+- Install a headless browser (e.g., Chromium) inside the container
+- Use `xvfb-run` for virtual display
+- Capture OAuth URLs and automate browser interaction
+- **Pros**: Fully automated, no host interaction needed
+- **Cons**: Complex setup, larger container images, debugging challenges
+
+#### Option 3: Hybrid Approach with Host Browser (SELECTED)
+
+- Modify OAuth flow to:
+  1. Start OAuth process in container without `-it` flag
+  2. Capture OAuth URL from CLI output using regex patterns
+  3. Open URL on host browser using Python's `webbrowser.open()`
+  4. Poll container for OAuth completion markers
+  5. Continue once authentication is detected
+- **Pros**: Simple implementation, uses native host browser, reliable
+- **Cons**: Requires parsing CLI output for URLs, polling for completion
+
+### Implementation Decision
+
+**Selected: Option 3 - Hybrid Approach with Host Browser**
+
+We're proceeding with Option 3 as it provides the best balance of simplicity and reliability. This approach:
+
+- Avoids complex PTY handling
+- Uses the user's actual browser for authentication
+- Maintains security by keeping tokens in container volumes
+- Can be implemented with minimal changes to existing code
+
+If Option 3 doesn't work as expected, we can pivot to:
+
+- Option 1 if we need true interactive terminal support
+- Option 2 if we need fully automated/headless operation
+
+### Implementation Progress
+
+#### Configuration Updates Completed
+
+Modified the evaluation system to properly handle OAuth and API key authentication modes:
+
+1. **Enhanced CLIToolConfig dataclass** with:
+
+   - `oauth_execution_pattern`: Separate execution pattern for OAuth mode (no API keys)
+   - `oauth_command`: Command to initiate OAuth authentication
+   - Maintained backward compatibility with existing API key patterns
+
+2. **Updated CLI_CONFIGS** with dual-mode support:
+
+   - Claude: Same pattern for both modes (no API key needed after OAuth)
+   - Qwen: OAuth pattern removes `--openai-api-key` parameter
+   - Gemini: Same pattern for both modes
+
+3. **Modified execution logic** to:
+
+   - Select appropriate execution pattern based on auth_mode
+   - Skip API key environment variables in OAuth mode
+   - Use oauth_command from config instead of hardcoded values
+
+4. **Key architectural insight**: OAuth is not just a one-time setup but affects all subsequent CLI executions, requiring different command patterns without API keys.
+
+### Testing Results
+
+#### OAuth Authentication Test with Claude CLI
+
+**Findings:**
+
+1. The hybrid approach (Option 3) successfully runs the OAuth command without TTY errors
+2. Claude CLI's `/login` command outputs terminal control sequences (`[2J[3J[H` - clear screen) but no OAuth URL
+3. The process completes without error (exit code 0) but authentication isn't actually successful
+4. When trying to execute commands afterward, Claude still reports "Invalid API key · Please run /login"
+
+**Issue Identified:**
+
+- Claude CLI's OAuth flow might require actual TTY interaction that can't be captured with simple stdout/stderr redirection
+- The `/login` command appears to be designed for interactive terminal use only
+- No URL is emitted that can be captured and opened in a browser
+
+**Next Steps:**
+
+1. Consider testing with Option 1 (pseudo-TTY using Python's pty module)
+2. Investigate if Claude CLI has an alternative authentication method for non-interactive environments
+3. Check if the OAuth tokens need to be persisted differently in the container

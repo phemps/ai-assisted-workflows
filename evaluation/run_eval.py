@@ -52,43 +52,46 @@ def print_usage_examples():
         """
 🎯 USAGE EXAMPLES:
 
-# Basic test with Claude
+# API Key Authentication (automated)
 python run_eval.py scenarios/baseline_task.yaml \\
   --cli-tool claude \\
-  --auth-token "your-claude-token"
+  --auth apikey \\
+  --api-key "your-claude-api-key"
 
-# Test with Qwen and OpenAI API key
+# OAuth Authentication (interactive)
+python run_eval.py scenarios/baseline_task.yaml \\
+  --cli-tool claude \\
+  --auth oauth
+
+# Test with Qwen using API key
 python run_eval.py scenarios/baseline_task.yaml \\
   --cli-tool qwen \\
-  --auth-token "sk-your-openai-api-key"
+  --auth apikey \\
+  --api-key "sk-your-openai-api-key"
 
-# Test with Gemini
+# Test with Gemini using OAuth (interactive)
 python run_eval.py scenarios/baseline_task.yaml \\
   --cli-tool gemini \\
-  --auth-token "your-gemini-api-key"
+  --auth oauth
 
 # One-time test (cleanup container after)
 python run_eval.py scenarios/baseline_task.yaml \\
   --cli-tool claude \\
-  --auth-token "your-token" \\
+  --auth apikey \\
+  --api-key "your-api-key" \\
   --tear-down
 
 # Save as baseline for comparison
 python run_eval.py scenarios/baseline_task.yaml \\
   --cli-tool claude \\
-  --auth-token "your-token" \\
+  --auth oauth \\
   --save-baseline
-
-# Compare with baseline
-python run_eval.py scenarios/baseline_task.yaml \\
-  --cli-tool claude \\
-  --auth-token "your-token" \\
-  --compare
 
 # Verbose mode (real-time output)
 python run_eval.py scenarios/baseline_task.yaml \\
   --cli-tool claude \\
-  --auth-token "your-token" \\
+  --auth apikey \\
+  --api-key "your-api-key" \\
   --verbose
 
 🔧 DOCKER MANAGEMENT:
@@ -104,11 +107,12 @@ python docker_cleanup.py --purge
 
 🔐 SECURITY NOTES:
 
-• Tokens are never stored in files, logs, or containers
-• Use environment variables for tokens in CI/CD:
-  export CLAUDE_AUTH_TOKEN="your-token"
-  python run_eval.py scenarios/baseline_task.yaml --cli-tool claude
+• API keys are never stored in files, logs, or containers
+• Use environment variables for API keys in CI/CD:
+  export CLAUDE_API_KEY="your-api-key"
+  python run_eval.py scenarios/baseline_task.yaml --cli-tool claude --auth apikey
 
+• OAuth credentials persist in container volumes for reuse
 • Containers are reused by default for efficiency
 • Use --tear-down for one-time tests or sensitive environments
 """
@@ -142,14 +146,17 @@ def sanitize_report(report: Dict[str, Any]) -> Dict[str, Any]:
 
     # Remove any potential sensitive keys
     sensitive_keys = [
+        "api_key",
         "auth_token",
         "token",
-        "api_key",
         "password",
         "secret",
-        "CLAUDE_AUTH_TOKEN",
-        "OPENAI_API_KEY",
+        "CLAUDE_API_KEY",
+        "QWEN_API_KEY",
         "GEMINI_API_KEY",
+        "CLAUDE_AUTH_TOKEN",  # Legacy
+        "OPENAI_API_KEY",
+        "GEMINI_AUTH_TOKEN",  # Legacy
     ]
 
     def remove_sensitive(obj):
@@ -194,8 +201,12 @@ def main():
 
     # Authentication
     parser.add_argument(
-        "--auth-token", help="Authentication token/API key (never stored)"
+        "--auth",
+        choices=["oauth", "apikey"],
+        default="apikey",
+        help="Authentication method (default: apikey)",
     )
+    parser.add_argument("--api-key", help="API key for authentication (never stored)")
 
     # Test options
     parser.add_argument(
@@ -263,36 +274,44 @@ def main():
     # Load environment variables from .env file
     load_dotenv()
 
-    # Get auth token from command line, .env file, or environment
-    auth_token = args.auth_token
-    if not auth_token:
-        env_vars = {
-            "claude": "CLAUDE_OAUTH_TOKEN",
-            "qwen": "QWEN_OAUTH_TOKEN",
-            "gemini": "GEMINI_OAUTH_TOKEN",
-        }
+    # Handle authentication based on mode
+    api_key = None
+    if args.auth == "apikey":
+        # Get API key from command line, .env file, or environment
+        api_key = args.api_key
+        if not api_key:
+            env_vars = {
+                "claude": "CLAUDE_API_KEY",
+                "qwen": "QWEN_API_KEY",
+                "gemini": "GEMINI_API_KEY",
+            }
 
-        env_var = env_vars.get(args.cli_tool)
-        if env_var:
-            auth_token = os.environ.get(env_var)
-            if auth_token:
-                print(f"📋 Using {env_var} from .env or environment")
+            env_var = env_vars.get(args.cli_tool)
+            if env_var:
+                api_key = os.environ.get(env_var)
+                if api_key:
+                    print(f"📋 Using {env_var} from .env or environment")
 
-    # Validate token is present
-    if not auth_token:
-        env_vars = {
-            "claude": "CLAUDE_OAUTH_TOKEN",
-            "qwen": "QWEN_OAUTH_TOKEN",
-            "gemini": "GEMINI_OAUTH_TOKEN",
-        }
-        print(f"❌ No authentication token provided for {args.cli_tool}")
-        print("\nPlease provide a token using one of these methods:")
-        print("1. Command line: --auth-token 'your-token'")
-        print(f"2. .env file: {env_vars.get(args.cli_tool, 'UNKNOWN')}=your-token")
-        print(
-            f"3. Environment variable: export {env_vars.get(args.cli_tool, 'UNKNOWN')}=your-token"
-        )
-        return 1
+        # Validate API key is present for API key mode
+        if not api_key:
+            env_vars = {
+                "claude": "CLAUDE_API_KEY",
+                "qwen": "QWEN_API_KEY",
+                "gemini": "GEMINI_API_KEY",
+            }
+            print(f"❌ No API key provided for {args.cli_tool}")
+            print("\nPlease provide an API key using one of these methods:")
+            print("1. Command line: --api-key 'your-api-key'")
+            print(
+                f"2. .env file: {env_vars.get(args.cli_tool, 'UNKNOWN')}=your-api-key"
+            )
+            print(
+                f"3. Environment variable: export {env_vars.get(args.cli_tool, 'UNKNOWN')}=your-api-key"
+            )
+            return 1
+    else:  # OAuth mode
+        print(f"🔐 Using OAuth authentication for {args.cli_tool}")
+        print("Interactive authentication will be required after CLI installation.")
 
     try:
         # Create CLI evaluator
@@ -300,7 +319,8 @@ def main():
             scenario_path=args.scenario,
             cli_tool=args.cli_tool,
             prompt=args.prompt,
-            auth_token=auth_token,
+            auth_mode=args.auth,
+            api_key=api_key,
             tear_down=args.tear_down,
             verbose=args.verbose,
         )

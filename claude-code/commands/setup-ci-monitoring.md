@@ -118,8 +118,8 @@ All code will be monitored for duplication automatically.
    **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/ (without paths section)
 
 2. **Configure Claude Code PostToolUse hooks for real-time indexing**
-   **Tool**: Read - Check existing `.claude/settings.local.json`
-   **Tool**: Write - Update `.claude/settings.local.json` with hook command using resolved paths:
+   **Tool**: Read - Check existing `$(pwd)/.claude/settings.local.json` (current project directory)
+   **Tool**: Write - Update `$(pwd)/.claude/settings.local.json` with hook command using resolved script paths:
 
    ```json
    {
@@ -141,6 +141,7 @@ All code will be monitored for duplication automatically.
    ```
 
    **Expected**: PostToolUse hooks configured for file modification tools
+   **Note**: [SCRIPT_PATH] is only used for Python command paths within the hook, not for the settings file location
 
 3. **Make hook script executable**
 

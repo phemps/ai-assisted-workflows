@@ -172,14 +172,14 @@ def import_file_utils() -> Any:
 # ============================================================================
 
 
-def import_chromadb_storage() -> Type:
-    """Import ChromaDBStorage class."""
+def import_chromadb_storage() -> Any:
+    """Import ChromaDB storage module."""
     cache_key = "chromadb_storage"
     if cache_key not in _import_cache:
         module = _try_import(
             ["ci.core.chromadb_storage", "shared.ci.core.chromadb_storage"]
         )
-        _import_cache[cache_key] = module.ChromaDBStorage
+        _import_cache[cache_key] = module
     return _import_cache[cache_key]
 
 
@@ -194,14 +194,14 @@ def import_chromadb_indexer() -> Type:
     return _import_cache[cache_key]
 
 
-def import_embedding_engine() -> Type:
-    """Import EmbeddingEngine class."""
+def import_embedding_engine() -> Any:
+    """Import embedding engine module."""
     cache_key = "embedding_engine"
     if cache_key not in _import_cache:
         module = _try_import(
             ["ci.core.embedding_engine", "shared.ci.core.embedding_engine"]
         )
-        _import_cache[cache_key] = module.EmbeddingEngine
+        _import_cache[cache_key] = module
     return _import_cache[cache_key]
 
 
@@ -261,6 +261,20 @@ def import_codebase_search() -> Any:
     if cache_key not in _import_cache:
         module = _try_import(
             ["ci.tools.codebase_search", "shared.ci.tools.codebase_search"]
+        )
+        _import_cache[cache_key] = module
+    return _import_cache[cache_key]
+
+
+def import_orchestration_bridge() -> Any:
+    """Import orchestration bridge module."""
+    cache_key = "orchestration_bridge"
+    if cache_key not in _import_cache:
+        module = _try_import(
+            [
+                "ci.integration.orchestration_bridge",
+                "shared.ci.integration.orchestration_bridge",
+            ]
         )
         _import_cache[cache_key] = module
     return _import_cache[cache_key]

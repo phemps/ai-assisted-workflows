@@ -47,16 +47,18 @@ except ImportError as e:
 
 # Handle OrchestrationBridge separately with its own smart import
 try:
-    from smart_imports import import_codebase_search
+    from smart_imports import import_orchestration_bridge
 except ImportError as e:
     print(f"Error importing smart imports for orchestration: {e}", file=sys.stderr)
     sys.exit(1)
 try:
-    # Import OrchestrationBridge through codebase search smart import function
-    orchestration_module = import_codebase_search()
+    # Import OrchestrationBridge through orchestration bridge smart import function
+    orchestration_module = import_orchestration_bridge()
     OrchestrationBridge = getattr(orchestration_module, "OrchestrationBridge", None)
     if not OrchestrationBridge:
-        raise ImportError("OrchestrationBridge not found in codebase search module")
+        raise ImportError(
+            "OrchestrationBridge not found in orchestration bridge module"
+        )
 except ImportError as e:
     print(f"CRITICAL: Cannot import OrchestrationBridge: {e}")
     print(f"Python path: {sys.path}")
@@ -183,6 +185,14 @@ if __name__ == '__main__':
         # Change to test directory
         self.original_cwd = os.getcwd()
         os.chdir(self.project_root)
+
+        # Clear smart imports cache to avoid conflicts from previous tests
+        try:
+            from smart_imports import clear_import_cache
+
+            clear_import_cache()
+        except ImportError:
+            pass  # Function might not exist in all versions
 
         # Initialize bridge in test mode with direct config path
         test_config_path = Path(__file__).parent / "ci_config_test.json"
@@ -363,6 +373,13 @@ if __name__ == '__main__':
         # Test with no specific changed files (full project analysis)
         result = self.bridge.process_duplicates_for_github_actions()
 
+        # Debug: Print error details if status is error
+        if result.get("status") == "error":
+            print("❌ ERROR in full E2E workflow test:")
+            print(f"   Error: {result.get('error', 'No error message')}")
+            print(f"   Message: {result.get('message', 'No message')}")
+            print(f"   Full result: {result}")
+
         # Verify successful processing
         self.assertEqual(result["status"], "success")
         self.assertIn("findings_processed", result)
@@ -418,6 +435,13 @@ if __name__ == '__main__':
         # Test with non-existent files
         non_existent_files = ["non_existent_file.py"]
         result = self.bridge.process_duplicates_for_github_actions(non_existent_files)
+
+        # Debug: Print error details if status is error
+        if result.get("status") == "error":
+            print("❌ ERROR in non-existent files test:")
+            print(f"   Error: {result.get('error', 'No error message')}")
+            print(f"   Message: {result.get('message', 'No message')}")
+            print(f"   Full result: {result}")
 
         # Should complete successfully even with invalid files
         self.assertEqual(result["status"], "success")

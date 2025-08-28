@@ -17,14 +17,28 @@ from typing import Dict, Any
 import hashlib
 import subprocess
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-
+# Use smart imports for module access
 try:
-    from shared.core.utils.output_formatter import ResultFormatter, AnalysisResult
-    from shared.core.utils.tech_stack_detector import TechStackDetector
-    from shared.core.utils.cross_platform import PlatformDetector
+    from smart_imports import (
+        import_output_formatter,
+        import_tech_stack_detector,
+        import_cross_platform,
+    )
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import utilities
+try:
+    output_formatter_module = import_output_formatter()
+    ResultFormatter = output_formatter_module.ResultFormatter
+    AnalysisResult = output_formatter_module.AnalysisResult
+
+    tech_stack_module = import_tech_stack_detector()
+    TechStackDetector = tech_stack_module.TechStackDetector
+
+    cross_platform_module = import_cross_platform()
+    PlatformDetector = cross_platform_module.PlatformDetector
 except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)

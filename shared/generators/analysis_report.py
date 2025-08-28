@@ -12,14 +12,18 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-
+# Use smart imports for module access
 try:
-    from shared.core.utils.output_formatter import ResultFormatter, AnalysisResult
+    from smart_imports import import_output_formatter
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    output_formatter_module = import_output_formatter()
+    ResultFormatter = output_formatter_module.ResultFormatter
+    AnalysisResult = output_formatter_module.AnalysisResult
+except ImportError as e:
+    print(f"Error importing output formatter: {e}", file=sys.stderr)
     sys.exit(1)
 
 

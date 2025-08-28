@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from .error_handler import CIErrorHandler, CIErrorContext
+from .error_handler import CIErrorHandler
 
 
 class CIModuleBase:
@@ -20,18 +20,9 @@ class CIModuleBase:
         self.project_root = Path(project_root) if project_root else Path.cwd()
         self.logger = None
 
-        # Setup common paths and imports
-        self._setup_paths()
+        # Setup common logging and common utilities
         self._setup_logging()
         self._import_common_utilities()
-
-    def _setup_paths(self) -> None:
-        """Setup sys.path for utility imports."""
-        script_dir = Path(__file__).parent.parent.parent
-        utils_path = script_dir / "utils"
-
-        if str(utils_path) not in sys.path:
-            sys.path.insert(0, str(utils_path))
 
     def _setup_logging(self) -> None:
         """Setup module-specific logging."""
@@ -47,37 +38,32 @@ class CIModuleBase:
 
     def _import_common_utilities(self) -> None:
         """Import commonly used utilities with error handling."""
-        with CIErrorContext("importing common utilities", self.module_name):
-            try:
-                # Import common utilities that are used across modules
-                global ResultFormatter, AnalysisResult, TechStackDetector, PlatformDetector
-                global CrossPlatformUtils, OutputFormatter
+        # Use smart imports for utility access
+        try:
+            from smart_imports import (
+                import_output_formatter,
+                import_tech_stack_detector,
+                import_file_utils,
+            )
+        except ImportError as e:
+            print(f"Error importing smart imports: {e}", file=sys.stderr)
+            sys.exit(1)
 
-                from shared.core.utils.output_formatter import (
-                    ResultFormatter,
-                    AnalysisResult,
-                )
-                from shared.core.utils.tech_stack_detector import TechStackDetector
+        try:
+            # Import utilities through smart_imports
+            output_formatter_module = import_output_formatter()
+            tech_stack_module = import_tech_stack_detector()
+            file_utils_module = import_file_utils()
 
-                try:
-                    from shared.core.utils.cross_platform import (
-                        PlatformDetector,
-                        CrossPlatformUtils,
-                    )
-                except ImportError:
-                    # Platform utilities may not be available in all environments
-                    PlatformDetector = None
-                    CrossPlatformUtils = None
-                    self.logger.warning("Platform utilities not available")
+            # Extract classes/functions (all are always present)
+            self.ResultFormatter = output_formatter_module.ResultFormatter
+            self.AnalysisResult = output_formatter_module.AnalysisResult
+            self.TechStackDetector = tech_stack_module.TechStackDetector
+            self.PlatformDetector = file_utils_module.PlatformDetector
+            self.CrossPlatformUtils = file_utils_module.CrossPlatformUtils
 
-                self.ResultFormatter = ResultFormatter
-                self.AnalysisResult = AnalysisResult
-                self.TechStackDetector = TechStackDetector
-                self.PlatformDetector = PlatformDetector
-                self.CrossPlatformUtils = CrossPlatformUtils
-
-            except ImportError as e:
-                CIErrorHandler.import_error("common utilities", e)
+        except ImportError as e:
+            CIErrorHandler.import_error("common utilities", e)
 
     def get_config_path(self, config_name: str) -> Path:
         """Get path to configuration file."""

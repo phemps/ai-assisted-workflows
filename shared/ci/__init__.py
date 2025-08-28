@@ -7,8 +7,6 @@ This module provides the foundational continuous improvement framework
 that integrates with the existing 8-agent orchestration system.
 """
 
-import sys
-from pathlib import Path
 
 # Framework components
 from .detection.quality_gate_detector import QualityGateDetector, QualityGateStatus
@@ -23,8 +21,7 @@ from .metrics.ci_metrics_collector import (
 )
 
 # Ensure proper imports are available
-script_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Use smart imports for module access
 
 # Version and metadata
 __version__ = "1.0.0"

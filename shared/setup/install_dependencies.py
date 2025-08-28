@@ -7,18 +7,27 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-
+# Use smart imports for module access
 try:
-    from cross_platform import (
-        PlatformDetector,
-        CommandExecutor,
-        DependencyChecker,
-    )
+    from smart_imports import import_file_utils
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    file_utils_module = import_file_utils()
+    PlatformDetector = file_utils_module.PlatformDetector
+    CrossPlatformUtils = file_utils_module.CrossPlatformUtils
+    # Extract additional utilities from the cross-platform module
+    CommandExecutor = getattr(file_utils_module, "CommandExecutor", None)
+    DependencyChecker = getattr(file_utils_module, "DependencyChecker", None)
+
+    # Verify required classes are available
+    if not all(
+        [PlatformDetector, CrossPlatformUtils, CommandExecutor, DependencyChecker]
+    ):
+        raise ImportError("Missing required cross-platform utilities")
+except ImportError as e:
+    print(f"Error importing file utils: {e}", file=sys.stderr)
     sys.exit(1)
 
 

@@ -19,24 +19,47 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 import sys
 
-# Add project root to Python path for absolute imports
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-# Test imports - using absolute imports from project root
+# Use smart imports for module access
 try:
-    from shared.ci.integration.orchestration_bridge import OrchestrationBridge
-    from shared.ci.core.semantic_duplicate_detector import DuplicateFinder
-    from shared.ci.workflows.decision_matrix import (
-        DecisionMatrix,
-        ActionType,
-        DuplicationContext,
+    from smart_imports import (
+        import_semantic_duplicate_detector,
+        import_decision_matrix,
     )
-    from shared.ci.core.exceptions import CISymbolExtractionError
 except ImportError as e:
-    print(f"CRITICAL: Cannot import required components: {e}")
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    # Import CI components through smart imports
+    semantic_detector_module = import_semantic_duplicate_detector()
+    decision_matrix_module = import_decision_matrix()
+
+    # Extract required classes
+    DuplicateFinder = semantic_detector_module.DuplicateFinder
+    DecisionMatrix = decision_matrix_module.DecisionMatrix
+    ActionType = decision_matrix_module.ActionType
+    DuplicationContext = decision_matrix_module.DuplicationContext
+    CISymbolExtractionError = getattr(
+        semantic_detector_module, "CISymbolExtractionError", Exception
+    )
+except ImportError as e:
+    print(f"Error importing CI components: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Handle OrchestrationBridge separately with its own smart import
+try:
+    from smart_imports import import_codebase_search
+except ImportError as e:
+    print(f"Error importing smart imports for orchestration: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    # Import OrchestrationBridge through codebase search smart import function
+    orchestration_module = import_codebase_search()
+    OrchestrationBridge = getattr(orchestration_module, "OrchestrationBridge", None)
+    if not OrchestrationBridge:
+        raise ImportError("OrchestrationBridge not found in codebase search module")
+except ImportError as e:
+    print(f"CRITICAL: Cannot import OrchestrationBridge: {e}")
     print(f"Python path: {sys.path}")
-    print(f"Project root: {project_root}")
     sys.exit(1)
 
 

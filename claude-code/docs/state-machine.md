@@ -157,25 +157,25 @@ Each task maintains metadata:
 
 ```typescript
 interface TaskState {
-  id: string;
-  title: string;
-  currentState: State;
-  previousState?: State;
-  assignedAgent?: string;
-  failureCount: number;
-  ctoAttempts: number;
-  stateHistory: StateTransition[];
-  createdAt: Date;
-  updatedAt: Date;
-  timeInState: number;
+  id: string
+  title: string
+  currentState: State
+  previousState?: State
+  assignedAgent?: string
+  failureCount: number
+  ctoAttempts: number
+  stateHistory: StateTransition[]
+  createdAt: Date
+  updatedAt: Date
+  timeInState: number
 }
 
 interface StateTransition {
-  fromState: State;
-  toState: State;
-  timestamp: Date;
-  reason: string;
-  actor: string;
+  fromState: State
+  toState: State
+  timestamp: Date
+  reason: string
+  actor: string
 }
 ```
 
@@ -219,10 +219,10 @@ if (stateFailures >= 3 && ctoAttempts === 0) {
 
 ```typescript
 interface TimeMetrics {
-  stateEnteredAt: Date;
-  timeInState: number; // minutes
-  totalTaskTime: number; // minutes
-  timeByState: Map<State, number>;
+  stateEnteredAt: Date
+  timeInState: number // minutes
+  totalTaskTime: number // minutes
+  timeByState: Map<State, number>
 }
 ```
 
@@ -251,9 +251,9 @@ function validateTransition(from: State, to: State): boolean {
     assigned: ["planning"],
     planning: ["validated", "planning", "cto_intervention"],
     // ... etc
-  };
+  }
 
-  return validTransitions[from]?.includes(to) || false;
+  return validTransitions[from]?.includes(to) || false
 }
 ```
 

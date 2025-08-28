@@ -4,15 +4,12 @@ Test installation script - non-interactive version for validation.
 """
 
 import sys
-from pathlib import Path
 
-# Add the setup directory to path
-sys.path.insert(0, str(Path(__file__).parent))
-
+# Import from same directory
 try:
     from install_dependencies import DependencyInstaller
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing install dependencies: {e}", file=sys.stderr)
     sys.exit(1)
 
 

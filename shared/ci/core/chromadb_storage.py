@@ -19,46 +19,50 @@ from enum import Enum
 
 import numpy as np
 
-# ChromaDB imports - fail fast if unavailable
+# Required imports - fail fast if unavailable
 try:
     # OpenTelemetry compatibility patch for ChromaDB
-    try:
-        from opentelemetry.sdk import environment_variables
+    from opentelemetry.sdk import environment_variables
 
-        # Add missing constants for compatibility with older OpenTelemetry versions
-        missing_constants = [
-            "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE",
-            "OTEL_EXPORTER_OTLP_CLIENT_KEY",
-            "OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE",
-            "OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY",
-            "OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE",
-            "OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY",
-            "OTEL_EXPORTER_OTLP_LOGS_CLIENT_CERTIFICATE",
-            "OTEL_EXPORTER_OTLP_LOGS_CLIENT_KEY",
-        ]
-        for const_name in missing_constants:
-            if not hasattr(environment_variables, const_name):
-                setattr(environment_variables, const_name, const_name)
-    except ImportError:
-        # OpenTelemetry not available, ChromaDB might still work
-        pass
+    # Add missing constants for compatibility with older OpenTelemetry versions
+    missing_constants = [
+        "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE",
+        "OTEL_EXPORTER_OTLP_CLIENT_KEY",
+        "OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE",
+        "OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY",
+        "OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE",
+        "OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY",
+        "OTEL_EXPORTER_OTLP_LOGS_CLIENT_CERTIFICATE",
+        "OTEL_EXPORTER_OTLP_LOGS_CLIENT_KEY",
+    ]
+    for const_name in missing_constants:
+        if not hasattr(environment_variables, const_name):
+            setattr(environment_variables, const_name, const_name)
 
     import chromadb
     from chromadb.config import Settings
 except ImportError as e:
-    print(f"ERROR: ChromaDB not available: {e}", file=sys.stderr)
-    print("Please install ChromaDB: pip install chromadb", file=sys.stderr)
+    print(f"ERROR: Required dependencies not available: {e}", file=sys.stderr)
+    print(
+        "Please install required packages: pip install chromadb opentelemetry-api",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+# Use smart imports for module access
+try:
+    from smart_imports import import_symbol_extractor
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Import Symbol from integration
 try:
-    from shared.ci.integration.symbol_extractor import Symbol
+    symbol_extractor_module = import_symbol_extractor()
+    Symbol = symbol_extractor_module.Symbol
+    SymbolType = symbol_extractor_module.SymbolType
 except ImportError as e:
-    print(f"ERROR: Symbol not available: {e}", file=sys.stderr)
-    print(
-        "Please ensure PYTHONPATH includes project root and run from project root directory",
-        file=sys.stderr,
-    )
+    print(f"Error importing symbol extractor: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -569,8 +573,6 @@ class ChromaDBStorage:
 
     def _metadata_to_symbol(self, metadata: Dict[str, Any]) -> Symbol:
         """Convert ChromaDB metadata back to Symbol object."""
-        from shared.ci.integration.symbol_extractor import SymbolType
-
         # Convert parameters string back to list
         params_str = metadata.get("parameters", "")
         parameters = params_str.split(",") if params_str else []
@@ -672,7 +674,10 @@ class ChromaDBStorage:
         """Create DuplicateFinderConfig with proper exclusions from CI config"""
         try:
             import json
-            from shared.ci.core.semantic_duplicate_detector import DuplicateFinderConfig
+            from smart_imports import import_semantic_duplicate_detector
+
+            semantic_detector_module = import_semantic_duplicate_detector()
+            DuplicateFinderConfig = semantic_detector_module.DuplicateFinderConfig
 
             # Try to load CI config
             ci_config_path = Path(self.project_root) / ".ci-registry" / "ci_config.json"
@@ -708,9 +713,10 @@ class ChromaDBStorage:
 
         try:
             # Import semantic duplicate detector for symbol extraction
-            from shared.ci.core.semantic_duplicate_detector import (
-                DuplicateFinder,
-            )
+            from smart_imports import import_semantic_duplicate_detector
+
+            semantic_detector_module = import_semantic_duplicate_detector()
+            DuplicateFinder = semantic_detector_module.DuplicateFinder
 
             # Load CI config to get proper exclusions
             config = self._create_duplicate_finder_config()
@@ -727,8 +733,10 @@ class ChromaDBStorage:
             print(f"Extracted {len(symbols)} symbols from project")
 
             # Generate embeddings
-            from shared.ci.core.embedding_engine import EmbeddingEngine
+            from smart_imports import import_embedding_engine
 
+            embedding_engine_module = import_embedding_engine()
+            EmbeddingEngine = embedding_engine_module.EmbeddingEngine
             embedding_engine = EmbeddingEngine()
 
             # Process in batches to avoid memory issues
@@ -875,8 +883,6 @@ def main():
     )
 
     # Create test symbols
-    from shared.ci.integration.symbol_extractor import Symbol, SymbolType
-
     test_symbols = []
     for i in range(args.test_vectors):
         symbol = Symbol(

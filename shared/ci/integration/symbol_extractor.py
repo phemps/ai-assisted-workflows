@@ -14,13 +14,25 @@ from typing import List, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-
+# Use smart imports for module access
 try:
-    from shared.core.utils.output_formatter import AnalysisResult, ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from smart_imports import import_output_formatter, import_tech_stack_detector
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import utilities
+try:
+    output_formatter_module = import_output_formatter()
+    AnalysisResult = output_formatter_module.AnalysisResult
+    ResultFormatter = output_formatter_module.ResultFormatter
+    AnalysisType = output_formatter_module.AnalysisType
+    Finding = output_formatter_module.Finding
+    Severity = output_formatter_module.Severity
+
+    tech_stack_module = import_tech_stack_detector()
+    TechStackDetector = tech_stack_module.TechStackDetector
+    TechStackConfig = tech_stack_module.TechStackConfig
 except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)
@@ -371,7 +383,6 @@ class SymbolExtractor:
         except ImportError:
             # Fallback import for direct execution
             try:
-                sys.path.insert(0, str(Path(__file__).parent.parent / "core"))
                 from lsp_symbol_extractor import (
                     LSPSymbolExtractor,
                     SymbolExtractionConfig,
@@ -478,13 +489,6 @@ class SymbolExtractor:
         execution_time = time.time() - start_time
 
         # Convert to proper AnalysisResult format
-        from shared.core.utils.output_formatter import (
-            AnalysisResult,
-            AnalysisType,
-            Finding,
-            Severity,
-        )
-
         result = AnalysisResult(
             analysis_type=AnalysisType.CODE_QUALITY,
             script_name="symbol_extractor.py",
@@ -565,8 +569,6 @@ class SymbolExtractor:
 
     def _get_default_tech_config(self):
         """Get default tech config when no tech stacks are detected."""
-        from shared.core.utils.tech_stack_detector import TechStackConfig
-
         return TechStackConfig(
             name="Universal",
             primary_languages={"unknown"},

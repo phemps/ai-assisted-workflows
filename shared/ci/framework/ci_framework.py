@@ -13,15 +13,28 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-sys.path.insert(0, str(script_dir / "continuous-improvement"))
-
+# Use smart imports for module access
 try:
-    from shared.core.utils.output_formatter import AnalysisResult, ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
-    from ..integration.symbol_extractor import SymbolExtractor
+    from smart_imports import (
+        import_output_formatter,
+        import_tech_stack_detector,
+        import_symbol_extractor,
+    )
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import utilities
+try:
+    output_formatter_module = import_output_formatter()
+    AnalysisResult = output_formatter_module.AnalysisResult
+    ResultFormatter = output_formatter_module.ResultFormatter
+
+    tech_stack_module = import_tech_stack_detector()
+    TechStackDetector = tech_stack_module.TechStackDetector
+
+    symbol_extractor_module = import_symbol_extractor()
+    SymbolExtractor = symbol_extractor_module.SymbolExtractor
 except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)

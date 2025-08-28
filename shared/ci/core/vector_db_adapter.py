@@ -10,22 +10,23 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+import sys
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 
-# Import Symbol from integration
+# Use smart imports for Symbol
 try:
-    from ..integration.symbol_extractor import Symbol
-except ImportError:
-    try:
-        # Fallback for direct execution
-        import sys
+    from smart_imports import import_symbol_extractor
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
 
-        sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
-        from symbol_extractor import Symbol
-    except ImportError as e:
-        print(f"Error importing Symbol: {e}", file=sys.stderr)
-        sys.exit(1)
+try:
+    symbol_extractor_module = import_symbol_extractor()
+    Symbol = symbol_extractor_module.Symbol
+except ImportError as e:
+    print(f"Error importing Symbol: {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 class StorageBackend(Enum):

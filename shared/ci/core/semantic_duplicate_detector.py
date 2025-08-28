@@ -53,81 +53,42 @@ from enum import Enum
 import numpy as np
 
 # Import CI exceptions for proper error handling
+from .exceptions import (
+    CISystemError,
+    CIDependencyError,
+    CISymbolExtractionError,
+    CIEmbeddingError,
+    CISimilarityError,
+)
+
+# Use smart imports for utilities
 try:
-    from .exceptions import (
-        CISystemError,
-        CIDependencyError,
-        CIAnalysisError,
-        CISymbolExtractionError,
-        CIEmbeddingError,
-        CISimilarityError,
+    from smart_imports import (
+        import_output_formatter,
+        import_tech_stack_detector,
+        import_symbol_extractor,
     )
-except ImportError:
-    # Direct execution fallback
-    try:
-        from exceptions import (
-            CISystemError,
-            CIDependencyError,
-            CIAnalysisError,
-            CISymbolExtractionError,
-            CIEmbeddingError,
-            CISimilarityError,
-        )
-    except ImportError:
-        # Fallback definitions for standalone execution
-        class CISystemError(Exception):
-            def __init__(self, message: str, exit_code: int = 1):
-                super().__init__(message)
-                self.exit_code = exit_code
-                self.message = message
-
-        CIDependencyError = CIAnalysisError = CISymbolExtractionError = CISystemError
-        CIEmbeddingError = CISimilarityError = CISystemError
-
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
 
 # Import utilities and existing components
 try:
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    output_formatter_module = import_output_formatter()
+    ResultFormatter = output_formatter_module.ResultFormatter
+
+    tech_stack_module = import_tech_stack_detector()
+    TechStackDetector = tech_stack_module.TechStackDetector
+
+    symbol_extractor_module = import_symbol_extractor()
+    Symbol = symbol_extractor_module.Symbol
 except ImportError as e:
     raise CIDependencyError(f"Error importing utilities: {e}")
 
 # Import core components - ALL REQUIRED
-try:
-    from .lsp_symbol_extractor import LSPSymbolExtractor, SymbolExtractionConfig
-    from .embedding_engine import EmbeddingEngine, EmbeddingConfig
-    from .chromadb_storage import ChromaDBStorage, ChromaDBConfig
-except ImportError:
-    try:
-        # Direct execution import
-        from lsp_symbol_extractor import LSPSymbolExtractor, SymbolExtractionConfig
-        from embedding_engine import EmbeddingEngine, EmbeddingConfig
-        from chromadb_storage import ChromaDBStorage, ChromaDBConfig
-    except ImportError as e:
-        context = {
-            "required_components": [
-                "LSPSymbolExtractor (Language Server Protocol integration)",
-                "EmbeddingEngine (CodeBERT/transformers)",
-                "ChromaDBStorage (Unified vector storage and metadata)",
-            ]
-        }
-        raise CIDependencyError(
-            f"Missing required core components: {e}", context=context
-        )
-
-# Import Symbol
-try:
-    from ..integration.symbol_extractor import Symbol
-except ImportError:
-    try:
-        # Fallback for direct execution
-        sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
-        from symbol_extractor import Symbol
-    except ImportError as e:
-        raise CIDependencyError(f"Error importing Symbol: {e}")
+from .lsp_symbol_extractor import LSPSymbolExtractor, SymbolExtractionConfig
+from .embedding_engine import EmbeddingEngine, EmbeddingConfig
+from .chromadb_storage import ChromaDBStorage, ChromaDBConfig
 
 
 # Define comparison types and results directly (extracted from removed comparison_framework)

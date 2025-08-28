@@ -28,21 +28,25 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from functools import lru_cache
 
-# Import core search functionality
+# Use smart imports for module access
 try:
-    from shared.ci.tools.codebase_search import (
-        CodebaseSearchEngine,
-        CodebaseSearchResult,
-    )
+    from smart_imports import import_codebase_search, import_symbol_extractor
 except ImportError as e:
-    print(f"FATAL: CodebaseSearchEngine not available: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
     sys.exit(1)
 
-# Import symbol utilities - needed for type hints and runtime use
+# Import core search functionality
 try:
-    from shared.ci.integration.symbol_extractor import Symbol, SymbolType  # noqa: F401
+    codebase_search_module = import_codebase_search()
+    CodebaseSearchEngine = codebase_search_module.CodebaseSearchEngine
+    CodebaseSearchResult = codebase_search_module.CodebaseSearchResult
+
+    symbol_extractor_module = import_symbol_extractor()
+    Symbol = symbol_extractor_module.Symbol  # noqa: F401
+    SymbolType = symbol_extractor_module.SymbolType  # noqa: F401
 except ImportError as e:
-    print(f"WARNING: Symbol utilities not available: {e}", file=sys.stderr)
+    print(f"Error importing search components: {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 @dataclass

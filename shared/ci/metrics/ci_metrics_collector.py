@@ -15,15 +15,23 @@ from dataclasses import dataclass, asdict
 
 import psutil
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
-
+# Use smart imports for module access
 try:
-    from shared.core.utils.output_formatter import AnalysisResult, ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    from smart_imports import import_output_formatter, import_tech_stack_detector
 except ImportError as e:
-    print(f"Error importing required dependencies: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import utilities
+try:
+    output_formatter_module = import_output_formatter()
+    AnalysisResult = output_formatter_module.AnalysisResult
+    ResultFormatter = output_formatter_module.ResultFormatter
+
+    tech_stack_module = import_tech_stack_detector()
+    TechStackDetector = tech_stack_module.TechStackDetector
+except ImportError as e:
+    print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)
 
 

@@ -5,19 +5,19 @@
 ### Next.js API Route Pattern
 
 ```typescript
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate-limit";
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { rateLimit } from "@/lib/rate-limit"
 
 // Input validation schema
 const updateUserSchema = z.object({
   name: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
   bio: z.string().max(500).optional(),
-});
+})
 
 export async function GET(
   request: NextRequest,
@@ -25,11 +25,11 @@ export async function GET(
 ) {
   try {
     // Rate limiting
-    const identifier = request.ip ?? "anonymous";
-    const { success } = await rateLimit.check(identifier);
+    const identifier = request.ip ?? "anonymous"
+    const { success } = await rateLimit.check(identifier)
 
     if (!success) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
 
     // Get user
@@ -43,19 +43,19 @@ export async function GET(
         createdAt: true,
         updatedAt: true,
       },
-    });
+    })
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(user)
   } catch (error) {
-    console.error("Error fetching user:", error);
+    console.error("Error fetching user:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
-    );
+    )
   }
 }
 
@@ -65,19 +65,19 @@ export async function PATCH(
 ) {
   try {
     // Authentication
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Authorization - users can only update their own profile
     if (session.user.id !== params.userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     // Parse and validate input
-    const body = await request.json();
-    const validatedData = updateUserSchema.parse(body);
+    const body = await request.json()
+    const validatedData = updateUserSchema.parse(body)
 
     // Update user
     const updatedUser = await prisma.user.update({
@@ -94,22 +94,22 @@ export async function PATCH(
         createdAt: true,
         updatedAt: true,
       },
-    });
+    })
 
-    return NextResponse.json(updatedUser);
+    return NextResponse.json(updatedUser)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid input", details: error.errors },
         { status: 400 },
-      );
+      )
     }
 
-    console.error("Error updating user:", error);
+    console.error("Error updating user:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
-    );
+    )
   }
 }
 ```
@@ -119,7 +119,7 @@ export async function PATCH(
 ### Zod Schema Patterns
 
 ```typescript
-import { z } from "zod";
+import { z } from "zod"
 
 // User registration schema
 export const userRegistrationSchema = z.object({
@@ -136,7 +136,7 @@ export const userRegistrationSchema = z.object({
     .min(2, "Name too short")
     .max(100, "Name too long")
     .regex(/^[a-zA-Z\s'-]+$/, "Invalid characters in name"),
-});
+})
 
 // Product creation schema
 export const productSchema = z.object({
@@ -147,7 +147,7 @@ export const productSchema = z.object({
   tags: z.array(z.string().min(1).max(50)).max(10),
   inStock: z.boolean(),
   sku: z.string().regex(/^[A-Z0-9-]+$/, "Invalid SKU format"),
-});
+})
 
 // Query parameter validation
 export const paginationSchema = z.object({
@@ -163,7 +163,7 @@ export const paginationSchema = z.object({
     .refine((n) => n >= 1 && n <= 100),
   sortBy: z.enum(["createdAt", "updatedAt", "name", "price"]).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
-});
+})
 ```
 
 ## Authentication & Authorization
@@ -171,18 +171,18 @@ export const paginationSchema = z.object({
 ### Session-Based Authentication
 
 ```typescript
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 // Utility function for authentication check
 export async function requireAuth(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions)
 
   if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  return session;
+  return session
 }
 
 // Role-based authorization
@@ -190,20 +190,20 @@ export async function requireRole(
   request: NextRequest,
   allowedRoles: string[],
 ) {
-  const session = await requireAuth(request);
+  const session = await requireAuth(request)
 
   if (session instanceof NextResponse) {
-    return session; // Return auth error
+    return session // Return auth error
   }
 
   if (!allowedRoles.includes(session.user.role)) {
     return NextResponse.json(
       { error: "Insufficient permissions" },
       { status: 403 },
-    );
+    )
   }
 
-  return session;
+  return session
 }
 
 // Usage in API routes
@@ -212,17 +212,17 @@ export async function DELETE(
   { params }: { params: { userId: string } },
 ) {
   // Check if user has admin role
-  const authResult = await requireRole(request, ["admin"]);
+  const authResult = await requireRole(request, ["admin"])
   if (authResult instanceof NextResponse) {
-    return authResult;
+    return authResult
   }
 
   // Proceed with deletion logic
   await prisma.user.delete({
     where: { id: params.userId },
-  });
+  })
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true })
 }
 ```
 
@@ -235,39 +235,39 @@ export async function requireResourceOwnership(
   resourceId: string,
   resourceType: "user" | "post" | "order",
 ) {
-  const session = await requireAuth(request);
+  const session = await requireAuth(request)
 
   if (session instanceof NextResponse) {
-    return session;
+    return session
   }
 
-  let isOwner = false;
+  let isOwner = false
 
   switch (resourceType) {
     case "user":
-      isOwner = session.user.id === resourceId;
-      break;
+      isOwner = session.user.id === resourceId
+      break
     case "post":
       const post = await prisma.post.findUnique({
         where: { id: resourceId },
         select: { authorId: true },
-      });
-      isOwner = post?.authorId === session.user.id;
-      break;
+      })
+      isOwner = post?.authorId === session.user.id
+      break
     case "order":
       const order = await prisma.order.findUnique({
         where: { id: resourceId },
         select: { userId: true },
-      });
-      isOwner = order?.userId === session.user.id;
-      break;
+      })
+      isOwner = order?.userId === session.user.id
+      break
   }
 
   if (!isOwner) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
-  return session;
+  return session
 }
 ```
 
@@ -289,41 +289,41 @@ export function createErrorResponse(
       timestamp: new Date().toISOString(),
     },
     { status },
-  );
+  )
 }
 
 // Error handling middleware
 export function withErrorHandling(handler: Function) {
   return async (request: NextRequest, context: any) => {
     try {
-      return await handler(request, context);
+      return await handler(request, context)
     } catch (error) {
-      console.error("API Error:", error);
+      console.error("API Error:", error)
 
       if (error instanceof z.ZodError) {
-        return createErrorResponse("Invalid input", 400, error.errors);
+        return createErrorResponse("Invalid input", 400, error.errors)
       }
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         switch (error.code) {
           case "P2002":
-            return createErrorResponse("Duplicate entry", 409);
+            return createErrorResponse("Duplicate entry", 409)
           case "P2025":
-            return createErrorResponse("Record not found", 404);
+            return createErrorResponse("Record not found", 404)
           default:
-            return createErrorResponse("Database error", 500);
+            return createErrorResponse("Database error", 500)
         }
       }
 
-      return createErrorResponse("Internal server error", 500);
+      return createErrorResponse("Internal server error", 500)
     }
-  };
+  }
 }
 
 // Usage
 export const GET = withErrorHandling(async (request: NextRequest) => {
   // Your API logic here
-});
+})
 ```
 
 ## Database Operations
@@ -344,7 +344,7 @@ export async function getPaginatedUsers(
           { name: { contains: search, mode: "insensitive" } },
         ],
       }
-    : {};
+    : {}
 
   const users = await prisma.user.findMany({
     where,
@@ -363,16 +363,16 @@ export async function getPaginatedUsers(
         },
       },
     },
-  });
+  })
 
-  const hasMore = users.length > limit;
-  const items = hasMore ? users.slice(0, -1) : users;
+  const hasMore = users.length > limit
+  const items = hasMore ? users.slice(0, -1) : users
 
   return {
     items,
     nextCursor: hasMore ? items[items.length - 1].id : null,
     hasMore,
-  };
+  }
 }
 
 // Transaction example
@@ -386,10 +386,10 @@ export async function createOrderWithInventory(
       const product = await tx.product.findUnique({
         where: { id: item.productId },
         select: { stock: true },
-      });
+      })
 
       if (!product || product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for product ${item.productId}`);
+        throw new Error(`Insufficient stock for product ${item.productId}`)
       }
     }
 
@@ -404,7 +404,7 @@ export async function createOrderWithInventory(
           })),
         },
       },
-    });
+    })
 
     // Update inventory
     for (const item of items) {
@@ -415,11 +415,11 @@ export async function createOrderWithInventory(
             decrement: item.quantity,
           },
         },
-      });
+      })
     }
 
-    return order;
-  });
+    return order
+  })
 }
 ```
 
@@ -428,20 +428,20 @@ export async function createOrderWithInventory(
 ### Rate Limiting Implementation
 
 ```typescript
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
 
 // Create rate limiter
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(10, "10 s"),
   analytics: true,
-});
+})
 
 // Rate limiting middleware
 export async function withRateLimit(request: NextRequest, identifier?: string) {
-  const ip = identifier || request.ip || "anonymous";
-  const { success, limit, reset, remaining } = await ratelimit.limit(ip);
+  const ip = identifier || request.ip || "anonymous"
+  const { success, limit, reset, remaining } = await ratelimit.limit(ip)
 
   if (!success) {
     return NextResponse.json(
@@ -457,17 +457,17 @@ export async function withRateLimit(request: NextRequest, identifier?: string) {
           "X-RateLimit-Reset": reset.toString(),
         },
       },
-    );
+    )
   }
 
-  return null; // Allow request
+  return null // Allow request
 }
 
 // Usage in API route
 export async function POST(request: NextRequest) {
-  const rateLimitResult = await withRateLimit(request);
+  const rateLimitResult = await withRateLimit(request)
   if (rateLimitResult) {
-    return rateLimitResult;
+    return rateLimitResult
   }
 
   // Continue with API logic
@@ -479,10 +479,10 @@ export async function POST(request: NextRequest) {
 ### API Route Testing
 
 ```typescript
-import { createMocks } from "node-mocks-http";
-import { GET, PATCH } from "@/app/api/users/[userId]/route";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
+import { createMocks } from "node-mocks-http"
+import { GET, PATCH } from "@/app/api/users/[userId]/route"
+import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
 
 // Mock dependencies
 vi.mock("@/lib/prisma", () => ({
@@ -492,11 +492,11 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
     },
   },
-}));
+}))
 
 vi.mock("next-auth", () => ({
   getServerSession: vi.fn(),
-}));
+}))
 
 describe("/api/users/[userId]", () => {
   describe("GET", () => {
@@ -505,78 +505,78 @@ describe("/api/users/[userId]", () => {
         id: "123",
         email: "test@example.com",
         name: "Test User",
-      };
+      }
 
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.findUnique.mockResolvedValue(mockUser)
 
       const { req } = createMocks({
         method: "GET",
-      });
+      })
 
-      const response = await GET(req, { params: { userId: "123" } });
-      const data = await response.json();
+      const response = await GET(req, { params: { userId: "123" } })
+      const data = await response.json()
 
-      expect(response.status).toBe(200);
-      expect(data).toEqual(mockUser);
-    });
+      expect(response.status).toBe(200)
+      expect(data).toEqual(mockUser)
+    })
 
     it("should return 404 for non-existent user", async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null)
 
       const { req } = createMocks({
         method: "GET",
-      });
+      })
 
-      const response = await GET(req, { params: { userId: "999" } });
-      const data = await response.json();
+      const response = await GET(req, { params: { userId: "999" } })
+      const data = await response.json()
 
-      expect(response.status).toBe(404);
-      expect(data.error).toBe("User not found");
-    });
-  });
+      expect(response.status).toBe(404)
+      expect(data.error).toBe("User not found")
+    })
+  })
 
   describe("PATCH", () => {
     it("should update user data", async () => {
       getServerSession.mockResolvedValue({
         user: { id: "123", email: "test@example.com" },
-      });
+      })
 
       const updatedUser = {
         id: "123",
         name: "Updated Name",
         email: "test@example.com",
-      };
+      }
 
-      prisma.user.update.mockResolvedValue(updatedUser);
+      prisma.user.update.mockResolvedValue(updatedUser)
 
       const { req } = createMocks({
         method: "PATCH",
         body: { name: "Updated Name" },
-      });
+      })
 
-      const response = await PATCH(req, { params: { userId: "123" } });
-      const data = await response.json();
+      const response = await PATCH(req, { params: { userId: "123" } })
+      const data = await response.json()
 
-      expect(response.status).toBe(200);
-      expect(data.name).toBe("Updated Name");
-    });
+      expect(response.status).toBe(200)
+      expect(data.name).toBe("Updated Name")
+    })
 
     it("should require authentication", async () => {
-      getServerSession.mockResolvedValue(null);
+      getServerSession.mockResolvedValue(null)
 
       const { req } = createMocks({
         method: "PATCH",
         body: { name: "Updated Name" },
-      });
+      })
 
-      const response = await PATCH(req, { params: { userId: "123" } });
-      const data = await response.json();
+      const response = await PATCH(req, { params: { userId: "123" } })
+      const data = await response.json()
 
-      expect(response.status).toBe(401);
-      expect(data.error).toBe("Unauthorized");
-    });
-  });
-});
+      expect(response.status).toBe(401)
+      expect(data.error).toBe("Unauthorized")
+    })
+  })
+})
 ```
 
 ## Development Standards

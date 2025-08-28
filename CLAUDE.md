@@ -138,6 +138,121 @@ CI Pipeline → Duplicate Detection → Decision Matrix → Expert Agents → Ac
 - GitHub Actions: Automated CI/CD with quality gate enforcement
 - Multi-Language LSP: Symbol extraction across 10+ programming languages
 
+## Smart Imports System
+
+The AI-Assisted Workflows framework uses a centralized smart imports system that solves complex import resolution challenges across different deployment contexts and eliminates traditional sys.path manipulation issues.
+
+### Purpose & Problem Solved
+
+**Challenge**: The framework supports multiple deployment scenarios:
+
+- Development environment (`shared/` directory structure)
+- Project-local deployment (`./project/.claude/scripts/`)
+- User-global deployment (`~/.claude/scripts/`)
+- Custom path deployment (`/anywhere/.claude/scripts/`)
+
+**Solution**: A universal import system that automatically resolves module paths regardless of deployment location or how scripts are invoked (CLI commands, git hooks, inter-script calls, CI workflows).
+
+### How It Works
+
+1. **Central Configuration**: `shared/utils/smart_imports.py` contains the master import resolver
+2. **Install-Time Path Replacement**: During installation, `claude-code/install.sh` (lines 748-777) replaces the `PACKAGE_ROOT` variable with the actual deployment path:
+   ```bash
+   # Configure production smart import file
+   local smart_import_file="$INSTALL_DIR/scripts/utils/smart_imports.py"
+   local new_path="PACKAGE_ROOT = Path(\"$INSTALL_DIR/scripts\")"
+   sed -i "s|^PACKAGE_ROOT = .*|$new_path|" "$smart_import_file"
+   ```
+3. **Context-Aware Resolution**: Smart imports try multiple paths automatically:
+   - Direct import (deployed environments): `"core.base.analyzer_base"`
+   - Development import: `"shared.core.base.analyzer_base"`
+4. **Import Caching**: Results are cached in `_import_cache` for performance
+5. **Cross-Platform Compatibility**: Platform-specific sed handling for macOS vs Linux
+
+### Standard Usage Pattern
+
+All analyzers, CI components, and framework modules must follow this standardized pattern:
+
+```python
+# Use smart imports for module access
+try:
+    from smart_imports import import_analyzer_base
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    BaseAnalyzer, AnalyzerConfig = import_analyzer_base()
+except ImportError as e:
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
+    sys.exit(1)
+```
+
+**Key Requirements**:
+
+- Two-level try/except structure for clean error handling
+- Import smart_imports functions where they're used, not in setup methods
+- Always use `sys.exit(1)` on import failure
+- Never manipulate `sys.path` directly
+
+### Available Import Functions
+
+**Core Infrastructure**:
+
+- `import_analyzer_base()` → `(BaseAnalyzer, AnalyzerConfig)`
+- `import_profiler_base()` → `(BaseProfiler, ProfilerConfig)`
+
+**Utility Modules**:
+
+- `import_output_formatter()` → Output formatting utilities
+- `import_tech_stack_detector()` → Technology detection
+- `import_file_utils()` → Platform utilities (`PlatformDetector`, `CrossPlatformUtils`)
+
+**CI/CD Components**:
+
+- `import_chromadb_storage()` → Vector database storage
+- `import_semantic_duplicate_detector()` → AI-powered duplicate detection
+- `import_decision_matrix()` → Workflow orchestration
+
+**Dynamic Analyzers** (by category):
+
+- `import_security_analyzer(name)` → Security analysis tools
+- `import_quality_analyzer(name)` → Code quality tools
+- `import_performance_analyzer(name)` → Performance analysis tools
+
+### Development Guidelines
+
+**When to Use Smart Imports**:
+
+- ✅ All BaseAnalyzer/BaseProfiler imports
+- ✅ Cross-module utilities (output formatting, file utils, tech detection)
+- ✅ CI framework components (ChromaDB, semantic analysis, orchestration)
+- ✅ Dynamic analyzer loading
+
+**When to Use Direct Imports**:
+
+- ✅ Standard library modules (`sys`, `pathlib`, `json`, etc.)
+- ✅ External packages (`requests`, `click`, `rich`, etc.)
+- ✅ Same-directory relative imports
+
+**Error Handling Requirements**:
+
+- Always handle `ImportError` with descriptive messages
+- Use `sys.exit(1)` for critical import failures
+- Import smart_imports functions in the same scope where they're used
+- Never import smart_imports functions in `__init__` or setup methods and use them elsewhere
+
+### Installation Integration
+
+The smart imports system is automatically configured during installation:
+
+1. **Path Detection**: Install script detects target deployment location
+2. **File Copying**: `smart_imports.py` copied to `$INSTALL_DIR/scripts/utils/`
+3. **Path Replacement**: `PACKAGE_ROOT` variable updated with actual deployment path
+4. **Platform Handling**: Different sed syntax for macOS vs Linux
+5. **Verification**: System validates import resolution during installation
+
+This eliminates manual path configuration and ensures consistent module resolution across all deployment scenarios.
+
 ### Commands
 
 - Setup: ./claude-code/install.sh - Install complete system

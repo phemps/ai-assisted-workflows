@@ -19,29 +19,30 @@ from enum import Enum
 
 import numpy as np
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(Path(__file__).parent.parent / "core" / "utils"))
+# Use smart imports for module access
+try:
+    from smart_imports import (
+        import_output_formatter,
+        import_tech_stack_detector,
+        import_symbol_extractor,
+    )
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
 
 # Import utilities and existing components
 try:
-    from shared.core.utils.output_formatter import ResultFormatter
-    from shared.core.utils.tech_stack_detector import TechStackDetector
+    output_formatter_module = import_output_formatter()
+    ResultFormatter = output_formatter_module.ResultFormatter
+
+    tech_stack_module = import_tech_stack_detector()
+    TechStackDetector = tech_stack_module.TechStackDetector
+
+    symbol_extractor_module = import_symbol_extractor()
+    Symbol = symbol_extractor_module.Symbol
 except ImportError as e:
     print(f"Error importing utilities: {e}", file=sys.stderr)
     sys.exit(1)
-
-# Import Symbol from integration
-try:
-    from ..integration.symbol_extractor import Symbol
-except ImportError:
-    try:
-        # Fallback for direct execution
-        sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
-        from symbol_extractor import Symbol
-    except ImportError as e:
-        print(f"Error importing Symbol: {e}", file=sys.stderr)
-        sys.exit(1)
 
 # Required transformers imports - fail fast if unavailable
 try:

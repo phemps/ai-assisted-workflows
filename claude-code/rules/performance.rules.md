@@ -5,18 +5,18 @@
 ### Code Splitting and Lazy Loading
 
 ```tsx
-import { lazy, Suspense } from "react";
-import dynamic from "next/dynamic";
+import { lazy, Suspense } from "react"
+import dynamic from "next/dynamic"
 
 // Next.js dynamic import with loading state
 const HeavyChart = dynamic(() => import("@/components/HeavyChart"), {
   loading: () => <ChartSkeleton />,
   ssr: false, // Disable SSR for client-only components
-});
+})
 
 // React lazy loading for route-level splitting
-const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
-const UserProfile = lazy(() => import("@/pages/UserProfile"));
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"))
+const UserProfile = lazy(() => import("@/pages/UserProfile"))
 
 // Route-based code splitting
 export function AppRouter() {
@@ -42,7 +42,7 @@ export function AppRouter() {
         />
       </Routes>
     </Router>
-  );
+  )
 }
 
 // Component-level code splitting
@@ -50,24 +50,24 @@ const LazyModal = lazy(() =>
   import("@/components/Modal").then((module) => ({
     default: module.Modal,
   })),
-);
+)
 
 // Conditional loading based on feature flags
 const FeatureComponent = dynamic(() => import("@/components/NewFeature"), {
   loading: () => <FeatureSkeleton />,
   ssr: false,
-});
+})
 ```
 
 ### Image Optimization
 
 ```tsx
-import Image from "next/image";
-import { useState } from "react";
+import Image from "next/image"
+import { useState } from "react"
 
 // Optimized image component with responsive sizing
 export function OptimizedImage({ src, alt, priority = false }: ImageProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true)
 
   return (
     <div className="relative overflow-hidden">
@@ -90,7 +90,7 @@ export function OptimizedImage({ src, alt, priority = false }: ImageProps) {
         quality={85} // Optimize quality vs size
       />
     </div>
-  );
+  )
 }
 
 // Progressive image loading
@@ -99,17 +99,17 @@ export function ProgressiveImage({
   placeholder,
   alt,
 }: ProgressiveImageProps) {
-  const [imageSrc, setImageSrc] = useState(placeholder);
-  const [imageRef, setImageRef] = useState<HTMLImageElement>();
+  const [imageSrc, setImageSrc] = useState(placeholder)
+  const [imageRef, setImageRef] = useState<HTMLImageElement>()
 
   useEffect(() => {
-    const img = new Image();
-    img.src = src;
+    const img = new Image()
+    img.src = src
     img.onload = () => {
-      setImageSrc(src);
-    };
-    setImageRef(img);
-  }, [src]);
+      setImageSrc(src)
+    }
+    setImageRef(img)
+  }, [src])
 
   return (
     <img
@@ -119,7 +119,7 @@ export function ProgressiveImage({
         imageSrc === placeholder ? "blur-sm" : "blur-0"
       }`}
     />
-  );
+  )
 }
 
 // WebP with fallback
@@ -130,25 +130,25 @@ export function WebPImage({ src, alt, ...props }: ImageProps) {
       <source srcSet={`${src}.jpg`} type="image/jpeg" />
       <img src={`${src}.jpg`} alt={alt} {...props} />
     </picture>
-  );
+  )
 }
 ```
 
 ### React Performance Optimization
 
 ```tsx
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react"
 
 // Memoization for expensive operations
 const ExpensiveComponent = memo<Props>(({ data, filter, onUpdate }) => {
   // Memoize expensive calculations
   const filteredData = useMemo(() => {
-    console.log("Filtering data..."); // This should only log when data or filter changes
+    console.log("Filtering data...") // This should only log when data or filter changes
     return data
       .filter((item) => item.status === filter)
       .sort((a, b) => b.date.getTime() - a.date.getTime())
-      .slice(0, 100);
-  }, [data, filter]);
+      .slice(0, 100)
+  }, [data, filter])
 
   // Memoize computed values
   const statistics = useMemo(
@@ -160,27 +160,27 @@ const ExpensiveComponent = memo<Props>(({ data, filter, onUpdate }) => {
         filteredData.length,
     }),
     [filteredData],
-  );
+  )
 
   // Memoize event handlers
   const handleItemClick = useCallback(
     (itemId: string) => {
-      onUpdate(itemId);
+      onUpdate(itemId)
     },
     [onUpdate],
-  );
+  )
 
   return (
     <div>
       <Statistics data={statistics} />
       <DataList items={filteredData} onItemClick={handleItemClick} />
     </div>
-  );
-});
+  )
+})
 
 // Optimized list rendering
 const VirtualizedList = memo<ListProps>(({ items, renderItem }) => {
-  const [visibleItems, setVisibleItems] = useState({ start: 0, end: 50 });
+  const [visibleItems, setVisibleItems] = useState({ start: 0, end: 50 })
 
   // Only render visible items
   const renderedItems = useMemo(() => {
@@ -190,19 +190,19 @@ const VirtualizedList = memo<ListProps>(({ items, renderItem }) => {
         <div key={item.id} style={{ height: "60px" }}>
           {renderItem(item, visibleItems.start + index)}
         </div>
-      ));
-  }, [items, visibleItems, renderItem]);
+      ))
+  }, [items, visibleItems, renderItem])
 
   const handleScroll = useCallback((event: React.UIEvent) => {
-    const scrollTop = event.currentTarget.scrollTop;
-    const itemHeight = 60;
-    const containerHeight = event.currentTarget.clientHeight;
+    const scrollTop = event.currentTarget.scrollTop
+    const itemHeight = 60
+    const containerHeight = event.currentTarget.clientHeight
 
-    const start = Math.floor(scrollTop / itemHeight);
-    const end = start + Math.ceil(containerHeight / itemHeight) + 5; // Buffer
+    const start = Math.floor(scrollTop / itemHeight)
+    const end = start + Math.ceil(containerHeight / itemHeight) + 5 // Buffer
 
-    setVisibleItems({ start, end });
-  }, []);
+    setVisibleItems({ start, end })
+  }, [])
 
   return (
     <div style={{ height: "400px", overflow: "auto" }} onScroll={handleScroll}>
@@ -216,29 +216,29 @@ const VirtualizedList = memo<ListProps>(({ items, renderItem }) => {
         </div>
       </div>
     </div>
-  );
-});
+  )
+})
 
 // Debounced search
 function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
+    const timer = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
 
-  return debouncedValue;
+  return debouncedValue
 }
 
 export function SearchComponent() {
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounce(query, 300);
+  const [query, setQuery] = useState("")
+  const debouncedQuery = useDebounce(query, 300)
 
   const searchResults = useMemo(() => {
-    if (!debouncedQuery) return [];
-    return performSearch(debouncedQuery);
-  }, [debouncedQuery]);
+    if (!debouncedQuery) return []
+    return performSearch(debouncedQuery)
+  }, [debouncedQuery])
 
   return (
     <div>
@@ -249,7 +249,7 @@ export function SearchComponent() {
       />
       <SearchResults results={searchResults} />
     </div>
-  );
+  )
 }
 ```
 
@@ -258,16 +258,16 @@ export function SearchComponent() {
 ### Database Query Optimization
 
 ```typescript
-import { prisma } from "@/lib/prisma";
-import { unstable_cache } from "next/cache";
+import { prisma } from "@/lib/prisma"
+import { unstable_cache } from "next/cache"
 
 // Efficient pagination with cursor
 export async function getPaginatedUsers(
   cursor?: string,
   limit = 20,
   include?: {
-    posts?: boolean;
-    profile?: boolean;
+    posts?: boolean
+    profile?: boolean
   },
 ) {
   const users = await prisma.user.findMany({
@@ -299,16 +299,16 @@ export async function getPaginatedUsers(
         },
       }),
     },
-  });
+  })
 
-  const hasMore = users.length > limit;
-  const items = hasMore ? users.slice(0, -1) : users;
+  const hasMore = users.length > limit
+  const items = hasMore ? users.slice(0, -1) : users
 
   return {
     items,
     nextCursor: hasMore ? items[items.length - 1].id : null,
     hasMore,
-  };
+  }
 }
 
 // Optimized aggregation queries
@@ -332,7 +332,7 @@ export async function getUserStatistics(userId: string) {
       _count: { id: true },
       _sum: { total: true },
     }),
-  ]);
+  ])
 
   return {
     user,
@@ -344,18 +344,18 @@ export async function getUserStatistics(userId: string) {
       count: orderStats._count.id,
       totalSpent: orderStats._sum.total,
     },
-  };
+  }
 }
 
 // Batch operations
 export async function updateMultipleUsers(
   userUpdates: { id: string; data: any }[],
 ) {
-  const batchSize = 100;
-  const results = [];
+  const batchSize = 100
+  const results = []
 
   for (let i = 0; i < userUpdates.length; i += batchSize) {
-    const batch = userUpdates.slice(i, i + batchSize);
+    const batch = userUpdates.slice(i, i + batchSize)
 
     const batchResults = await Promise.all(
       batch.map((update) =>
@@ -364,12 +364,12 @@ export async function updateMultipleUsers(
           data: update.data,
         }),
       ),
-    );
+    )
 
-    results.push(...batchResults);
+    results.push(...batchResults)
   }
 
-  return results;
+  return results
 }
 
 // Connection pooling optimization
@@ -380,52 +380,52 @@ export async function getOptimizedConnection() {
         async findMany({ args, query }) {
           // Add default limits to prevent accidentally large queries
           if (!args.take && !args.first) {
-            args.take = 100;
+            args.take = 100
           }
-          return query(args);
+          return query(args)
         },
       },
     },
-  });
+  })
 }
 ```
 
 ### Caching Strategies
 
 ```typescript
-import { unstable_cache } from "next/cache";
-import { revalidateTag } from "next/cache";
-import { Redis } from "@upstash/redis";
+import { unstable_cache } from "next/cache"
+import { revalidateTag } from "next/cache"
+import { Redis } from "@upstash/redis"
 
-const redis = Redis.fromEnv();
+const redis = Redis.fromEnv()
 
 // Next.js built-in caching
 export const getCachedUser = unstable_cache(
   async (userId: string) => {
-    console.log("Fetching user from database..."); // Should only log on cache miss
+    console.log("Fetching user from database...") // Should only log on cache miss
     return prisma.user.findUnique({
       where: { id: userId },
       include: { profile: true },
-    });
+    })
   },
   ["user-detail"],
   {
     revalidate: 300, // Cache for 5 minutes
     tags: ["user"],
   },
-);
+)
 
 // Redis caching layer
 export class CacheService {
-  private static defaultTTL = 300; // 5 minutes
+  private static defaultTTL = 300 // 5 minutes
 
   static async get<T>(key: string): Promise<T | null> {
     try {
-      const cached = await redis.get(key);
-      return cached ? JSON.parse(cached as string) : null;
+      const cached = await redis.get(key)
+      return cached ? JSON.parse(cached as string) : null
     } catch (error) {
-      console.error("Cache get error:", error);
-      return null;
+      console.error("Cache get error:", error)
+      return null
     }
   }
 
@@ -435,20 +435,20 @@ export class CacheService {
     ttl: number = this.defaultTTL,
   ): Promise<void> {
     try {
-      await redis.setex(key, ttl, JSON.stringify(value));
+      await redis.setex(key, ttl, JSON.stringify(value))
     } catch (error) {
-      console.error("Cache set error:", error);
+      console.error("Cache set error:", error)
     }
   }
 
   static async invalidate(pattern: string): Promise<void> {
     try {
-      const keys = await redis.keys(pattern);
+      const keys = await redis.keys(pattern)
       if (keys.length > 0) {
-        await redis.del(...keys);
+        await redis.del(...keys)
       }
     } catch (error) {
-      console.error("Cache invalidation error:", error);
+      console.error("Cache invalidation error:", error)
     }
   }
 
@@ -459,15 +459,15 @@ export class CacheService {
     ttl?: number,
   ): Promise<T> {
     // Try to get from cache first
-    let data = await this.get<T>(key);
+    let data = await this.get<T>(key)
 
     if (data === null) {
       // Cache miss - fetch from source
-      data = await fetchFn();
-      await this.set(key, data, ttl);
+      data = await fetchFn()
+      await this.set(key, data, ttl)
     }
 
-    return data;
+    return data
   }
 }
 
@@ -485,10 +485,10 @@ export async function getCachedUserProfile(userId: string) {
             orderBy: { createdAt: "desc" },
           },
         },
-      });
+      })
     },
     600, // 10 minutes
-  );
+  )
 }
 
 // Cache invalidation on updates
@@ -496,16 +496,16 @@ export async function updateUserProfile(userId: string, data: any) {
   const user = await prisma.user.update({
     where: { id: userId },
     data,
-  });
+  })
 
   // Invalidate related caches
   await Promise.all([
     CacheService.invalidate(`user:profile:${userId}`),
     CacheService.invalidate(`user:posts:${userId}*`),
     revalidateTag("user"),
-  ]);
+  ])
 
-  return user;
+  return user
 }
 ```
 
@@ -519,64 +519,64 @@ export function optimizeApiResponse(data: any): any {
     JSON.stringify(data, (key, value) => {
       // Remove internal fields
       if (key.startsWith("_") || key === "password") {
-        return undefined;
+        return undefined
       }
 
       // Truncate long strings
       if (typeof value === "string" && value.length > 1000) {
-        return value.substring(0, 1000) + "...";
+        return value.substring(0, 1000) + "..."
       }
 
-      return value;
+      return value
     }),
-  );
+  )
 
-  return optimized;
+  return optimized
 }
 
 // Response streaming for large datasets
 export async function streamLargeDataset(query: any, response: NextResponse) {
   const stream = new ReadableStream({
     async start(controller) {
-      let cursor: string | undefined;
-      let hasMore = true;
+      let cursor: string | undefined
+      let hasMore = true
 
-      controller.enqueue(new TextEncoder().encode('{"items":['));
+      controller.enqueue(new TextEncoder().encode('{"items":['))
 
-      let first = true;
+      let first = true
       while (hasMore) {
         const batch = await prisma.user.findMany({
           take: 100,
           cursor: cursor ? { id: cursor } : undefined,
           where: query,
           orderBy: { createdAt: "desc" },
-        });
+        })
 
-        hasMore = batch.length === 100;
+        hasMore = batch.length === 100
         if (batch.length > 0) {
-          cursor = batch[batch.length - 1].id;
+          cursor = batch[batch.length - 1].id
         }
 
         for (const item of batch) {
           if (!first) {
-            controller.enqueue(new TextEncoder().encode(","));
+            controller.enqueue(new TextEncoder().encode(","))
           }
-          controller.enqueue(new TextEncoder().encode(JSON.stringify(item)));
-          first = false;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify(item)))
+          first = false
         }
       }
 
-      controller.enqueue(new TextEncoder().encode("]}"));
-      controller.close();
+      controller.enqueue(new TextEncoder().encode("]}"))
+      controller.close()
     },
-  });
+  })
 
   return new Response(stream, {
     headers: {
       "Content-Type": "application/json",
       "Transfer-Encoding": "chunked",
     },
-  });
+  })
 }
 ```
 
@@ -625,14 +625,14 @@ module.exports = {
             enforce: true,
           },
         },
-      };
+      }
     }
 
     // Tree shaking
-    config.optimization.usedExports = true;
-    config.optimization.sideEffects = false;
+    config.optimization.usedExports = true
+    config.optimization.sideEffects = false
 
-    return config;
+    return config
   },
 
   // Environment variables
@@ -652,9 +652,9 @@ module.exports = {
           },
         ],
       },
-    ];
+    ]
   },
-};
+}
 ```
 
 ### Import Optimization
@@ -711,60 +711,60 @@ export function HomePage() {
 
 ```typescript
 // Web Vitals monitoring
-import { getCLS, getFID, getFCP, getLCP, getTTFB } from "web-vitals";
+import { getCLS, getFID, getFCP, getLCP, getTTFB } from "web-vitals"
 
 export function initPerformanceMonitoring() {
-  getCLS(console.log);
-  getFID(console.log);
-  getFCP(console.log);
-  getLCP(console.log);
-  getTTFB(console.log);
+  getCLS(console.log)
+  getFID(console.log)
+  getFCP(console.log)
+  getLCP(console.log)
+  getTTFB(console.log)
 }
 
 // Custom performance tracking
 export class PerformanceTracker {
-  private static marks: Map<string, number> = new Map();
+  private static marks: Map<string, number> = new Map()
 
   static mark(name: string): void {
-    const timestamp = performance.now();
-    this.marks.set(name, timestamp);
-    performance.mark(name);
+    const timestamp = performance.now()
+    this.marks.set(name, timestamp)
+    performance.mark(name)
   }
 
   static measure(name: string, startMark: string, endMark?: string): number {
     if (endMark) {
-      performance.measure(name, startMark, endMark);
+      performance.measure(name, startMark, endMark)
     } else {
-      performance.measure(name, startMark);
+      performance.measure(name, startMark)
     }
 
-    const startTime = this.marks.get(startMark);
-    const endTime = endMark ? this.marks.get(endMark) : performance.now();
+    const startTime = this.marks.get(startMark)
+    const endTime = endMark ? this.marks.get(endMark) : performance.now()
 
     if (startTime && endTime) {
-      const duration = endTime - startTime;
-      console.log(`${name}: ${duration.toFixed(2)}ms`);
-      return duration;
+      const duration = endTime - startTime
+      console.log(`${name}: ${duration.toFixed(2)}ms`)
+      return duration
     }
 
-    return 0;
+    return 0
   }
 
   static async trackAsyncOperation<T>(
     name: string,
     operation: () => Promise<T>,
   ): Promise<T> {
-    this.mark(`${name}-start`);
+    this.mark(`${name}-start`)
 
     try {
-      const result = await operation();
-      this.mark(`${name}-end`);
-      this.measure(name, `${name}-start`, `${name}-end`);
-      return result;
+      const result = await operation()
+      this.mark(`${name}-end`)
+      this.measure(name, `${name}-start`, `${name}-end`)
+      return result
     } catch (error) {
-      this.mark(`${name}-error`);
-      this.measure(`${name}-error`, `${name}-start`, `${name}-error`);
-      throw error;
+      this.mark(`${name}-error`)
+      this.measure(`${name}-error`, `${name}-start`, `${name}-error`)
+      throw error
     }
   }
 }
@@ -772,9 +772,9 @@ export class PerformanceTracker {
 // Usage example
 export async function fetchUserData(userId: string) {
   return PerformanceTracker.trackAsyncOperation("fetch-user-data", async () => {
-    const response = await fetch(`/api/users/${userId}`);
-    return response.json();
-  });
+    const response = await fetch(`/api/users/${userId}`)
+    return response.json()
+  })
 }
 ```
 

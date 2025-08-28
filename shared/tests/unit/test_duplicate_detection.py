@@ -3,14 +3,26 @@
 Test suite for duplicate detection algorithm
 """
 
-from analyzers.quality.code_duplication_analyzer import (
-    CodeBlock,
-    ExactDuplicateDetector,
-    StructuralDuplicateDetector,
-    SemanticDuplicateDetector,
-    CompositeDuplicateDetector,
-    DuplicateAnalysisReport,
-)
+# Use smart imports for module access
+import sys
+
+try:
+    from smart_imports import import_quality_analyzer
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    module = import_quality_analyzer("code_duplication_analyzer")
+    CodeBlock = module.CodeBlock
+    ExactDuplicateDetector = module.ExactDuplicateDetector
+    StructuralDuplicateDetector = module.StructuralDuplicateDetector
+    SemanticDuplicateDetector = module.SemanticDuplicateDetector
+    CompositeDuplicateDetector = module.CompositeDuplicateDetector
+    DuplicateAnalysisReport = module.DuplicateAnalysisReport
+except ImportError as e:
+    print(f"Error importing code duplication analyzer: {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 def test_exact_duplicate_detector():

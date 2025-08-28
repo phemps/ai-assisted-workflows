@@ -29,29 +29,37 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-# Import ChromaDB storage system
+# Use smart imports for module access
 try:
-    from shared.ci.core.chromadb_storage import ChromaDBStorage, ChromaDBConfig
-except ImportError as e:
-    print(f"FATAL: ChromaDB storage not available: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import embedding engine from duplicate detection
-try:
-    from shared.ci.core.embedding_engine import EmbeddingEngine, EmbeddingConfig
-except ImportError as e:
-    print(f"FATAL: EmbeddingEngine not available: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import symbol extraction for file queries
-try:
-    from shared.ci.integration.symbol_extractor import Symbol
-    from shared.ci.core.lsp_symbol_extractor import (
-        LSPSymbolExtractor,
-        SymbolExtractionConfig,
+    from smart_imports import (
+        import_chromadb_storage,
+        import_embedding_engine,
+        import_symbol_extractor,
+        import_lsp_symbol_extractor,
     )
 except ImportError as e:
-    print(f"FATAL: Symbol extraction not available: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import CI components
+try:
+    chromadb_module = import_chromadb_storage()
+    ChromaDBStorage = chromadb_module.ChromaDBStorage
+    ChromaDBConfig = chromadb_module.ChromaDBConfig
+
+    embedding_module = import_embedding_engine()
+    EmbeddingEngine = embedding_module.EmbeddingEngine
+    EmbeddingConfig = embedding_module.EmbeddingConfig
+
+    symbol_extractor_module = import_symbol_extractor()
+    Symbol = symbol_extractor_module.Symbol
+    SymbolType = symbol_extractor_module.SymbolType
+
+    lsp_symbol_module = import_lsp_symbol_extractor()
+    LSPSymbolExtractor = lsp_symbol_module.LSPSymbolExtractor
+    SymbolExtractionConfig = lsp_symbol_module.SymbolExtractionConfig
+except ImportError as e:
+    print(f"Error importing CI components: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -134,8 +142,6 @@ class CodebaseSearchEngine:
         # Convert query to embedding
         try:
             # Create a dummy symbol for the query to use the existing embedding engine
-            from shared.ci.integration.symbol_extractor import Symbol, SymbolType
-
             query_symbol = Symbol(
                 name=query,
                 symbol_type=SymbolType.FUNCTION,  # Use function as a generic type

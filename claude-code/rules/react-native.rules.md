@@ -5,7 +5,7 @@
 ### React Native Component Pattern
 
 ```tsx
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react"
 import {
   View,
   Text,
@@ -15,24 +15,24 @@ import {
   Platform,
   Animated,
   Dimensions,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNetInfo } from "@react-native-community/netinfo";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+} from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useNetInfo } from "@react-native-community/netinfo"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 interface UserProfileProps {
-  userId: string;
-  onRefresh?: () => Promise<void>;
+  userId: string
+  onRefresh?: () => Promise<void>
 }
 
 export function UserProfile({ userId, onRefresh }: UserProfileProps) {
-  const insets = useSafeAreaInsets();
-  const netInfo = useNetInfo();
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets()
+  const netInfo = useNetInfo()
+  const scrollY = useRef(new Animated.Value(0)).current
 
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Implementation continues...
 }
@@ -45,39 +45,39 @@ export function UserProfile({ userId, onRefresh }: UserProfileProps) {
 const loadUser = useCallback(async () => {
   try {
     // Try cache first
-    const cached = await AsyncStorage.getItem(`user_${userId}`);
+    const cached = await AsyncStorage.getItem(`user_${userId}`)
     if (cached) {
-      setUser(JSON.parse(cached));
-      setLoading(false);
+      setUser(JSON.parse(cached))
+      setLoading(false)
     }
 
     // Fetch fresh data if online
     if (netInfo.isConnected) {
-      const response = await fetch(`/api/users/${userId}`);
-      const data = await response.json();
+      const response = await fetch(`/api/users/${userId}`)
+      const data = await response.json()
 
       // Update cache
-      await AsyncStorage.setItem(`user_${userId}`, JSON.stringify(data));
-      setUser(data);
+      await AsyncStorage.setItem(`user_${userId}`, JSON.stringify(data))
+      setUser(data)
     }
   } catch (error) {
-    console.error("Failed to load user:", error);
+    console.error("Failed to load user:", error)
     // Show cached data or error state
   } finally {
-    setLoading(false);
+    setLoading(false)
   }
-}, [userId, netInfo.isConnected]);
+}, [userId, netInfo.isConnected])
 
 // Pull-to-refresh handling
 const handleRefresh = useCallback(async () => {
-  setRefreshing(true);
+  setRefreshing(true)
   try {
-    await onRefresh?.();
-    await loadUser();
+    await onRefresh?.()
+    await loadUser()
   } finally {
-    setRefreshing(false);
+    setRefreshing(false)
   }
-}, [onRefresh, loadUser]);
+}, [onRefresh, loadUser])
 ```
 
 ## Platform-Specific Implementation
@@ -85,16 +85,16 @@ const handleRefresh = useCallback(async () => {
 ### Platform Services
 
 ```tsx
-import { Platform, PermissionsAndroid, Linking } from "react-native";
-import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
+import { Platform, PermissionsAndroid, Linking } from "react-native"
+import * as Location from "expo-location"
+import * as Notifications from "expo-notifications"
 
 export class PlatformServices {
   // Location permissions
   static async requestLocationPermission(): Promise<boolean> {
     if (Platform.OS === "ios") {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      return status === "granted";
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      return status === "granted"
     } else {
       // Android requires additional handling
       const granted = await PermissionsAndroid.request(
@@ -106,8 +106,8 @@ export class PlatformServices {
           buttonNegative: "Cancel",
           buttonPositive: "OK",
         },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
+      )
+      return granted === PermissionsAndroid.RESULTS.GRANTED
     }
   }
 
@@ -120,24 +120,24 @@ export class PlatformServices {
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: "#FF231F7C",
-      });
+      })
     }
 
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await Notifications.requestPermissionsAsync()
     if (status !== "granted") {
-      return null;
+      return null
     }
 
-    const token = await Notifications.getExpoPushTokenAsync();
-    return token.data;
+    const token = await Notifications.getExpoPushTokenAsync()
+    return token.data
   }
 
   // Deep linking
   static async openSettings(): Promise<void> {
     if (Platform.OS === "ios") {
-      await Linking.openURL("app-settings:");
+      await Linking.openURL("app-settings:")
     } else {
-      await Linking.openSettings();
+      await Linking.openSettings()
     }
   }
 }
@@ -148,29 +148,29 @@ export class PlatformServices {
 ### Type-Safe Navigation
 
 ```tsx
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { enableScreens } from "react-native-screens";
+import { NavigationContainer } from "@react-navigation/native"
+import { createNativeStackNavigator } from "@react-navigation/native-stack"
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
+import { enableScreens } from "react-native-screens"
 
 // Enable native screens for performance
-enableScreens();
+enableScreens()
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator()
+const Tab = createBottomTabNavigator()
 
 // Type-safe navigation
 export type RootStackParamList = {
-  Home: undefined;
-  Profile: { userId: string };
-  Settings: undefined;
-};
+  Home: undefined
+  Profile: { userId: string }
+  Settings: undefined
+}
 
 export type TabParamList = {
-  Feed: undefined;
-  Search: undefined;
-  Profile: undefined;
-};
+  Feed: undefined
+  Search: undefined
+  Profile: undefined
+}
 
 // Navigation setup with proper typing
 export function AppNavigator() {
@@ -204,7 +204,7 @@ export function AppNavigator() {
         />
       </Stack.Navigator>
     </NavigationContainer>
-  );
+  )
 }
 ```
 
@@ -213,22 +213,22 @@ export function AppNavigator() {
 ### Zustand with Persistence
 
 ```typescript
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import NetInfo from "@react-native-community/netinfo";
+import { create } from "zustand"
+import { persist, createJSONStorage } from "zustand/middleware"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import NetInfo from "@react-native-community/netinfo"
 
 interface AppState {
   // State
-  user: User | null;
-  isOnline: boolean;
-  syncQueue: SyncItem[];
+  user: User | null
+  isOnline: boolean
+  syncQueue: SyncItem[]
 
   // Actions
-  setUser: (user: User | null) => void;
-  setOnline: (online: boolean) => void;
-  addToSyncQueue: (item: SyncItem) => void;
-  processSyncQueue: () => Promise<void>;
+  setUser: (user: User | null) => void
+  setOnline: (online: boolean) => void
+  addToSyncQueue: (item: SyncItem) => void
+  processSyncQueue: () => Promise<void>
 }
 
 export const useAppStore = create<AppState>()(
@@ -250,17 +250,17 @@ export const useAppStore = create<AppState>()(
         })),
 
       processSyncQueue: async () => {
-        const { syncQueue, isOnline } = get();
-        if (!isOnline || syncQueue.length === 0) return;
+        const { syncQueue, isOnline } = get()
+        if (!isOnline || syncQueue.length === 0) return
 
-        const processed: string[] = [];
+        const processed: string[] = []
 
         for (const item of syncQueue) {
           try {
-            await syncItem(item);
-            processed.push(item.id);
+            await syncItem(item)
+            processed.push(item.id)
           } catch (error) {
-            console.error("Sync failed:", error);
+            console.error("Sync failed:", error)
           }
         }
 
@@ -268,7 +268,7 @@ export const useAppStore = create<AppState>()(
           syncQueue: state.syncQueue.filter(
             (item) => !processed.includes(item.id),
           ),
-        }));
+        }))
       },
     }),
     {
@@ -280,17 +280,17 @@ export const useAppStore = create<AppState>()(
       }),
     },
   ),
-);
+)
 
 // Network monitoring
 NetInfo.addEventListener((state) => {
-  useAppStore.getState().setOnline(state.isConnected ?? false);
+  useAppStore.getState().setOnline(state.isConnected ?? false)
 
   // Process sync queue when coming online
   if (state.isConnected) {
-    useAppStore.getState().processSyncQueue();
+    useAppStore.getState().processSyncQueue()
   }
-});
+})
 ```
 
 ## Animation Patterns
@@ -303,7 +303,7 @@ const headerOpacity = scrollY.interpolate({
   inputRange: [0, 100],
   outputRange: [0, 1],
   extrapolate: "clamp",
-});
+})
 
 return (
   <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -327,7 +327,7 @@ return (
       <UserContent user={user} />
     </Animated.ScrollView>
   </View>
-);
+)
 ```
 
 ## Styling Patterns
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-});
+})
 ```
 
 ## Performance Optimization
@@ -389,16 +389,16 @@ const styles = StyleSheet.create({
 ### Optimized List Components
 
 ```tsx
-import React, { memo, useCallback, useMemo } from "react";
-import { FlatList, Image, Text, View } from "react-native";
-import FastImage from "react-native-fast-image";
-import { FlashList } from "@shopify/flash-list";
+import React, { memo, useCallback, useMemo } from "react"
+import { FlatList, Image, Text, View } from "react-native"
+import FastImage from "react-native-fast-image"
+import { FlashList } from "@shopify/flash-list"
 
 // Optimized list item
 const ListItem = memo<ItemProps>(({ item, onPress }) => {
   const handlePress = useCallback(() => {
-    onPress(item.id);
-  }, [item.id, onPress]);
+    onPress(item.id)
+  }, [item.id, onPress])
 
   return (
     <TouchableOpacity onPress={handlePress}>
@@ -414,19 +414,19 @@ const ListItem = memo<ItemProps>(({ item, onPress }) => {
         <Text style={styles.title}>{item.title}</Text>
       </View>
     </TouchableOpacity>
-  );
-});
+  )
+})
 
 // Optimized list component
 export function OptimizedList({ data, onItemPress }) {
   // Key extractor
-  const keyExtractor = useCallback((item) => item.id, []);
+  const keyExtractor = useCallback((item) => item.id, [])
 
   // Render item
   const renderItem = useCallback(
     ({ item }) => <ListItem item={item} onPress={onItemPress} />,
     [onItemPress],
-  );
+  )
 
   return (
     <FlashList
@@ -443,7 +443,7 @@ export function OptimizedList({ data, onItemPress }) {
         minIndexForVisible: 0,
       }}
     />
-  );
+  )
 }
 ```
 

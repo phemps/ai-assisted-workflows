@@ -30,11 +30,14 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Import base profiler infrastructure
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+# Use smart imports for base profiler infrastructure
 try:
-    from shared.core.base.profiler_base import BaseProfiler, ProfilerConfig
+    from smart_imports import import_profiler_base
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    BaseProfiler, ProfilerConfig = import_profiler_base()
 except ImportError as e:
     print(f"Error importing base profiler: {e}", file=sys.stderr)
     sys.exit(1)

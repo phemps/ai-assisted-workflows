@@ -17,9 +17,21 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
-# Add path manipulation like other analyzers do
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+# Use smart imports for module access
+try:
+    from smart_imports import import_semantic_duplicate_detector
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
+# Import semantic duplicate detector components
+try:
+    semantic_detector_module = import_semantic_duplicate_detector()
+    DuplicateFinder = semantic_detector_module.DuplicateFinder
+    DuplicateFinderConfig = semantic_detector_module.DuplicateFinderConfig
+except ImportError as e:
+    print(f"Error importing semantic duplicate detector: {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 class ChromaDBIndexer:
@@ -135,7 +147,9 @@ class ChromaDBIndexer:
                 }
 
             # Use existing ChromaDB storage for indexing
-            from shared.ci.core.chromadb_storage import ChromaDBStorage
+            from smart_imports import import_chromadb_storage
+
+            ChromaDBStorage = import_chromadb_storage()
 
             storage = ChromaDBStorage(project_root=self.project_root)
 
@@ -224,7 +238,9 @@ class ChromaDBIndexer:
 
         try:
             # Use existing ChromaDB storage run_full_scan method
-            from shared.ci.core.chromadb_storage import ChromaDBStorage
+            from smart_imports import import_chromadb_storage
+
+            ChromaDBStorage = import_chromadb_storage()
 
             storage = ChromaDBStorage(project_root=self.project_root)
             success = storage.run_full_scan()
@@ -250,10 +266,6 @@ class ChromaDBIndexer:
     def _extract_file_symbols(self, file_path: Path) -> List[Any]:
         """Extract symbols from a single file."""
         try:
-            # Import and use the existing symbol extraction logic
-            from shared.ci.core.semantic_duplicate_detector import DuplicateFinder
-            from shared.ci.core.semantic_duplicate_detector import DuplicateFinderConfig
-
             # Create a minimal config for single file extraction
             config = DuplicateFinderConfig()
             finder = DuplicateFinder(
@@ -276,7 +288,9 @@ class ChromaDBIndexer:
                 return True
 
             # Import and initialize EmbeddingEngine (matches run_full_scan flow)
-            from shared.ci.core.embedding_engine import EmbeddingEngine
+            from smart_imports import import_embedding_engine
+
+            EmbeddingEngine = import_embedding_engine()
 
             embedding_engine = EmbeddingEngine()
 

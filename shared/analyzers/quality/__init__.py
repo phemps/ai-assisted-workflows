@@ -45,7 +45,6 @@ from .result_aggregator import (
     ComprehensiveAnalysisReport,
 )
 
-from .analysis_engine import AnalysisEngine
 
 __all__ = [
     "CodeBlock",
@@ -74,7 +73,6 @@ __all__ = [
     "ResultCorrelator",
     "AnalysisAggregator",
     "ComprehensiveAnalysisReport",
-    "AnalysisEngine",
 ]
 
 __version__ = "1.0.0"

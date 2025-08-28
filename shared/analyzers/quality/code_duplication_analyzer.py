@@ -46,12 +46,14 @@ from dataclasses import dataclass, field
 import logging
 from abc import ABC, abstractmethod
 
-# Import base analyzer infrastructure
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
-
+# Use smart imports for module access
 try:
-    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+    from smart_imports import import_analyzer_base
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    BaseAnalyzer, AnalyzerConfig = import_analyzer_base()
 except ImportError as e:
     print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)

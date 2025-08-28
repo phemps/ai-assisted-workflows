@@ -5,9 +5,9 @@
 ### Comprehensive Input Validation
 
 ```typescript
-import { z } from "zod";
-import DOMPurify from "isomorphic-dompurify";
-import bcrypt from "bcryptjs";
+import { z } from "zod"
+import DOMPurify from "isomorphic-dompurify"
+import bcrypt from "bcryptjs"
 
 // Input validation schemas
 export const userRegistrationSchema = z.object({
@@ -24,22 +24,22 @@ export const userRegistrationSchema = z.object({
     .min(2, "Name too short")
     .max(100, "Name too long")
     .regex(/^[a-zA-Z\s'-]+$/, "Invalid characters in name"),
-});
+})
 
 // Email validation with domain blocking
 export const emailValidationSchema = z
   .string()
   .email()
   .refine((email) => {
-    const domain = email.split("@")[1];
+    const domain = email.split("@")[1]
     const blockedDomains = [
       "tempmail.com",
       "10minutemail.com",
       "guerrillamail.com",
       "throwaway.email",
-    ];
-    return !blockedDomains.includes(domain);
-  }, "Temporary email addresses are not allowed");
+    ]
+    return !blockedDomains.includes(domain)
+  }, "Temporary email addresses are not allowed")
 
 // File upload validation
 export const fileUploadSchema = z.object({
@@ -55,7 +55,7 @@ export const fileUploadSchema = z.object({
         "Invalid MIME type",
       ),
   }),
-});
+})
 ```
 
 ### XSS Prevention
@@ -124,14 +124,14 @@ export function setCSPHeaders(response: NextResponse) {
 ### Secure Password Handling
 
 ```typescript
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
+import bcrypt from "bcryptjs"
+import crypto from "crypto"
 
 export class PasswordSecurity {
   // Hash password with salt
   static async hashPassword(password: string): Promise<string> {
-    const saltRounds = 12;
-    return bcrypt.hash(password, saltRounds);
+    const saltRounds = 12
+    return bcrypt.hash(password, saltRounds)
   }
 
   // Verify password
@@ -139,64 +139,64 @@ export class PasswordSecurity {
     password: string,
     hashedPassword: string,
   ): Promise<boolean> {
-    return bcrypt.compare(password, hashedPassword);
+    return bcrypt.compare(password, hashedPassword)
   }
 
   // Generate secure random password
   static generateSecurePassword(length: number = 16): string {
     const charset =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-    let password = "";
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
+    let password = ""
 
     for (let i = 0; i < length; i++) {
-      const randomIndex = crypto.randomInt(0, charset.length);
-      password += charset[randomIndex];
+      const randomIndex = crypto.randomInt(0, charset.length)
+      password += charset[randomIndex]
     }
 
-    return password;
+    return password
   }
 
   // Password strength validation
   static validatePasswordStrength(password: string): {
-    isValid: boolean;
-    errors: string[];
+    isValid: boolean
+    errors: string[]
   } {
-    const errors: string[] = [];
+    const errors: string[] = []
 
     if (password.length < 8) {
-      errors.push("Password must be at least 8 characters long");
+      errors.push("Password must be at least 8 characters long")
     }
 
     if (!/[A-Z]/.test(password)) {
-      errors.push("Password must contain at least one uppercase letter");
+      errors.push("Password must contain at least one uppercase letter")
     }
 
     if (!/[a-z]/.test(password)) {
-      errors.push("Password must contain at least one lowercase letter");
+      errors.push("Password must contain at least one lowercase letter")
     }
 
     if (!/[0-9]/.test(password)) {
-      errors.push("Password must contain at least one number");
+      errors.push("Password must contain at least one number")
     }
 
     if (!/[^A-Za-z0-9]/.test(password)) {
-      errors.push("Password must contain at least one special character");
+      errors.push("Password must contain at least one special character")
     }
 
     // Check for common patterns
     const commonPatterns = [
       /(.)\1{2,}/, // Repeated characters
       /123456|abcdef|qwerty/i, // Sequential patterns
-    ];
+    ]
 
     if (commonPatterns.some((pattern) => pattern.test(password))) {
-      errors.push("Password contains common patterns");
+      errors.push("Password contains common patterns")
     }
 
     return {
       isValid: errors.length === 0,
       errors,
-    };
+    }
   }
 }
 ```
@@ -204,62 +204,62 @@ export class PasswordSecurity {
 ### CSRF Protection
 
 ```typescript
-import { randomBytes } from "crypto";
-import { cookies } from "next/headers";
+import { randomBytes } from "crypto"
+import { cookies } from "next/headers"
 
 export class CSRFProtection {
   // Generate CSRF token
   static generateToken(): string {
-    return randomBytes(32).toString("hex");
+    return randomBytes(32).toString("hex")
   }
 
   // Set CSRF token in cookie
   static setCSRFToken(response: NextResponse): string {
-    const token = this.generateToken();
+    const token = this.generateToken()
 
     response.cookies.set("csrf-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 60 * 60 * 24, // 24 hours
-    });
+    })
 
-    return token;
+    return token
   }
 
   // Verify CSRF token
   static async verifyCSRFToken(request: NextRequest): Promise<boolean> {
-    const cookieStore = cookies();
-    const tokenFromCookie = cookieStore.get("csrf-token")?.value;
-    const tokenFromHeader = request.headers.get("x-csrf-token");
+    const cookieStore = cookies()
+    const tokenFromCookie = cookieStore.get("csrf-token")?.value
+    const tokenFromHeader = request.headers.get("x-csrf-token")
 
     if (!tokenFromCookie || !tokenFromHeader) {
-      return false;
+      return false
     }
 
     // Use constant-time comparison to prevent timing attacks
     return crypto.timingSafeEqual(
       Buffer.from(tokenFromCookie),
       Buffer.from(tokenFromHeader),
-    );
+    )
   }
 
   // Middleware for CSRF protection
   static createMiddleware() {
     return async (request: NextRequest) => {
       if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
-        const isValid = await this.verifyCSRFToken(request);
+        const isValid = await this.verifyCSRFToken(request)
 
         if (!isValid) {
           return NextResponse.json(
             { error: "Invalid CSRF token" },
             { status: 403 },
-          );
+          )
         }
       }
 
-      return NextResponse.next();
-    };
+      return NextResponse.next()
+    }
   }
 }
 ```
@@ -269,11 +269,11 @@ export class CSRFProtection {
 ### Advanced Rate Limiting
 
 ```typescript
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
 
 export class SecurityRateLimit {
-  private static redis = Redis.fromEnv();
+  private static redis = Redis.fromEnv()
 
   // Different rate limits for different endpoints
   private static limiters = {
@@ -300,21 +300,21 @@ export class SecurityRateLimit {
       redis: this.redis,
       limiter: Ratelimit.slidingWindow(10, "1 h"),
     }),
-  };
+  }
 
   // Check rate limit
   static async checkRateLimit(
     identifier: string,
     type: keyof typeof this.limiters = "api",
   ): Promise<{ success: boolean; reset?: number; remaining?: number }> {
-    const limiter = this.limiters[type];
-    const result = await limiter.limit(identifier);
+    const limiter = this.limiters[type]
+    const result = await limiter.limit(identifier)
 
     return {
       success: result.success,
       reset: result.reset,
       remaining: result.remaining,
-    };
+    }
   }
 
   // Brute force protection for login
@@ -322,37 +322,37 @@ export class SecurityRateLimit {
     email: string,
     ip: string,
   ): Promise<{ allowed: boolean; lockoutTime?: number }> {
-    const emailKey = `bf:email:${email}`;
-    const ipKey = `bf:ip:${ip}`;
+    const emailKey = `bf:email:${email}`
+    const ipKey = `bf:ip:${ip}`
 
     const [emailAttempts, ipAttempts] = await Promise.all([
       this.redis.get(emailKey),
       this.redis.get(ipKey),
-    ]);
+    ])
 
     // Block if too many attempts from same email or IP
     if (emailAttempts && emailAttempts > 10) {
-      return { allowed: false, lockoutTime: 3600 }; // 1 hour
+      return { allowed: false, lockoutTime: 3600 } // 1 hour
     }
 
     if (ipAttempts && ipAttempts > 50) {
-      return { allowed: false, lockoutTime: 1800 }; // 30 minutes
+      return { allowed: false, lockoutTime: 1800 } // 30 minutes
     }
 
-    return { allowed: true };
+    return { allowed: true }
   }
 
   // Record failed login attempt
   static async recordFailedLogin(email: string, ip: string): Promise<void> {
-    const emailKey = `bf:email:${email}`;
-    const ipKey = `bf:ip:${ip}`;
+    const emailKey = `bf:email:${email}`
+    const ipKey = `bf:ip:${ip}`
 
     await Promise.all([
       this.redis.incr(emailKey),
       this.redis.incr(ipKey),
       this.redis.expire(emailKey, 3600), // 1 hour
       this.redis.expire(ipKey, 1800), // 30 minutes
-    ]);
+    ])
   }
 }
 ```
@@ -362,7 +362,7 @@ export class SecurityRateLimit {
 ### Safe Database Queries
 
 ```typescript
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma"
 
 export class SafeDatabaseOperations {
   // Safe user search with parameterized queries
@@ -382,30 +382,30 @@ export class SafeDatabaseOperations {
         name: true,
         createdAt: true,
       },
-    });
+    })
   }
 
   // Safe dynamic filtering
   static async getFilteredUsers(filters: {
-    role?: string;
-    status?: string;
-    createdAfter?: Date;
+    role?: string
+    status?: string
+    createdAfter?: Date
   }) {
-    const where: any = {};
+    const where: any = {}
 
     // Build where clause safely
     if (filters.role) {
-      where.role = filters.role;
+      where.role = filters.role
     }
 
     if (filters.status) {
-      where.status = filters.status;
+      where.status = filters.status
     }
 
     if (filters.createdAfter) {
       where.createdAt = {
         gte: filters.createdAfter,
-      };
+      }
     }
 
     return prisma.user.findMany({
@@ -418,7 +418,7 @@ export class SafeDatabaseOperations {
         status: true,
         createdAt: true,
       },
-    });
+    })
   }
 
   // Safe raw query example (when absolutely necessary)
@@ -430,7 +430,7 @@ export class SafeDatabaseOperations {
       LEFT JOIN posts p ON u.id = p.author_id
       WHERE u.id = ${userId}
       GROUP BY u.id
-    `;
+    `
   }
 }
 ```
@@ -465,40 +465,40 @@ const rolePermissions: Record<Role, Permission[]> = {
     Permission.READ_ADMIN,
   ],
   [Role.SUPER_ADMIN]: Object.values(Permission),
-};
+}
 
 export class AccessControl {
   // Check if user has permission
   static hasPermission(userRole: Role, permission: Permission): boolean {
-    const permissions = rolePermissions[userRole];
-    return permissions.includes(permission);
+    const permissions = rolePermissions[userRole]
+    return permissions.includes(permission)
   }
 
   // Check multiple permissions
   static hasAllPermissions(userRole: Role, permissions: Permission[]): boolean {
     return permissions.every((permission) =>
       this.hasPermission(userRole, permission),
-    );
+    )
   }
 
   // Middleware for permission checking
   static requirePermission(permission: Permission) {
     return async (request: NextRequest) => {
-      const session = await getServerSession(authOptions);
+      const session = await getServerSession(authOptions)
 
       if (!session?.user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
       }
 
       if (!this.hasPermission(session.user.role, permission)) {
         return NextResponse.json(
           { error: "Insufficient permissions" },
           { status: 403 },
-        );
+        )
       }
 
-      return null; // Allow request
-    };
+      return null // Allow request
+    }
   }
 }
 ```
@@ -521,37 +521,37 @@ export function setSecurityHeaders(response: NextResponse): NextResponse {
     "base-uri 'self'",
     "form-action 'self'",
     "upgrade-insecure-requests",
-  ].join("; ");
+  ].join("; ")
 
-  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("Content-Security-Policy", csp)
 
   // Other security headers
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Frame-Options", "DENY")
+  response.headers.set("X-Content-Type-Options", "nosniff")
+  response.headers.set("X-XSS-Protection", "1; mode=block")
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   response.headers.set(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()",
-  );
+  )
 
   // HSTS for HTTPS
   if (process.env.NODE_ENV === "production") {
     response.headers.set(
       "Strict-Transport-Security",
       "max-age=31536000; includeSubDomains; preload",
-    );
+    )
   }
 
-  return response;
+  return response
 }
 
 // Security middleware
 export function createSecurityMiddleware() {
   return async (request: NextRequest) => {
-    const response = NextResponse.next();
-    return setSecurityHeaders(response);
-  };
+    const response = NextResponse.next()
+    return setSecurityHeaders(response)
+  }
 }
 ```
 
@@ -560,8 +560,8 @@ export function createSecurityMiddleware() {
 ### Secure File Upload Handling
 
 ```typescript
-import { randomBytes } from "crypto";
-import path from "path";
+import { randomBytes } from "crypto"
+import path from "path"
 
 export class SecureFileUpload {
   private static allowedMimeTypes = [
@@ -570,49 +570,49 @@ export class SecureFileUpload {
     "image/gif",
     "application/pdf",
     "text/plain",
-  ];
+  ]
 
-  private static maxFileSize = 10 * 1024 * 1024; // 10MB
+  private static maxFileSize = 10 * 1024 * 1024 // 10MB
 
   // Validate file
   static validateFile(file: File): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
+    const errors: string[] = []
 
     // Check file size
     if (file.size > this.maxFileSize) {
-      errors.push("File size exceeds limit");
+      errors.push("File size exceeds limit")
     }
 
     // Check MIME type
     if (!this.allowedMimeTypes.includes(file.type)) {
-      errors.push("File type not allowed");
+      errors.push("File type not allowed")
     }
 
     // Check file extension
-    const extension = path.extname(file.name).toLowerCase();
-    const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".pdf", ".txt"];
+    const extension = path.extname(file.name).toLowerCase()
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".pdf", ".txt"]
     if (!allowedExtensions.includes(extension)) {
-      errors.push("File extension not allowed");
+      errors.push("File extension not allowed")
     }
 
     return {
       valid: errors.length === 0,
       errors,
-    };
+    }
   }
 
   // Generate safe filename
   static generateSafeFilename(originalName: string): string {
-    const extension = path.extname(originalName);
-    const randomName = randomBytes(16).toString("hex");
-    return `${randomName}${extension}`;
+    const extension = path.extname(originalName)
+    const randomName = randomBytes(16).toString("hex")
+    return `${randomName}${extension}`
   }
 
   // Scan file for malware (placeholder for actual implementation)
   static async scanFile(fileBuffer: Buffer): Promise<boolean> {
     // Integrate with antivirus service like ClamAV
     // Return true if file is safe
-    return true;
+    return true
   }
 }
 ```

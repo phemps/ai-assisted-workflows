@@ -1,4 +1,3 @@
-# install_monitoring_dependencies.py v0.1
 """
 install_monitoring_dependencies.py v0.1
 

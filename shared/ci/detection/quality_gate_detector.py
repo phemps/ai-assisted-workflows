@@ -7,20 +7,33 @@ to eliminate code duplication patterns. Part of AI-Assisted Workflows.
 """
 
 import subprocess
+import sys
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+# Use smart imports for base utilities
+try:
+    from smart_imports import import_base_module, import_cli_utils
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
 # Import base utilities (eliminates duplication)
-from shared.core.base import (
-    CIAnalysisModule,
-    ConfigFactory,
-    QualityGateConfig,
-    timed_operation,
-    time_operation,
-    create_standard_cli,
-    run_cli_tool,
-)
+try:
+    base_module = import_base_module()
+    CIAnalysisModule = base_module.CIAnalysisModule
+    ConfigFactory = base_module.ConfigFactory
+    QualityGateConfig = base_module.QualityGateConfig
+    timed_operation = base_module.timed_operation
+    time_operation = base_module.time_operation
+
+    cli_utils_module = import_cli_utils()
+    create_standard_cli = cli_utils_module.create_standard_cli
+    run_cli_tool = cli_utils_module.run_cli_tool
+except ImportError as e:
+    print(f"Error importing base utilities: {e}", file=sys.stderr)
+    sys.exit(1)
 
 
 class QualityGateStatus(Enum):

@@ -10,15 +10,17 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any
 
-# Add utils to path for imports
-script_dir = Path(__file__).parent
-core_utils_path = Path(__file__).parent.parent.parent / "core" / "utils"
-sys.path.insert(0, str(core_utils_path))
-
+# Use smart imports for module access
 try:
-    from cross_platform import CommandExecutor
+    from smart_imports import import_file_utils
 except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    file_utils_module = import_file_utils()
+    CommandExecutor = file_utils_module.CommandExecutor
+except ImportError as e:
+    print(f"Error importing file utils: {e}", file=sys.stderr)
     sys.exit(1)
 
 

@@ -25,11 +25,11 @@ Plugins are loaded from:
 
 ```javascript
 export const MyPlugin = async ({ app, client, $ }) => {
-  console.log("Plugin initialized!");
+  console.log("Plugin initialized!")
   return {
     // Hook implementations go here
-  };
-};
+  }
+}
 ```
 
 The plugin function receives:
@@ -45,13 +45,13 @@ The plugin function receives:
 For TypeScript plugins, you can import types from the plugin package:
 
 ```typescript
-import type { Plugin } from "@opencode-ai/plugin";
+import type { Plugin } from "@opencode-ai/plugin"
 
 export const MyPlugin: Plugin = async ({ app, client, $ }) => {
   return {
     // Type-safe hook implementations
-  };
-};
+  }
+}
 ```
 
 ---
@@ -72,11 +72,11 @@ export const NotificationPlugin = async ({ client, $ }) => {
     event: async ({ event }) => {
       // Send notification on session completion
       if (event.type === "session.idle") {
-        await $`osascript -e 'display notification "Session completed!" with title "opencode"'`;
+        await $`osascript -e 'display notification "Session completed!" with title "opencode"'`
       }
     },
-  };
-};
+  }
+}
 ```
 
 We are using `osascript` to run AppleScript on macOS. Here we are using it to send notifications.
@@ -94,11 +94,11 @@ export const EnvProtection = async ({ client, $ }) => {
       execute: {
         before: async (input, output) => {
           if (input.tool === "read" && output.args.filePath.includes(".env")) {
-            throw new Error("Do not read .env files");
+            throw new Error("Do not read .env files")
           }
         },
       },
     },
-  };
-};
+  }
+}
 ```

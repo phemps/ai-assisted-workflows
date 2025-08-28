@@ -26,16 +26,16 @@ import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-# Import after path setup
+# Use smart imports for module access
 try:
-    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+    from smart_imports import import_analyzer_base
 except ImportError as e:
-    print(f"Error importing BaseAnalyzer: {e}", file=sys.stderr)
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    BaseAnalyzer, AnalyzerConfig = import_analyzer_base()
+except ImportError as e:
+    print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)
 
 

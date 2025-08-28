@@ -708,7 +708,7 @@ copy_files() {
         # Copy scripts from shared/ subdirectories
         local shared_dir="$(dirname "$source_dir")/shared"
         mkdir -p "$INSTALL_DIR/scripts"
-        for subdir in analyzers generators setup utils tests ci core; do
+        for subdir in analyzers generators setup utils tests ci core test-paths; do
             if [[ -d "$shared_dir/$subdir" ]]; then
                 ( cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir" ) &
                 spinner $! "Copying $subdir scripts"
@@ -729,7 +729,52 @@ copy_files() {
     ( find "$INSTALL_DIR" \( -name "*.py" -o -name "*.sh" \) -exec chmod +x {} + ) &
     spinner $! "Setting file permissions"
 
+    # Configure smart import system with actual deployment paths
+    configure_smart_imports
+
     log "Files copied successfully"
+}
+
+# Configure smart imports with actual installation paths
+configure_smart_imports() {
+    log_verbose "Configuring smart import system..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "Would configure smart import system with path: $INSTALL_DIR/scripts"
+        return 0
+    fi
+
+    # Configure production smart import file if it exists
+    local smart_import_file="$INSTALL_DIR/scripts/utils/smart_imports.py"
+    if [[ -f "$smart_import_file" ]]; then
+        # Replace the PACKAGE_ROOT line with the actual installation path
+        local new_path="PACKAGE_ROOT = Path(\"$INSTALL_DIR/scripts\")"
+        if [[ "$PLATFORM" == "macos" ]]; then
+            # macOS sed requires backup extension
+            sed -i.bak "s|^PACKAGE_ROOT = .*|$new_path|" "$smart_import_file"
+            rm -f "${smart_import_file}.bak"
+        else
+            # Linux sed
+            sed -i "s|^PACKAGE_ROOT = .*|$new_path|" "$smart_import_file"
+        fi
+        log_verbose "Configured production smart imports with path: $INSTALL_DIR/scripts"
+    fi
+
+    # Also configure test-paths smart imports if it exists (for testing)
+    local test_import_file="$INSTALL_DIR/scripts/test-paths/utils/smart_imports.py"
+    if [[ -f "$test_import_file" ]]; then
+        local new_test_path="PACKAGE_ROOT = Path(\"$INSTALL_DIR/scripts/test-paths\")"
+        if [[ "$PLATFORM" == "macos" ]]; then
+            sed -i.bak "s|^PACKAGE_ROOT = .*|$new_test_path|" "$test_import_file"
+            rm -f "${test_import_file}.bak"
+        else
+            sed -i "s|^PACKAGE_ROOT = .*|$new_test_path|" "$test_import_file"
+        fi
+        log_verbose "Configured test smart imports with path: $INSTALL_DIR/scripts/test-paths"
+    fi
+
+    # The smart import system is now deployed across all analyzers and CI components
+    # smart_imports.py handles universal imports for the entire codebase
 }
 
 # Create installation log for uninstall tracking

@@ -10,13 +10,13 @@ All messages include these core fields:
 
 ```typescript
 interface BaseMessage {
-  messageId: string; // Unique identifier (UUID)
-  correlationId: string; // Links related messages
-  timestamp: string; // ISO 8601 format
-  from: string; // Sending agent name
-  to: string; // Receiving agent name
-  type: MessageType; // Message type enum
-  version: string; // Format version (currently "1.0")
+  messageId: string // Unique identifier (UUID)
+  correlationId: string // Links related messages
+  timestamp: string // ISO 8601 format
+  from: string // Sending agent name
+  to: string // Receiving agent name
+  type: MessageType // Message type enum
+  version: string // Format version (currently "1.0")
 }
 ```
 
@@ -26,20 +26,20 @@ interface BaseMessage {
 
 ```typescript
 interface TaskAssignment extends BaseMessage {
-  type: "TASK_ASSIGNMENT";
+  type: "TASK_ASSIGNMENT"
   payload: {
-    taskId: string;
-    title: string;
-    description: string;
-    phase: number;
-    dependencies: string[];
+    taskId: string
+    title: string
+    description: string
+    phase: number
+    dependencies: string[]
     context: {
-      approvedDesign?: string;
-      existingDocs?: string[];
-      constraints?: string[];
-      planFile?: string; // Path to implementation plan if applicable
-    };
-  };
+      approvedDesign?: string
+      existingDocs?: string[]
+      constraints?: string[]
+      planFile?: string // Path to implementation plan if applicable
+    }
+  }
 }
 ```
 
@@ -104,14 +104,14 @@ Example:
 
 ```typescript
 interface StatusUpdate extends BaseMessage {
-  type: "STATUS_UPDATE";
+  type: "STATUS_UPDATE"
   payload: {
-    taskId: string;
-    status: "STARTED" | "PROGRESS" | "BLOCKED" | "COMPLETED" | "FAILED";
-    progress?: number; // 0-100
-    details?: string;
-    blockers?: string[];
-  };
+    taskId: string
+    status: "STARTED" | "PROGRESS" | "BLOCKED" | "COMPLETED" | "FAILED"
+    progress?: number // 0-100
+    details?: string
+    blockers?: string[]
+  }
 }
 ```
 
@@ -119,14 +119,14 @@ interface StatusUpdate extends BaseMessage {
 
 ```typescript
 interface StateTransition extends BaseMessage {
-  type: "STATE_TRANSITION";
+  type: "STATE_TRANSITION"
   payload: {
-    taskId: string;
-    fromState: State;
-    toState: State;
-    reason: string;
-    metadata?: Record<string, any>;
-  };
+    taskId: string
+    fromState: State
+    toState: State
+    reason: string
+    metadata?: Record<string, any>
+  }
 }
 ```
 
@@ -134,18 +134,18 @@ interface StateTransition extends BaseMessage {
 
 ```typescript
 interface ValidationRequest extends BaseMessage {
-  type: "VALIDATION_REQUEST";
+  type: "VALIDATION_REQUEST"
   payload: {
-    taskId: string;
-    validationType: "DESIGN" | "QUALITY" | "SECURITY" | "CODEBASE_REVIEW";
-    subject: string;
+    taskId: string
+    validationType: "DESIGN" | "QUALITY" | "SECURITY" | "CODEBASE_REVIEW"
+    subject: string
     details: {
-      approach?: string;
-      files?: string[];
-      changes?: string;
-      planFile?: string; // Path to implementation plan file for codebase reviews
-    };
-  };
+      approach?: string
+      files?: string[]
+      changes?: string
+      planFile?: string // Path to implementation plan file for codebase reviews
+    }
+  }
 }
 ```
 
@@ -153,14 +153,14 @@ interface ValidationRequest extends BaseMessage {
 
 ```typescript
 interface ValidationResponse extends BaseMessage {
-  type: "VALIDATION_RESPONSE";
+  type: "VALIDATION_RESPONSE"
   payload: {
-    taskId: string;
-    decision: "APPROVED" | "REJECTED" | "CONDITIONAL";
-    reasons: string[];
-    conditions?: string[];
-    suggestions?: string[];
-  };
+    taskId: string
+    decision: "APPROVED" | "REJECTED" | "CONDITIONAL"
+    reasons: string[]
+    conditions?: string[]
+    suggestions?: string[]
+  }
 }
 ```
 
@@ -168,18 +168,18 @@ interface ValidationResponse extends BaseMessage {
 
 ```typescript
 interface QualityReport extends BaseMessage {
-  type: "QUALITY_REPORT";
+  type: "QUALITY_REPORT"
   payload: {
-    taskId: string;
-    status: "PASSED" | "FAILED";
+    taskId: string
+    status: "PASSED" | "FAILED"
     gates: {
-      name: string;
-      status: "PASSED" | "FAILED" | "SKIPPED";
-      details?: string;
-    }[];
-    failureCount: number;
-    actions: string[];
-  };
+      name: string
+      status: "PASSED" | "FAILED" | "SKIPPED"
+      details?: string
+    }[]
+    failureCount: number
+    actions: string[]
+  }
 }
 ```
 
@@ -187,19 +187,19 @@ interface QualityReport extends BaseMessage {
 
 ```typescript
 interface ErrorReport extends BaseMessage {
-  type: "ERROR_REPORT";
+  type: "ERROR_REPORT"
   payload: {
-    taskId?: string;
-    severity: "CRITICAL" | "ERROR" | "WARNING";
-    count: number;
+    taskId?: string
+    severity: "CRITICAL" | "ERROR" | "WARNING"
+    count: number
     errors: {
-      timestamp: string;
-      message: string;
-      source?: string;
-      stackTrace?: string;
-    }[];
-    pattern?: string;
-  };
+      timestamp: string
+      message: string
+      source?: string
+      stackTrace?: string
+    }[]
+    pattern?: string
+  }
 }
 ```
 
@@ -207,18 +207,18 @@ interface ErrorReport extends BaseMessage {
 
 ```typescript
 interface EscalationRequest extends BaseMessage {
-  type: "ESCALATION_REQUEST";
+  type: "ESCALATION_REQUEST"
   payload: {
-    taskId: string;
-    escalationType: "CTO" | "HUMAN";
-    reason: string;
+    taskId: string
+    escalationType: "CTO" | "HUMAN"
+    reason: string
     failureHistory: {
-      agent: string;
-      attempts: number;
-      lastError: string;
-    }[];
-    context: Record<string, any>;
-  };
+      agent: string
+      attempts: number
+      lastError: string
+    }[]
+    context: Record<string, any>
+  }
 }
 ```
 
@@ -226,18 +226,18 @@ interface EscalationRequest extends BaseMessage {
 
 ```typescript
 interface CommitRequest extends BaseMessage {
-  type: "COMMIT_REQUEST";
+  type: "COMMIT_REQUEST"
   payload: {
-    taskId: string;
-    approvalRef: string; // Reference to quality approval
-    files: string[];
-    commitMessage: string;
+    taskId: string
+    approvalRef: string // Reference to quality approval
+    files: string[]
+    commitMessage: string
     metadata: {
-      qualityGatesPassed: boolean;
-      approvedBy: string;
-      timestamp: string;
-    };
-  };
+      qualityGatesPassed: boolean
+      approvedBy: string
+      timestamp: string
+    }
+  }
 }
 ```
 
@@ -245,13 +245,13 @@ interface CommitRequest extends BaseMessage {
 
 ```typescript
 interface DocumentationQuery extends BaseMessage {
-  type: "DOC_QUERY";
+  type: "DOC_QUERY"
   payload: {
-    queryType: "SEARCH" | "VERIFY" | "REGISTER";
-    topic: string;
-    keywords: string[];
-    context?: string;
-  };
+    queryType: "SEARCH" | "VERIFY" | "REGISTER"
+    topic: string
+    keywords: string[]
+    context?: string
+  }
 }
 ```
 
@@ -259,17 +259,17 @@ interface DocumentationQuery extends BaseMessage {
 
 ```typescript
 interface DocumentationResponse extends BaseMessage {
-  type: "DOC_RESPONSE";
+  type: "DOC_RESPONSE"
   payload: {
-    found: boolean;
+    found: boolean
     documents: {
-      path: string;
-      relevance: number; // 0-100
-      topics: string[];
-      lastUpdated: string;
-    }[];
-    recommendation: "USE_EXISTING" | "UPDATE_EXISTING" | "CREATE_NEW";
-  };
+      path: string
+      relevance: number // 0-100
+      topics: string[]
+      lastUpdated: string
+    }[]
+    recommendation: "USE_EXISTING" | "UPDATE_EXISTING" | "CREATE_NEW"
+  }
 }
 ```
 
@@ -277,31 +277,31 @@ interface DocumentationResponse extends BaseMessage {
 
 ```typescript
 interface CodebaseReviewReport extends BaseMessage {
-  type: "CODEBASE_REVIEW_REPORT";
+  type: "CODEBASE_REVIEW_REPORT"
   payload: {
-    taskId?: string;
-    reviewType: "INITIAL_ASSESSMENT" | "PRE_IMPLEMENTATION";
+    taskId?: string
+    reviewType: "INITIAL_ASSESSMENT" | "PRE_IMPLEMENTATION"
     findings: {
       architecture: {
-        status: "GOOD" | "NEEDS_ATTENTION" | "CRITICAL";
-        issues: string[];
-        recommendations: string[];
-      };
+        status: "GOOD" | "NEEDS_ATTENTION" | "CRITICAL"
+        issues: string[]
+        recommendations: string[]
+      }
       documentation: {
-        gaps: string[];
-        conflicts: string[];
-        outdated: string[];
-        updated: string[];
-      };
+        gaps: string[]
+        conflicts: string[]
+        outdated: string[]
+        updated: string[]
+      }
       codeQuality: {
-        technicalDebt: string[];
-        patterns: string[];
-        dependencies: string[];
-      };
-    };
-    blockers: string[];
-    readyForImplementation: boolean;
-  };
+        technicalDebt: string[]
+        patterns: string[]
+        dependencies: string[]
+      }
+    }
+    blockers: string[]
+    readyForImplementation: boolean
+  }
 }
 ```
 
@@ -362,12 +362,12 @@ interface CodebaseReviewReport extends BaseMessage {
 
 ```typescript
 interface MessageError extends BaseMessage {
-  type: "MESSAGE_ERROR";
+  type: "MESSAGE_ERROR"
   payload: {
-    originalMessageId: string;
-    errorType: "INVALID_FORMAT" | "UNKNOWN_TYPE" | "MISSING_FIELD";
-    details: string;
-  };
+    originalMessageId: string
+    errorType: "INVALID_FORMAT" | "UNKNOWN_TYPE" | "MISSING_FIELD"
+    details: string
+  }
 }
 ```
 
@@ -416,7 +416,7 @@ class MessageBuilder {
         dependencies: task.dependencies,
         context: task.context,
       },
-    };
+    }
   }
 }
 ```

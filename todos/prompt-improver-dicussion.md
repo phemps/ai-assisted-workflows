@@ -162,69 +162,69 @@ package.json (excerpt):
 extension.ts (core logic excerpt):
 
 ```ts
-import * as vscode from "vscode";
+import * as vscode from "vscode"
 
 interface ContextMeta {
-  language?: string;
-  fileName?: string;
+  language?: string
+  fileName?: string
 }
 interface PromptModelProvider {
-  name: string;
-  improve(input: string, meta: ContextMeta, rules: string): Promise<string>;
+  name: string
+  improve(input: string, meta: ContextMeta, rules: string): Promise<string>
 }
 
 class MockProvider implements PromptModelProvider {
-  name = "mock";
+  name = "mock"
   async improve(input: string) {
-    return `[IMPROVED]\n${input.trim()}\n(clarified automatically)`;
+    return `[IMPROVED]\n${input.trim()}\n(clarified automatically)`
   }
 }
 
 // Claude CLI provider example (assumes a `claude` binary that reads stdin)
 class ClaudeCliProvider implements PromptModelProvider {
-  name = "claudeCli";
+  name = "claudeCli"
   async improve(input: string, meta: ContextMeta, rules: string) {
-    const proc = await import("node:child_process");
+    const proc = await import("node:child_process")
     return new Promise<string>((resolve, reject) => {
       const p = proc.spawn("claude", ["--mode", "improve"], {
         stdio: ["pipe", "pipe", "pipe"],
-      });
-      let out = "";
-      let err = "";
-      p.stdout.on("data", (d) => (out += d.toString()));
-      p.stderr.on("data", (d) => (err += d.toString()));
+      })
+      let out = ""
+      let err = ""
+      p.stdout.on("data", (d) => (out += d.toString()))
+      p.stderr.on("data", (d) => (err += d.toString()))
       p.on("close", (code) =>
         code === 0
           ? resolve(out.trim())
           : reject(new Error(err || `Exit ${code}`)),
-      );
-      p.stdin.write(`SYSTEM:\n${rules}\n\nPROMPT:\n${input}\n`);
-      p.stdin.end();
-    });
+      )
+      p.stdin.write(`SYSTEM:\n${rules}\n\nPROMPT:\n${input}\n`)
+      p.stdin.end()
+    })
   }
 }
 
 function getProvider(kind: string): PromptModelProvider {
   switch (kind) {
     case "claudeCli":
-      return new ClaudeCliProvider();
+      return new ClaudeCliProvider()
     default:
-      return new MockProvider();
+      return new MockProvider()
   }
 }
 
 async function improveRaw(raw: string) {
-  const cfg = vscode.workspace.getConfiguration("promptImprover");
-  const provider = getProvider(cfg.get("modelProvider") as string);
-  const systemPrompt = cfg.get("systemPrompt") as string;
-  const editor = vscode.window.activeTextEditor;
+  const cfg = vscode.workspace.getConfiguration("promptImprover")
+  const provider = getProvider(cfg.get("modelProvider") as string)
+  const systemPrompt = cfg.get("systemPrompt") as string
+  const editor = vscode.window.activeTextEditor
   const meta: ContextMeta = editor
     ? {
         language: editor.document.languageId,
         fileName: editor.document.fileName,
       }
-    : {};
-  return provider.improve(raw, meta, systemPrompt);
+    : {}
+  return provider.improve(raw, meta, systemPrompt)
 }
 
 async function approveAndApply(
@@ -232,80 +232,80 @@ async function approveAndApply(
   improved: string,
   apply: (text: string) => void,
 ) {
-  const cfg = vscode.workspace.getConfiguration("promptImprover");
+  const cfg = vscode.workspace.getConfiguration("promptImprover")
   if (cfg.get("autoReplace")) {
-    apply(improved);
-    return;
+    apply(improved)
+    return
   }
-  const showDiff = cfg.get("showDiff");
+  const showDiff = cfg.get("showDiff")
   const picks = ["Accept", "Reject", showDiff ? "View Diff" : undefined].filter(
     Boolean,
-  ) as string[];
+  ) as string[]
   let decision = await vscode.window.showQuickPick(picks, {
     placeHolder: "Prompt Improver result",
-  });
+  })
   if (decision === "View Diff") {
-    const originalUri = vscode.Uri.parse("prompt-improver://original");
-    const improvedUri = vscode.Uri.parse("prompt-improver://improved");
+    const originalUri = vscode.Uri.parse("prompt-improver://original")
+    const improvedUri = vscode.Uri.parse("prompt-improver://improved")
     const provider: vscode.TextDocumentContentProvider = {
       provideTextDocumentContent: (uri) =>
         uri.path.endsWith("original") ? original : improved,
-    };
+    }
     const reg = vscode.workspace.registerTextDocumentContentProvider(
       "prompt-improver",
       provider,
-    );
+    )
     await vscode.commands.executeCommand(
       "vscode.diff",
       originalUri,
       improvedUri,
       "Prompt Diff",
-    );
-    reg.dispose();
-    decision = await vscode.window.showQuickPick(["Accept", "Reject"]);
+    )
+    reg.dispose()
+    decision = await vscode.window.showQuickPick(["Accept", "Reject"])
   }
-  if (decision === "Accept") apply(improved);
+  if (decision === "Accept") apply(improved)
 }
 
 async function improveSelectionCommand() {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) return;
-  const sel = editor.selection;
+  const editor = vscode.window.activeTextEditor
+  if (!editor) return
+  const sel = editor.selection
   const text = sel.isEmpty
     ? editor.document.lineAt(sel.active.line).text
-    : editor.document.getText(sel);
-  if (!text.trim()) return;
+    : editor.document.getText(sel)
+  if (!text.trim()) return
   const improved = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window, title: "Improving prompt..." },
     () => improveRaw(text),
-  );
+  )
   await approveAndApply(text, improved, (replacement) => {
-    const edit = new vscode.WorkspaceEdit();
+    const edit = new vscode.WorkspaceEdit()
     const range = sel.isEmpty
       ? editor.document.lineAt(sel.active.line).range
-      : sel;
-    edit.replace(editor.document.uri, range, replacement);
-    vscode.workspace.applyEdit(edit);
-  });
+      : sel
+    edit.replace(editor.document.uri, range, replacement)
+    vscode.workspace.applyEdit(edit)
+  })
 }
 
 async function improveTerminalCommand() {
-  const term = vscode.window.activeTerminal;
+  const term = vscode.window.activeTerminal
   if (!term) {
-    vscode.window.showInformationMessage("No active terminal");
-    return;
+    vscode.window.showInformationMessage("No active terminal")
+    return
   }
   const original = await vscode.window.showInputBox({
     prompt: "Prompt to improve (will be sent after accept)",
-  });
-  if (!original) return;
+  })
+  if (!original) return
   const improved = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Window, title: "Improving prompt..." },
     () => improveRaw(original),
-  );
+  )
   await approveAndApply(original, improved, (replacement) => {
-    term.sendText(replacement, false);
-  });
+    term.sendText(replacement, false)
+  })
 }
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -318,7 +318,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       "promptImprover.improveTerminal",
       improveTerminalCommand,
     ),
-  );
+  )
 }
 
 export function deactivate() {}

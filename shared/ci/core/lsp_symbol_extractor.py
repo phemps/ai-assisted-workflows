@@ -8,6 +8,7 @@ Part of AI-Assisted Workflows.
 """
 
 import logging
+import sys
 import tempfile
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -27,23 +28,35 @@ except ImportError:
     MultilspyConfig = None
     MultilspyLogger = None
 
+# Use smart imports for base utilities
+try:
+    from smart_imports import import_base_module, import_cli_utils
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+
 # Import base utilities
-from shared.core.base import (
-    CIConfigModule,
-    timed_operation,
-    PerformanceTracker,
-)
+try:
+    base_module = import_base_module()
+    CIConfigModule = base_module.CIConfigModule
+    timed_operation = base_module.timed_operation
+    PerformanceTracker = base_module.PerformanceTracker
+
+    cli_utils_module = import_cli_utils()
+    create_standard_cli = cli_utils_module.create_standard_cli
+    run_cli_tool = cli_utils_module.run_cli_tool
+except ImportError as e:
+    print(f"Error importing base utilities: {e}", file=sys.stderr)
+    sys.exit(1)
 
 # Import Symbol from integration
 try:
     from ..integration.symbol_extractor import Symbol, SymbolType
 except ImportError:
     # Fallback for direct execution
-    import sys
 
-    sys.path.insert(0, str(Path(__file__).parent.parent / "integration"))
-    from symbol_extractor import Symbol, SymbolType
-
+    # Import from integration module
+    from ci.integration.symbol_extractor import Symbol, SymbolType
 
 logger = logging.getLogger(__name__)
 
@@ -499,8 +512,6 @@ class LSPSymbolExtractor(CIConfigModule):
 
 def main():
     """CLI interface for LSP symbol extractor."""
-    from shared.core.base.cli_utils import create_standard_cli, run_cli_tool
-
     cli = create_standard_cli(
         "lsp-symbol-extractor",
         "Extract symbols using Language Server Protocol",

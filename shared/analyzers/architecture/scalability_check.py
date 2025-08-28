@@ -26,12 +26,15 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Import base analyzer infrastructure
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+# Use smart imports for module access
+try:
+    from smart_imports import import_analyzer_base
+except ImportError:
+    print("Error importing smart_imports module: {e}", file=sys.stderr)
+    sys.exit(1)
 
 try:
-    from shared.core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+    BaseAnalyzer, AnalyzerConfig = import_analyzer_base()
 except ImportError as e:
     print(f"Error importing base analyzer: {e}", file=sys.stderr)
     sys.exit(1)

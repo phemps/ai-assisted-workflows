@@ -31,51 +31,31 @@ def detect_project_languages(
     project_dir: str, exclusion_patterns: Optional[List[str]] = None
 ) -> List[str]:
     """Detect programming languages in the project using TechStackDetector."""
+    # Use smart imports for module access
     try:
-        # Import the shared TechStackDetector
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "core" / "utils"))
-        from tech_stack_detector import TechStackDetector
+        from smart_imports import import_tech_stack_detector
+    except ImportError as e:
+        print(f"Error importing smart imports: {e}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        tech_stack_module = import_tech_stack_detector()
+        TechStackDetector = tech_stack_module.TechStackDetector
+    except ImportError as e:
+        print(f"Error importing tech stack detector: {e}", file=sys.stderr)
+        sys.exit(1)
 
-        # Use TechStackDetector to get detected tech stacks
-        detector = TechStackDetector()
-        detected_stacks = detector.detect_tech_stack(project_dir)
+    # Use TechStackDetector to get detected tech stacks
+    detector = TechStackDetector()
+    detected_stacks = detector.detect_tech_stack(project_dir)
 
-        # Extract languages from detected tech stacks
-        languages = set()
-        for stack_id in detected_stacks:
-            if stack_id in detector.tech_stacks:
-                stack_config = detector.tech_stacks[stack_id]
-                languages.update(stack_config.primary_languages)
+    # Extract languages from detected tech stacks
+    languages = set()
+    for stack_id in detected_stacks:
+        if stack_id in detector.tech_stacks:
+            stack_config = detector.tech_stacks[stack_id]
+            languages.update(stack_config.primary_languages)
 
-        return sorted(list(languages))
-
-    except ImportError:
-        # Fallback to original logic if shared utility not available
-        print("Warning: Using fallback language detection", file=sys.stderr)
-        language_patterns = {
-            "python": ["**/*.py"],
-            "javascript": ["**/*.js", "**/*.jsx"],
-            "typescript": ["**/*.ts", "**/*.tsx"],
-            "java": ["**/*.java"],
-            "go": ["**/*.go"],
-            "rust": ["**/*.rs"],
-            "php": ["**/*.php"],
-            "ruby": ["**/*.rb"],
-            "c": ["**/*.c", "**/*.h"],
-            "cpp": ["**/*.cpp", "**/*.hpp", "**/*.cc"],
-            "csharp": ["**/*.cs"],
-        }
-
-        detected = []
-        project_path = Path(project_dir)
-
-        for lang, patterns in language_patterns.items():
-            for pattern in patterns:
-                if list(project_path.glob(pattern)):
-                    detected.append(lang)
-                    break
-
-        return detected
+    return sorted(list(languages))
 
 
 def create_ci_registry_structure(project_dir: str) -> bool:

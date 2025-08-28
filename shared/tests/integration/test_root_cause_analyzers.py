@@ -13,15 +13,15 @@ from typing import Dict, Any
 
 # Use smart imports for module access
 try:
-    from smart_imports import import_file_utils
+    from smart_imports import import_cross_platform, get_analyzers_dir
 except ImportError as e:
     print(f"Error importing smart imports: {e}", file=sys.stderr)
     sys.exit(1)
 try:
-    file_utils_module = import_file_utils()
-    CommandExecutor = file_utils_module.CommandExecutor
+    cross_platform_module = import_cross_platform()
+    CommandExecutor = cross_platform_module.CommandExecutor
 except ImportError as e:
-    print(f"Error importing file utils: {e}", file=sys.stderr)
+    print(f"Error importing cross platform utils: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -29,11 +29,8 @@ class RootCauseAnalysisIntegrationTest:
     """Test reactive root cause analysis workflow with various error scenarios."""
 
     def __init__(self):
-        # Use the current script's location to find the analyzers directory
-        current_script_dir = Path(__file__).parent
-        self.analyzers_dir = (
-            current_script_dir.parent.parent / "analyzers" / "root_cause"
-        )
+        # Use smart imports to get the root cause analyzers directory
+        self.analyzers_dir = get_analyzers_dir("root_cause")
 
         # Test scenarios with different error types
         self.test_scenarios = [

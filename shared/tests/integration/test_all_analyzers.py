@@ -12,7 +12,7 @@ from typing import List, Dict, Any
 
 # Use smart imports for module access
 try:
-    from smart_imports import import_cross_platform
+    from smart_imports import import_cross_platform, get_analyzers_dir
 except ImportError as e:
     print(f"Error importing smart imports: {e}", file=sys.stderr)
     sys.exit(1)
@@ -28,9 +28,8 @@ class AnalysisRunner:
     """Run all analysis scripts and combine results."""
 
     def __init__(self):
-        # Use the current script's location to find the analyzers directory
-        current_script_dir = Path(__file__).parent
-        self.script_dir = current_script_dir.parent.parent / "analyzers"
+        # Use smart imports to get the analyzers directory
+        self.script_dir = get_analyzers_dir()
         self.scripts = {
             # Security analysis - Updated to use established tools
             "security_semgrep": "security/semgrep_analyzer.py",  # Replaces vulnerabilities, auth, input validation

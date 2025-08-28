@@ -418,6 +418,62 @@ def import_cross_platform() -> Any:
 
 
 # ============================================================================
+# Path Resolution Functions
+# ============================================================================
+
+
+def get_project_root() -> Path:
+    """Get the project root directory."""
+    return PACKAGE_ROOT.parent
+
+
+def get_analyzers_dir(category: Optional[str] = None) -> Path:
+    """
+    Get the path to analyzers directory or a specific category.
+
+    Args:
+        category: Optional category name (e.g., 'security', 'performance', 'root_cause')
+
+    Returns:
+        Path to the analyzers directory or specific category
+    """
+    analyzers_path = PACKAGE_ROOT / "analyzers"
+    if category:
+        return analyzers_path / category
+    return analyzers_path
+
+
+def get_analyzer_script_path(category: str, script_name: str) -> Path:
+    """
+    Get the full path to a specific analyzer script.
+
+    Args:
+        category: Category name (e.g., 'security', 'performance')
+        script_name: Script filename (e.g., 'detect_secrets_analyzer.py')
+
+    Returns:
+        Full path to the analyzer script
+    """
+    return get_analyzers_dir(category) / script_name
+
+
+def get_test_codebase_dir(subdir: Optional[str] = None) -> Path:
+    """
+    Get the test codebase directory.
+
+    Args:
+        subdir: Optional subdirectory (e.g., 'vulnerable-apps', 'clean-apps')
+
+    Returns:
+        Path to the test codebase or specific subdirectory
+    """
+    test_dir = get_project_root() / "test_codebase"
+    if subdir:
+        return test_dir / subdir
+    return test_dir
+
+
+# ============================================================================
 # Utility Functions
 # ============================================================================
 

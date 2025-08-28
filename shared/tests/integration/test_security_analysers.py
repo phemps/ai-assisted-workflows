@@ -10,13 +10,28 @@ Direct analyzer execution with JSON parsing and report generation.
 """
 
 import json
-import os
-import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Dict, List, Any
 import argparse
+
+# Use smart imports for module access
+try:
+    from smart_imports import (
+        import_cross_platform,
+        get_analyzer_script_path,
+        get_test_codebase_dir,
+    )
+except ImportError as e:
+    print(f"Error importing smart imports: {e}", file=sys.stderr)
+    sys.exit(1)
+try:
+    cross_platform_module = import_cross_platform()
+    CommandExecutor = cross_platform_module.CommandExecutor
+except ImportError as e:
+    print(f"Error importing cross platform utils: {e}", file=sys.stderr)
+    sys.exit(1)
 
 print("🔧 Starting minimal evaluator...")
 
@@ -127,9 +142,8 @@ def run_analyzer_direct(
     start_time = time.time()
 
     try:
-        cmd = [
-            sys.executable,
-            str(analyzer_script),
+        # Build arguments list
+        args = [
             str(app_path),
             "--output-format",
             "json",
@@ -138,40 +152,26 @@ def run_analyzer_direct(
         ]
 
         if getattr(run_analyzer_direct, "_verbose_mode", False):
-            print(f"    Command: {' '.join(cmd)}")
-
-        # Set PYTHONPATH to include shared directory
-        env = os.environ.copy()
-        pythonpath = str(Path(__file__).parent.parent)
-        env["PYTHONPATH"] = pythonpath
-
-        if getattr(run_analyzer_direct, "_verbose_mode", False):
-            print(f"    Working directory: {os.getcwd()}")
-            print(f"    PYTHONPATH: {pythonpath}")
+            print(f"    Script: {analyzer_script}")
+            print(f"    Args: {args}")
             print(f"    App path exists: {app_path.exists()}")
             print(f"    Analyzer script exists: {analyzer_script.exists()}")
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,  # 2 minute timeout per analyzer
-            env=env,
-            cwd=str(Path(__file__).parent.parent.parent),  # Run from project root
+        # Use CommandExecutor to run the script (handles imports properly)
+        returncode, stdout, stderr = CommandExecutor.run_python_script(
+            str(analyzer_script), args
         )
 
         execution_time = time.time() - start_time
 
         # Parse JSON output
         findings = []
-        if result.returncode == 0 and result.stdout:
+        if returncode == 0 and stdout:
             try:
-                output_data = json.loads(result.stdout)
+                output_data = json.loads(stdout)
                 if getattr(run_analyzer_direct, "_verbose_mode", False):
-                    print(f"    Return code: {result.returncode}")
-                    print(
-                        f"    Stdout length: {len(result.stdout) if result.stdout else 0}"
-                    )
+                    print(f"    Return code: {returncode}")
+                    print(f"    Stdout length: {len(stdout) if stdout else 0}")
                     print(f"    JSON structure type: {type(output_data)}")
 
                 if isinstance(output_data, dict):
@@ -196,16 +196,16 @@ def run_analyzer_direct(
             except json.JSONDecodeError as e:
                 print(f"    ❌ JSON Parse Error: {e}")
                 if getattr(run_analyzer_direct, "_verbose_mode", False):
-                    print(f"    First 500 chars of stdout: {result.stdout[:500]}")
-                return {"error": f"JSON parse error: {e}", "stderr": result.stderr}
+                    print(f"    First 500 chars of stdout: {stdout[:500]}")
+                return {"error": f"JSON parse error: {e}", "stderr": stderr}
         else:
-            print(f"    ❌ Failed: returncode={result.returncode}")
-            if result.stderr and getattr(run_analyzer_direct, "_verbose_mode", False):
-                print(f"    Error: {result.stderr[:200]}")
+            print(f"    ❌ Failed: returncode={returncode}")
+            if stderr and getattr(run_analyzer_direct, "_verbose_mode", False):
+                print(f"    Error: {stderr[:200]}")
             return {
                 "error": "Analyzer execution failed",
-                "returncode": result.returncode,
-                "stderr": result.stderr,
+                "returncode": returncode,
+                "stderr": stderr,
             }
 
         return {
@@ -215,13 +215,9 @@ def run_analyzer_direct(
             "findings": findings,
             "execution_time": execution_time,
             "success": True,
-            "raw_output": result.stdout
-            if result.stdout
-            else "NO OUTPUT",  # Store for debug report
+            "raw_output": stdout if stdout else "NO OUTPUT",  # Store for debug report
         }
 
-    except subprocess.TimeoutExpired:
-        return {"error": "Analyzer execution timed out", "timeout": True}
     except Exception as e:
         return {"error": f"Execution error: {str(e)}"}
 
@@ -311,17 +307,12 @@ def main():
     with open(config_path, "r") as f:
         expected_findings = json.load(f)
 
-    # Setup paths
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent.parent.parent
-    shared_analyzers_dir = project_root / "shared" / "analyzers"
-
-    # Find analyzer script
+    # Find analyzer script using smart imports
     analyzer_mapping = {
-        "detect_secrets": shared_analyzers_dir
-        / "security"
-        / "detect_secrets_analyzer.py",
-        "semgrep": shared_analyzers_dir / "security" / "semgrep_analyzer.py",
+        "detect_secrets": get_analyzer_script_path(
+            "security", "detect_secrets_analyzer.py"
+        ),
+        "semgrep": get_analyzer_script_path("security", "semgrep_analyzer.py"),
     }
 
     analyzer_script = analyzer_mapping.get(args.analyzer)
@@ -357,10 +348,18 @@ def main():
     for app_name in applications:
         # Get app path from config source field, or default to vulnerable-apps
         app_config = expected_findings.get("applications", {}).get(app_name, {})
-        app_source = app_config.get(
-            "source", f"test_codebase/vulnerable-apps/{app_name}"
-        )
-        app_path = project_root / app_source
+        app_source = app_config.get("source", f"vulnerable-apps/{app_name}")
+        # Handle both relative paths within test_codebase and full paths
+        if app_source.startswith("test_codebase/"):
+            # Full path from project root
+            app_path = get_test_codebase_dir().parent / app_source
+        else:
+            # Path relative to test_codebase
+            parts = app_source.split("/")
+            if len(parts) > 1:
+                app_path = get_test_codebase_dir(parts[0]) / "/".join(parts[1:])
+            else:
+                app_path = get_test_codebase_dir() / app_source
 
         if not app_path.exists():
             print(f"⚠️  Application not found: {app_path}")

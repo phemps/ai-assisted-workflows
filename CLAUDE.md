@@ -275,11 +275,15 @@ cd shared && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared
 
 # Security analyzer evaluation
 
-cd shared/tests/integration && python test_security_analysers.py --analyzer semgrep --verbose
+cd shared/tests/integration && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python test_security_analysers.py --analyzer detect_secrets --verbose
 
 # E2E continuous improvement pipeline testing
 
 cd shared && python tests/integration/test_continuous_improvement_e2e.py
+
+# Root cause analyzers integration test
+
+PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python shared/tests/integration/test_root_cause_analyzers.py
 
 # Individual analyzer testing
 

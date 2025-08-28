@@ -169,7 +169,8 @@ class OrchestrationBridge:
             except ImportError:
                 sys.path.insert(0, str(Path(__file__).parents[2] / "utils"))
                 from smart_imports import import_tech_stack_detector
-            TechStackDetector = import_tech_stack_detector()
+            tech_stack_module = import_tech_stack_detector()
+            TechStackDetector = tech_stack_module.TechStackDetector
 
             detector = TechStackDetector()
         except ImportError:

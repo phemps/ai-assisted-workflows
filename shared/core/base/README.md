@@ -382,7 +382,7 @@ cd shared && PYTHONPATH=. python analyzers/category/your_analyzer.py ../test_cod
 
 ```bash
 # Test through integration runner
-cd shared/tests/integration && python test_all_analyzers.py ../../test_codebase/monorepo --max-files 5
+cd shared && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --max-files 2
 ```
 
 ## 🎯 **Success Criteria Checklist**

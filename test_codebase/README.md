@@ -37,7 +37,7 @@ This directory contains test applications used for validating the AI-Assisted Wo
 
 ```bash
 # From shared/ directory
-python tests/integration/test_all_analyzers.py test_codebase/juice-shop-monorepo
+cd shared && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --max-files 2
 ```
 
 ### Expected Findings in Juice Shop

@@ -60,7 +60,6 @@ class CIModuleBase:
             self.AnalysisResult = output_formatter_module.AnalysisResult
             self.TechStackDetector = tech_stack_module.TechStackDetector
             self.PlatformDetector = file_utils_module.PlatformDetector
-            self.CrossPlatformUtils = file_utils_module.CrossPlatformUtils
 
         except ImportError as e:
             CIErrorHandler.import_error("common utilities", e)

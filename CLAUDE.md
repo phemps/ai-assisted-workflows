@@ -271,7 +271,7 @@ Running Tests:
 
 # Run all analyzer integration tests
 
-cd shared && python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --output-format json
+cd shared && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --output-format json --max-files 2
 
 # Security analyzer evaluation
 

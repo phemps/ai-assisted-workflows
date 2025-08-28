@@ -156,10 +156,13 @@ def import_tech_stack_detector() -> Any:
 
 
 def import_file_utils() -> Any:
-    """Import file utilities."""
+    """Import file utilities (redirected to cross_platform)."""
     cache_key = "file_utils"
     if cache_key not in _import_cache:
-        module = _try_import(["core.utils.file_utils", "shared.core.utils.file_utils"])
+        # file_utils was renamed to cross_platform, so redirect
+        module = _try_import(
+            ["core.utils.cross_platform", "shared.core.utils.cross_platform"]
+        )
         _import_cache[cache_key] = module
     return _import_cache[cache_key]
 

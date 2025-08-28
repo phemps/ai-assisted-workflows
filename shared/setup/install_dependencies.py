@@ -16,15 +16,11 @@ except ImportError as e:
 try:
     file_utils_module = import_file_utils()
     PlatformDetector = file_utils_module.PlatformDetector
-    CrossPlatformUtils = file_utils_module.CrossPlatformUtils
-    # Extract additional utilities from the cross-platform module
-    CommandExecutor = getattr(file_utils_module, "CommandExecutor", None)
-    DependencyChecker = getattr(file_utils_module, "DependencyChecker", None)
+    CommandExecutor = file_utils_module.CommandExecutor
+    DependencyChecker = file_utils_module.DependencyChecker
 
     # Verify required classes are available
-    if not all(
-        [PlatformDetector, CrossPlatformUtils, CommandExecutor, DependencyChecker]
-    ):
+    if not all([PlatformDetector, CommandExecutor, DependencyChecker]):
         raise ImportError("Missing required cross-platform utilities")
 except ImportError as e:
     print(f"Error importing file utils: {e}", file=sys.stderr)

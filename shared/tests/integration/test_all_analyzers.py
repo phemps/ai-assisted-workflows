@@ -12,15 +12,15 @@ from typing import List, Dict, Any
 
 # Use smart imports for module access
 try:
-    from smart_imports import import_file_utils
+    from smart_imports import import_cross_platform
 except ImportError as e:
     print(f"Error importing smart imports: {e}", file=sys.stderr)
     sys.exit(1)
 try:
-    file_utils_module = import_file_utils()
-    CommandExecutor = file_utils_module.CommandExecutor
+    cross_platform_module = import_cross_platform()
+    CommandExecutor = cross_platform_module.CommandExecutor
 except ImportError as e:
-    print(f"Error importing file utils: {e}", file=sys.stderr)
+    print(f"Error importing cross platform utils: {e}", file=sys.stderr)
     sys.exit(1)
 
 

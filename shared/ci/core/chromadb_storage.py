@@ -49,20 +49,12 @@ except ImportError as e:
     )
     sys.exit(1)
 
-# Use smart imports for module access
+# Setup import paths and import Symbol
 try:
-    from smart_imports import import_symbol_extractor
+    from utils import path_resolver  # noqa: F401
+    from ci.integration.symbol_extractor import Symbol, SymbolType
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import Symbol from integration
-try:
-    symbol_extractor_module = import_symbol_extractor()
-    Symbol = symbol_extractor_module.Symbol
-    SymbolType = symbol_extractor_module.SymbolType
-except ImportError as e:
-    print(f"Error importing symbol extractor: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -674,10 +666,7 @@ class ChromaDBStorage:
         """Create DuplicateFinderConfig with proper exclusions from CI config"""
         try:
             import json
-            from smart_imports import import_semantic_duplicate_detector
-
-            semantic_detector_module = import_semantic_duplicate_detector()
-            DuplicateFinderConfig = semantic_detector_module.DuplicateFinderConfig
+            from ci.core.semantic_duplicate_detector import DuplicateFinderConfig
 
             # Try to load CI config
             ci_config_path = Path(self.project_root) / ".ci-registry" / "ci_config.json"
@@ -713,10 +702,7 @@ class ChromaDBStorage:
 
         try:
             # Import semantic duplicate detector for symbol extraction
-            from smart_imports import import_semantic_duplicate_detector
-
-            semantic_detector_module = import_semantic_duplicate_detector()
-            DuplicateFinder = semantic_detector_module.DuplicateFinder
+            from ci.core.semantic_duplicate_detector import DuplicateFinder
 
             # Load CI config to get proper exclusions
             config = self._create_duplicate_finder_config()
@@ -733,10 +719,8 @@ class ChromaDBStorage:
             print(f"Extracted {len(symbols)} symbols from project")
 
             # Generate embeddings
-            from smart_imports import import_embedding_engine
+            from ci.core.embedding_engine import EmbeddingEngine
 
-            embedding_engine_module = import_embedding_engine()
-            EmbeddingEngine = embedding_engine_module.EmbeddingEngine
             embedding_engine = EmbeddingEngine()
 
             # Process in batches to avoid memory issues

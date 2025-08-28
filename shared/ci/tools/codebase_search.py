@@ -29,37 +29,15 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-# Use smart imports for module access
+# Setup import paths and import CI components
 try:
-    from smart_imports import (
-        import_chromadb_storage,
-        import_embedding_engine,
-        import_symbol_extractor,
-        import_lsp_symbol_extractor,
-    )
+    from utils import path_resolver  # noqa: F401
+    from ci.core.chromadb_storage import ChromaDBStorage, ChromaDBConfig
+    from ci.core.embedding_engine import EmbeddingEngine, EmbeddingConfig
+    from ci.integration.symbol_extractor import Symbol, SymbolType
+    from ci.core.lsp_symbol_extractor import LSPSymbolExtractor, SymbolExtractionConfig
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import CI components
-try:
-    chromadb_module = import_chromadb_storage()
-    ChromaDBStorage = chromadb_module.ChromaDBStorage
-    ChromaDBConfig = chromadb_module.ChromaDBConfig
-
-    embedding_module = import_embedding_engine()
-    EmbeddingEngine = embedding_module.EmbeddingEngine
-    EmbeddingConfig = embedding_module.EmbeddingConfig
-
-    symbol_extractor_module = import_symbol_extractor()
-    Symbol = symbol_extractor_module.Symbol
-    SymbolType = symbol_extractor_module.SymbolType
-
-    lsp_symbol_module = import_lsp_symbol_extractor()
-    LSPSymbolExtractor = lsp_symbol_module.LSPSymbolExtractor
-    SymbolExtractionConfig = lsp_symbol_module.SymbolExtractionConfig
-except ImportError as e:
-    print(f"Error importing CI components: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 

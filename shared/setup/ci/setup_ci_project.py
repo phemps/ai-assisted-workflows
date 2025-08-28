@@ -31,17 +31,12 @@ def detect_project_languages(
     project_dir: str, exclusion_patterns: Optional[List[str]] = None
 ) -> List[str]:
     """Detect programming languages in the project using TechStackDetector."""
-    # Use smart imports for module access
+    # Setup import paths and import tech stack detector
     try:
-        from smart_imports import import_tech_stack_detector
+        from utils import path_resolver  # noqa: F401
+        from core.utils.tech_stack_detector import TechStackDetector
     except ImportError as e:
-        print(f"Error importing smart imports: {e}", file=sys.stderr)
-        sys.exit(1)
-    try:
-        tech_stack_module = import_tech_stack_detector()
-        TechStackDetector = tech_stack_module.TechStackDetector
-    except ImportError as e:
-        print(f"Error importing tech stack detector: {e}", file=sys.stderr)
+        print(f"Import error: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Use TechStackDetector to get detected tech stacks
@@ -85,8 +80,6 @@ def create_ci_config(
     threshold: float,
     auto_refactor: bool,
     languages: List[str],
-    hook_script_path: Optional[str] = None,
-    indexer_script_path: Optional[str] = None,
 ) -> bool:
     """Create CI configuration file."""
     print("Creating CI configuration...")
@@ -145,13 +138,7 @@ def create_ci_config(
         },
     }
 
-    # Add paths section if provided
-    if hook_script_path or indexer_script_path:
-        config["paths"] = {}
-        if hook_script_path:
-            config["paths"]["hook_script"] = hook_script_path
-        if indexer_script_path:
-            config["paths"]["indexer_script"] = indexer_script_path
+    # Note: Paths section removed - hook paths resolved at runtime from script deployment location
 
     # Save unified CI configuration
     ci_config_file = Path(project_dir) / ".ci-registry" / "ci_config.json"
@@ -576,10 +563,7 @@ def main():
     parser.add_argument(
         "--auto-refactor", action="store_true", help="Enable automatic refactoring"
     )
-    parser.add_argument(
-        "--hook-script-path", help="Path to ChromaDB indexing hook script"
-    )
-    parser.add_argument("--indexer-script-path", help="Path to ChromaDB indexer script")
+    # Note: hook-script-path and indexer-script-path arguments removed - paths resolved from deployment location
 
     args = parser.parse_args()
 
@@ -625,8 +609,6 @@ def main():
             args.threshold,
             args.auto_refactor,
             languages,
-            args.hook_script_path,
-            args.indexer_script_path,
         ):
             return 1
 

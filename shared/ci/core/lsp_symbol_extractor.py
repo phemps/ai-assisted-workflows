@@ -28,35 +28,18 @@ except ImportError:
     MultilspyConfig = None
     MultilspyLogger = None
 
-# Use smart imports for base utilities
+# Setup import paths and import base utilities
 try:
-    from smart_imports import import_base_module, import_cli_utils
+    from utils import path_resolver  # noqa: F401
+    from core.base.module_base import CIConfigModule
+    from core.base.timing_utils import timed_operation, PerformanceTracker
+    from core.base.cli_utils import create_standard_cli, run_cli_tool
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import base utilities
-try:
-    base_module = import_base_module()
-    CIConfigModule = base_module.CIConfigModule
-    timed_operation = base_module.timed_operation
-    PerformanceTracker = base_module.PerformanceTracker
-
-    cli_utils_module = import_cli_utils()
-    create_standard_cli = cli_utils_module.create_standard_cli
-    run_cli_tool = cli_utils_module.run_cli_tool
-except ImportError as e:
-    print(f"Error importing base utilities: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Import Symbol from integration
-try:
-    from ..integration.symbol_extractor import Symbol, SymbolType
-except ImportError:
-    # Fallback for direct execution
-
-    # Import from integration module
-    from ci.integration.symbol_extractor import Symbol, SymbolType
+from ci.integration.symbol_extractor import Symbol, SymbolType
 
 logger = logging.getLogger(__name__)
 

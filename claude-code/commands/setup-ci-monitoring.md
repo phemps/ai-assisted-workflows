@@ -3,18 +3,66 @@
 **Purpose**: Configure proactive code duplication detection and refactoring automation for the current project
 **Usage**: `claude /setup-ci-monitoring [--threshold=0.85] [--auto-refactor=false]`
 
-## Phase 1: Dependency Check and Setup
+## ⚠️ CRITICAL EXECUTION INSTRUCTIONS ⚠️
 
-1. **Action**: Check for existing continuous improvement setup
-2. **Tool**: Read - `.ci-registry/config.json` to detect previous installations
-3. **Action**: Install continuous improvement dependencies (Python packages + MCP tools)
-4. **Command**: `python shared/setup/ci/install_ci_dependencies.py`
-5. **Expected**: All packages (MCP, CodeBERT, ChromaDB, transformers) installed successfully with user consent
-6. **Note**: Script follows fail-fast behavior - exits clearly if dependencies unavailable
+**THIS SETUP REQUIRES USER INTERACTION AT CHECKPOINTS**
 
-7. **Action**: Install language server dependencies for comprehensive language support
-8. **Languages Supported**: Python, TypeScript, JavaScript, Java, Rust (built-in) + Go, C# (automatically installed)
-9. **Local Development Dependencies** (optional for user setup):
+- This command has 4 mandatory checkpoints that require user confirmation
+- **DO NOT** run all phases automatically without stopping
+- **MUST** wait for user approval at each `⚠️ MANDATORY CHECKPOINT` before proceeding
+- Each checkpoint includes explicit instructions on what to ask the user
+- **VIOLATION OF CHECKPOINTS WILL RESULT IN INCOMPLETE SETUP**
+
+## Phase 1: Script Path Resolution
+
+**FIRST - Resolve SCRIPT_PATH:**
+
+1. **Try project-level .claude folder**:
+
+   ```bash
+   Glob: ".claude/scripts/**/*.py"
+   ```
+
+2. **Try user-level .claude folder**:
+
+   ```bash
+   Bash: ls "$HOME/.claude/scripts/"
+   ```
+
+3. **Interactive fallback if not found**:
+   - List searched locations: `.claude/scripts/` and `$HOME/.claude/scripts/`
+   - Ask user: "Could not locate CI analysis scripts. Please provide full path to the scripts directory:"
+   - Validate provided path contains expected scripts (setup/, ci/, core/ subdirectories)
+   - Set SCRIPT_PATH to user-provided location
+
+**THEN - Execute all operations with resolved SCRIPT_PATH:**
+
+## ⚠️ MANDATORY CHECKPOINT 1 ⚠️
+
+**STOP AND WAIT FOR USER CONFIRMATION**
+
+Script path resolved to: `[SCRIPT_PATH]`
+
+**DO NOT PROCEED AUTOMATICALLY**
+
+- Display this message to the user
+- Wait for explicit user approval before continuing
+- Ask: "Script path resolved successfully. Ready to install dependencies? (Type 'yes' to continue)"
+- Only proceed to Phase 2 after receiving user confirmation
+
+## Phase 2: Dependency & Environment Setup
+
+1. **Install continuous improvement dependencies**
+
+   ```bash
+   python [SCRIPT_PATH]/setup/ci/install_ci_dependencies.py
+   ```
+
+   **Expected**: All packages (MCP, CodeBERT, ChromaDB, transformers) installed successfully with user consent
+
+2. **Install language server dependencies for comprehensive language support**
+   **Languages Supported**: Python, TypeScript, JavaScript, Java, Rust (built-in) + Go, C# (automatically installed)
+   **Local Development Dependencies** (optional for user setup):
 
    ```bash
    # For Go language support (local development)
@@ -26,74 +74,53 @@
    # OR: brew install mono                  # Alternative: Mono runtime
    ```
 
-10. **GitHub Actions**: Go and C# language servers automatically installed in CI workflows
-11. **Impact**: GitHub Actions workflows include full language support. For local duplicate detection, Go/C# files require the runtime dependencies above.
-
-**STOP** → Dependencies installed. Ready to analyze environment?
-
-## Phase 2: Environment Analysis
-
-1. **Action**: Detect project technology stack automatically
-2. **Tool**: Glob - `**/*.{py,ts,js,go,rs,java,php,rb}` to identify codebase
-3. **Action**: Verify Serena MCP availability and language server support
-4. **Command**: `uvx --from git+https://github.com/oraios/serena serena --version`
-5. **Action**: Setup Serena MCP server for project
-6. **Command**: `claude mcp remove serena; claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ci-analyzer --project $(pwd)`
-7. **Expected**: Serena MCP server connected and ready
-
-**STOP** → Detected [LANGUAGES], all code will be monitored for duplication automatically. Continue with setup?
-
-## Phase 3: Configuration Setup + CTO Integration
-
-1. **Action**: Detect script paths for hook and indexer
-2. **Logic**: Find hook and indexer script locations:
+3. **Detect project technology stack automatically**
 
    ```bash
-   # Find hook script - check deployed locations FIRST
-   if [ -f "$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
-     HOOK_SCRIPT_PATH="$HOME/.claude/scripts/ci/hooks/chromadb_index_hook.py"
-   elif [ -f ".claude/scripts/ci/hooks/chromadb_index_hook.py" ]; then
-     HOOK_SCRIPT_PATH="$(pwd)/.claude/scripts/ci/hooks/chromadb_index_hook.py"
-   elif [ -f "shared/ci/hooks/chromadb_index_hook.py" ]; then
-     HOOK_SCRIPT_PATH="$(pwd)/shared/ci/hooks/chromadb_index_hook.py"
-   fi
-
-   # Find indexer script - check deployed locations FIRST
-   if [ -f "$HOME/.claude/scripts/ci/core/chromadb_indexer.py" ]; then
-     INDEXER_SCRIPT_PATH="$HOME/.claude/scripts/ci/core/chromadb_indexer.py"
-   elif [ -f ".claude/scripts/ci/core/chromadb_indexer.py" ]; then
-     INDEXER_SCRIPT_PATH="$(pwd)/.claude/scripts/ci/core/chromadb_indexer.py"
-   elif [ -f "shared/ci/core/chromadb_indexer.py" ]; then
-     INDEXER_SCRIPT_PATH="$(pwd)/shared/ci/core/chromadb_indexer.py"
-   fi
+   Glob: "**/*.{py,ts,js,go,rs,java,php,rb}"
    ```
 
-3. **Action**: Setup project-specific continuous improvement configuration
-4. **Command**: `python shared/setup/ci/setup_ci_project.py --project-dir $(pwd) --project-name "$PROJECT_NAME" --threshold $THRESHOLD $([ "$AUTO_REFACTOR" = "true" ] && echo "--auto-refactor") $([ -n "$HOOK_SCRIPT_PATH" ] && echo "--hook-script-path \"$HOOK_SCRIPT_PATH\"") $([ -n "$INDEXER_SCRIPT_PATH" ] && echo "--indexer-script-path \"$INDEXER_SCRIPT_PATH\"")`
-5. **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/
+4. **Verify Serena MCP availability and language server support**
 
-6. **Action**: Initialize code registry database
-7. **Command**: `python shared/ci/core/chromadb_storage.py --init --project $(pwd)`
-8. **Expected**: ChromaDB collection initialized with project symbols and language detection
-
-**STOP** → Configuration created. Ready to setup real-time indexing hooks?
-
-## Phase 3.5: Real-time Indexing Hook Setup
-
-1. **Action**: Verify script paths were detected in Phase 3
-2. **Check**: Ensure HOOK_SCRIPT_PATH and INDEXER_SCRIPT_PATH variables are set from Phase 3
-3. **Fallback**: If paths not detected in Phase 3, show error:
-
-   ```
-   Could not locate required scripts. Expected locations:
-   - Hook: shared/ci/hooks/, .claude/scripts/ci/hooks/, or $HOME/.claude/scripts/ci/hooks/
-   - Indexer: shared/ci/core/, .claude/scripts/ci/core/, or $HOME/.claude/scripts/ci/core/
+   ```bash
+   uvx --from git+https://github.com/oraios/serena serena --help | head -5
    ```
 
-4. **Action**: Configure Claude Code PostToolUse hooks for real-time indexing
-5. **Tool**: Read - Check existing `.claude/settings.local.json`
-6. **Action**: Merge PostToolUse hook configuration (preserve existing hooks)
-7. **Tool**: Write - Update `.claude/settings.local.json` with hook command that reads config:
+5. **Setup Serena MCP server for project**
+   ```bash
+   claude mcp remove serena; claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ci-analyzer --project $(pwd)
+   ```
+   **Expected**: Serena MCP server connected and ready
+
+## ⚠️ MANDATORY CHECKPOINT 2 ⚠️
+
+**STOP AND WAIT FOR USER CONFIRMATION**
+
+Dependencies installed successfully. Detected languages: `[LANGUAGES]`
+All code will be monitored for duplication automatically.
+
+**DO NOT PROCEED AUTOMATICALLY**
+
+- Display dependency installation results to the user
+- Show detected languages and technology stack
+- Wait for explicit user approval before continuing
+- Ask: "Dependencies installed and languages detected. Ready for system configuration? (Type 'yes' to continue)"
+- Only proceed to Phase 3 after receiving user confirmation
+
+## Phase 3: System Configuration
+
+1. **Setup project-specific continuous improvement configuration**
+
+   ```bash
+   PROJECT_NAME=$(basename "$(pwd)"); PYTHONPATH="[SCRIPT_PATH]/utils:[SCRIPT_PATH]" python [SCRIPT_PATH]/setup/ci/setup_ci_project.py --project-dir $(pwd) --project-name "$PROJECT_NAME" --threshold $THRESHOLD $([ "$AUTO_REFACTOR" = "true" ] && echo "--auto-refactor")
+   ```
+
+   **Expected**: Configuration files created in .ci-registry/ and GitHub Actions workflows in .github/workflows/ (without paths section)
+
+2. **Configure Claude Code PostToolUse hooks for real-time indexing**
+   **Tool**: Read - Check existing `.claude/settings.local.json`
+   **Tool**: Write - Update `.claude/settings.local.json` with hook command using resolved paths:
+
    ```json
    {
      "hooks": {
@@ -103,7 +130,7 @@
            "hooks": [
              {
                "type": "command",
-               "command": "python [HOOK_SCRIPT_PATH] --indexer-path \"$(python -c \"import json,os; p='$CLAUDE_PROJECT_DIR/.ci-registry/ci_config.json'; c=json.load(open(p)) if os.path.exists(p) else {}; print(c.get('paths',{}).get('indexer_script',''))\" 2>/dev/null)\"",
+               "command": "python [SCRIPT_PATH]/ci/hooks/chromadb_index_hook.py --indexer-path \"[SCRIPT_PATH]/ci/core/chromadb_indexer.py\"",
                "timeout": 5
              }
            ]
@@ -112,157 +139,148 @@
      }
    }
    ```
-   **Note**: Replace `[HOOK_SCRIPT_PATH]` with the actual resolved path from Phase 3
-8. **Expected**: PostToolUse hooks configured for file modification tools
 
-9. **Action**: Make hook script executable
-10. **Command**: `chmod +x [HOOK_SCRIPT_PATH]`
-11. **Expected**: Hook script has executable permissions
+   **Expected**: PostToolUse hooks configured for file modification tools
 
-12. **Action**: Test hook configuration
-13. **Command**: Test with empty JSON to verify script handles input gracefully:
-    ```bash
-    echo '{}' | CLAUDE_PROJECT_DIR=$(pwd) python [HOOK_SCRIPT_PATH] --indexer-path "$INDEXER_SCRIPT_PATH"
-    ```
-14. **Expected**: Script exits with code 0 (no errors)
+3. **Make hook script executable**
 
-15. **Message**: Display to user:
+   ```bash
+   chmod +x [SCRIPT_PATH]/ci/hooks/chromadb_index_hook.py
+   ```
 
-    ```
-    Real-time indexing configured! ChromaDB will automatically index files when you:
-    - Create new files (Write tool)
-    - Edit existing files (Edit tool)
-    - Make multiple edits (MultiEdit tool)
+4. **Initialize code registry database**
 
-    Configuration saved to .claude/settings.local.json (not committed to git)
-    Hook logs available at: .ci-registry/logs/chromadb_hooks.log
-    ```
+   ```bash
+   PYTHONPATH="[SCRIPT_PATH]/utils:[SCRIPT_PATH]" python [SCRIPT_PATH]/ci/core/chromadb_storage.py --clear-collection --project-root $(pwd)
+   ```
 
-**STOP** → Real-time indexing hooks configured. Ready to setup GitHub Actions workflows?
+   **Expected**: ChromaDB collection initialized with project symbols and language detection
 
-## Phase 4: GitHub Actions Setup
+5. **Start initial codebase indexing**
+   ```bash
+   PYTHONPATH="[SCRIPT_PATH]/utils:[SCRIPT_PATH]" python [SCRIPT_PATH]/ci/core/chromadb_storage.py --full-scan --project-root $(pwd) &
+   ```
+   **Message**: Display to user: "Initial codebase indexing started in background. This may take 1-5 minutes for large codebases."
 
-1. **Action**: Verify GitHub workflows were created by setup script
-2. **Tool**: LS - `.github/workflows/` to confirm workflow files exist
-3. **Expected**: `continuous-improvement.yml` present with project-specific configuration
+## ⚠️ MANDATORY CHECKPOINT 3 ⚠️
 
-4. **Action**: Verify MCP integration setup instructions
-5. **Tool**: Read - `.ci-registry/mcp-setup.md` for manual MCP configuration steps
-6. **Expected**: Instructions ready for Serena MCP integration with claude command
+**STOP AND WAIT FOR USER CONFIRMATION**
 
-**STOP** → GitHub workflows and MCP integration configured. Complete MCP setup manually using instructions in `.ci-registry/mcp-setup.md`. Ready for initial registry population?
+System configured successfully:
 
-## Phase 5: Initial Registry Population
+- Real-time indexing hooks active (PostToolUse)
+- Initial registry population started in background
+- ChromaDB collection initialized
+- GitHub workflows configured
 
-1. **Action**: Start initial codebase indexing in background (for user setup)
-2. **Command**: `python shared/ci/core/chromadb_storage.py --full-scan --project-root $(pwd) &`
-3. **Message**: Display to user: "Initial codebase indexing started in background. This may take 1-5 minutes for large codebases. Check status with \`claude /ci-monitoring-status\`"
-4. **Expected**: Background indexing process started
+**DO NOT PROCEED AUTOMATICALLY**
 
-5. **Action**: For GitHub Actions workflows, indexing runs synchronously
-6. **Note**: GitHub Actions will automatically detect incomplete indexing and run full scan before duplicate detection
+- Display configuration summary to the user
+- Show hook status and indexing progress
+- Wait for explicit user approval before continuing
+- Ask: "System configured and background indexing started. Ready for verification and testing? (Type 'yes' to continue)"
+- Only proceed to Phase 4 after receiving user confirmation
 
-7. **Action**: Verify indexing completion (optional check)
-8. **Command**: `python shared/ci/core/chromadb_storage.py --check-indexing --project-root $(pwd)`
-9. **Expected**: Indexing status reported with symbol counts
+## Phase 4: Verification & Reporting
 
-10. **Action**: Create initial improvement report
-11. **Format**:
+1. **Test hook functionality**
 
-```markdown
-## Continuous Improvement Setup Complete
+   ```bash
+   echo '{}' | CLAUDE_PROJECT_DIR=$(pwd) PYTHONPATH="[SCRIPT_PATH]/utils:[SCRIPT_PATH]" python [SCRIPT_PATH]/ci/hooks/chromadb_index_hook.py --indexer-path "[SCRIPT_PATH]/ci/core/chromadb_indexer.py"
+   ```
 
-**Project**: $PROJECT_NAME
-**Symbols Cataloged**: $SYMBOL_COUNT
-**Existing Duplicates**: $DUPLICATE_COUNT
-**Threshold**: $THRESHOLD
+   **Expected**: Script exits with code 0 (no errors)
 
-### Next Steps:
+2. **Verify GitHub workflows were created**
+   **Tool**: LS - `.github/workflows/` to confirm workflow files exist
+   **Expected**: `continuous-improvement.yml` present with project-specific configuration
 
-- Monitor commits for new duplicates
-- Review existing duplicates in `.ci-registry/baseline-duplicates.json`
-- Adjust thresholds in `.ci-registry/config.json` if needed
-```
+3. **Run continuous improvement status check**
 
-**STOP** → Registry populated. Ready for verification?
+   ```bash
+   claude /ci-monitoring-status --verbose
+   ```
 
-## Phase 6: Post-Setup Verification
+   **Expected**: All systems report as active and healthy
 
-1. **Action**: Run continuous improvement status check
-2. **Command**: `claude /ci-monitoring-status --verbose`
-3. **Expected**: All systems report as active and healthy
+4. **Generate initial metrics report**
 
-4. **Action**: Initialize monitoring baseline
-5. **Command**: `python shared/ci/metrics/ci_metrics_collector.py report --days 1`
-6. **Expected**: Initial metrics report generated successfully
+   ```bash
+   PYTHONPATH="[SCRIPT_PATH]/utils:[SCRIPT_PATH]" python [SCRIPT_PATH]/ci/metrics/ci_metrics_collector.py report --days 1
+   ```
 
-7. **Action**: Test orchestration bridge connectivity
-8. **Command**: `python shared/ci/integration/orchestration_bridge.py --project-root $(pwd)`
-9. **Expected**: Orchestration bridge runs successfully (may show no duplicates for clean project)
+   **Expected**: Initial metrics report generated successfully
 
-10. **Action**: Verify real-time indexing hooks are configured
-11. **Tool**: Read - `.claude/settings.local.json`
-12. **Expected**: PostToolUse hooks configured for Write|Edit|MultiEdit
-13. **Action**: Test hook functionality
-14. **Command**:
-    ```bash
-    echo '{"tool_name":"Write","tool_input":{"file_path":"test.py"},"tool_response":{"success":true}}' | \
-    CLAUDE_PROJECT_DIR=$(pwd) python $HOOK_SCRIPT_PATH --indexer-path "$INDEXER_SCRIPT_PATH"
-    ```
-15. **Expected**: Hook executes without errors
-16. **Action**: Verify hook logging
-17. **Tool**: Read - `.ci-registry/logs/chromadb_hooks.log` (if exists)
-18. **Expected**: Hook activity logged (or log file created for future use)
+5. **Test orchestration bridge connectivity**
 
-19. **Action**: Create setup completion report
-20. **Format**:
+   ```bash
+   PYTHONPATH="[SCRIPT_PATH]/utils:[SCRIPT_PATH]" python [SCRIPT_PATH]/ci/integration/orchestration_bridge.py --project-root $(pwd)
+   ```
 
-    ````markdown
-    ## Continuous Improvement Setup Complete
+   **Expected**: Orchestration bridge runs successfully (may show no duplicates for clean project)
 
-    **Project**: $PROJECT_NAME
-    **Setup Completed**: $(date)
-    **Baseline Symbols**: $SYMBOL_COUNT
-    **Quality Gates**: $AVAILABLE_GATES
+6. **Create setup completion report**:
 
-    ### System Status:
+   ````markdown
+   ## Continuous Improvement Setup Complete
 
-    - CI Framework: Active
-    - Database: Initialized (.ci-registry/)
-    - Python Dependencies: Installed
-    - Serena MCP: $MCP_STATUS
-    - Quality Gates: $GATE_COUNT detected
-    - Agent Integration: Ready
-    - Real-time Indexing: Active (PostToolUse hooks)
+   **Project**: $PROJECT_NAME
+   **Setup Completed**: $(date)
+   **Baseline Symbols**: $SYMBOL_COUNT
+   **Threshold**: $THRESHOLD
 
-    ### Quick Start:
+   ### System Status:
 
-    ```bash
-    # Check system status anytime
-    claude /ci-monitoring-status
+   - CI Framework: Active
+   - Database: Initialized (.ci-registry/)
+   - Python Dependencies: Installed
+   - Serena MCP: Connected
+   - Real-time Indexing: Active (PostToolUse hooks)
+   - GitHub Actions: Configured
 
-    # Generate metrics report
-    python shared/ci/metrics/ci_metrics_collector.py report
+   ### Real-time Indexing:
 
-    # Find duplicates manually
-    python shared/ci/integration/orchestration_bridge.py
-    ```
-    ````
+   ChromaDB will automatically index files when you:
 
-    ### Monitoring Setup:
+   - Create new files (Write tool)
+   - Edit existing files (Edit tool)
+   - Make multiple edits (MultiEdit tool)
 
-    - Real-time indexing: PostToolUse hooks for Write/Edit/MultiEdit
-    - Hook configuration: .claude/settings.local.json (not committed)
-    - GitHub Actions: Workflow configured
-    - CTO escalation: Configured for complex refactors
-    - Metrics collection: Active
+   Configuration saved to .claude/settings.local.json (not committed to git)
+   Hook logs available at: .ci-registry/logs/chromadb_hooks.log
 
-    Ready to start continuous improvement!
+   ### Quick Start:
 
-    ```
+   ```bash
+   # Check system status anytime
+   claude /ci-monitoring-status
 
-    ```
+   # Generate metrics report
+   python [SCRIPT_PATH]/ci/metrics/ci_metrics_collector.py report
 
-**STOP** → Continuous improvement system is now fully operational. Check status with `/ci-monitoring-status`
+   # Find duplicates manually
+   python [SCRIPT_PATH]/ci/integration/orchestration_bridge.py
+   ```
+   ````
+
+   Ready to start continuous improvement!
+
+   ```
+
+   ```
+
+## ✅ SETUP COMPLETE - FINAL CHECKPOINT ✅
+
+**STOP AND PRESENT COMPLETION SUMMARY**
+
+**CONTINUOUS IMPROVEMENT SYSTEM FULLY OPERATIONAL**
+
+**DO NOT PROCEED FURTHER - SETUP IS COMPLETE**
+
+- Present the setup completion report to the user
+- Highlight key system status and next steps
+- Inform user they can check status anytime with `/ci-monitoring-status`
+- Wait for user acknowledgment or questions
+- **TASK COMPLETE** - No further automated actions required
 
 $ARGUMENTS

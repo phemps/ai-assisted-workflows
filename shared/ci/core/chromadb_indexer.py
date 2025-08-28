@@ -17,20 +17,15 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
-# Use smart imports for module access
+# Setup import paths and import semantic duplicate detector
 try:
-    from smart_imports import import_semantic_duplicate_detector
+    from utils import path_resolver  # noqa: F401
+    from ci.core.semantic_duplicate_detector import (
+        DuplicateFinder,
+        DuplicateFinderConfig,
+    )
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import semantic duplicate detector components
-try:
-    semantic_detector_module = import_semantic_duplicate_detector()
-    DuplicateFinder = semantic_detector_module.DuplicateFinder
-    DuplicateFinderConfig = semantic_detector_module.DuplicateFinderConfig
-except ImportError as e:
-    print(f"Error importing semantic duplicate detector: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -147,9 +142,7 @@ class ChromaDBIndexer:
                 }
 
             # Use existing ChromaDB storage for indexing
-            from smart_imports import import_chromadb_storage
-
-            ChromaDBStorage = import_chromadb_storage()
+            from ci.core.chromadb_storage import ChromaDBStorage
 
             storage = ChromaDBStorage(project_root=self.project_root)
 
@@ -238,9 +231,7 @@ class ChromaDBIndexer:
 
         try:
             # Use existing ChromaDB storage run_full_scan method
-            from smart_imports import import_chromadb_storage
-
-            ChromaDBStorage = import_chromadb_storage()
+            from ci.core.chromadb_storage import ChromaDBStorage
 
             storage = ChromaDBStorage(project_root=self.project_root)
             success = storage.run_full_scan()
@@ -288,9 +279,7 @@ class ChromaDBIndexer:
                 return True
 
             # Import and initialize EmbeddingEngine (matches run_full_scan flow)
-            from smart_imports import import_embedding_engine
-
-            EmbeddingEngine = import_embedding_engine()
+            from ci.core.embedding_engine import EmbeddingEngine
 
             embedding_engine = EmbeddingEngine()
 

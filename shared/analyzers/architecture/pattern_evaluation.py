@@ -26,17 +26,12 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Use smart imports for module access
+# Setup import paths and import base analyzer
 try:
-    from smart_imports import import_analyzer_base
+    from utils import path_resolver  # noqa: F401
+    from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 except ImportError as e:
-    print(f"Error importing smart_imports module: {e}", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    BaseAnalyzer, AnalyzerConfig = import_analyzer_base()
-except ImportError as e:
-    print(f"Error importing base analyzer: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 

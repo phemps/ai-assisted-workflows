@@ -4,7 +4,6 @@ Base Module Class for Continuous Improvement Framework
 Eliminates duplication of import setup and path management patterns.
 """
 
-import sys
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -38,28 +37,18 @@ class CIModuleBase:
 
     def _import_common_utilities(self) -> None:
         """Import commonly used utilities with error handling."""
-        # Use smart imports for utility access
+        # Setup import paths and import utilities
         try:
-            from smart_imports import (
-                import_output_formatter,
-                import_tech_stack_detector,
-                import_file_utils,
-            )
-        except ImportError as e:
-            print(f"Error importing smart imports: {e}", file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            # Import utilities through smart_imports
-            output_formatter_module = import_output_formatter()
-            tech_stack_module = import_tech_stack_detector()
-            file_utils_module = import_file_utils()
+            from utils import path_resolver  # noqa: F401
+            from core.utils.output_formatter import ResultFormatter, AnalysisResult
+            from core.utils.tech_stack_detector import TechStackDetector
+            from core.utils.cross_platform import PlatformDetector
 
             # Extract classes/functions (all are always present)
-            self.ResultFormatter = output_formatter_module.ResultFormatter
-            self.AnalysisResult = output_formatter_module.AnalysisResult
-            self.TechStackDetector = tech_stack_module.TechStackDetector
-            self.PlatformDetector = file_utils_module.PlatformDetector
+            self.ResultFormatter = ResultFormatter
+            self.AnalysisResult = AnalysisResult
+            self.TechStackDetector = TechStackDetector
+            self.PlatformDetector = PlatformDetector
 
         except ImportError as e:
             CIErrorHandler.import_error("common utilities", e)

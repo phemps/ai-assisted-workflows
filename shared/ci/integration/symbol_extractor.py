@@ -14,27 +14,19 @@ from typing import List, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
 
-# Use smart imports for module access
+# Setup import paths and import utilities
 try:
-    from smart_imports import import_output_formatter, import_tech_stack_detector
+    from utils import path_resolver  # noqa: F401
+    from core.utils.output_formatter import (
+        AnalysisResult,
+        ResultFormatter,
+        AnalysisType,
+        Finding,
+        Severity,
+    )
+    from core.utils.tech_stack_detector import TechStackDetector, TechStackConfig
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import utilities
-try:
-    output_formatter_module = import_output_formatter()
-    AnalysisResult = output_formatter_module.AnalysisResult
-    ResultFormatter = output_formatter_module.ResultFormatter
-    AnalysisType = output_formatter_module.AnalysisType
-    Finding = output_formatter_module.Finding
-    Severity = output_formatter_module.Severity
-
-    tech_stack_module = import_tech_stack_detector()
-    TechStackDetector = tech_stack_module.TechStackDetector
-    TechStackConfig = tech_stack_module.TechStackConfig
-except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 

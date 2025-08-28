@@ -12,18 +12,12 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Use smart imports for module access
+# Setup import paths and import output formatter
 try:
-    from smart_imports import import_output_formatter
+    from utils import path_resolver  # noqa: F401
+    from core.utils.output_formatter import ResultFormatter, AnalysisResult
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-try:
-    output_formatter_module = import_output_formatter()
-    ResultFormatter = output_formatter_module.ResultFormatter
-    AnalysisResult = output_formatter_module.AnalysisResult
-except ImportError as e:
-    print(f"Error importing output formatter: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 

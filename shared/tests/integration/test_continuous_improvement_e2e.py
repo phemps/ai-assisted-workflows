@@ -19,49 +19,21 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 import sys
 
-# Use smart imports for module access
+# Setup import paths and import CI components
 try:
-    from smart_imports import (
-        import_semantic_duplicate_detector,
-        import_decision_matrix,
+    from utils import path_resolver  # noqa: F401
+    from ci.core.semantic_duplicate_detector import (
+        DuplicateFinder,
+        CISymbolExtractionError,
     )
-except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-try:
-    # Import CI components through smart imports
-    semantic_detector_module = import_semantic_duplicate_detector()
-    decision_matrix_module = import_decision_matrix()
-
-    # Extract required classes
-    DuplicateFinder = semantic_detector_module.DuplicateFinder
-    DecisionMatrix = decision_matrix_module.DecisionMatrix
-    ActionType = decision_matrix_module.ActionType
-    DuplicationContext = decision_matrix_module.DuplicationContext
-    CISymbolExtractionError = getattr(
-        semantic_detector_module, "CISymbolExtractionError", Exception
+    from ci.workflows.decision_matrix import (
+        DecisionMatrix,
+        ActionType,
+        DuplicationContext,
     )
+    from ci.integration.orchestration_bridge import OrchestrationBridge
 except ImportError as e:
-    print(f"Error importing CI components: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Handle OrchestrationBridge separately with its own smart import
-try:
-    from smart_imports import import_orchestration_bridge
-except ImportError as e:
-    print(f"Error importing smart imports for orchestration: {e}", file=sys.stderr)
-    sys.exit(1)
-try:
-    # Import OrchestrationBridge through orchestration bridge smart import function
-    orchestration_module = import_orchestration_bridge()
-    OrchestrationBridge = getattr(orchestration_module, "OrchestrationBridge", None)
-    if not OrchestrationBridge:
-        raise ImportError(
-            "OrchestrationBridge not found in orchestration bridge module"
-        )
-except ImportError as e:
-    print(f"CRITICAL: Cannot import OrchestrationBridge: {e}")
-    print(f"Python path: {sys.path}")
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -186,13 +158,7 @@ if __name__ == '__main__':
         self.original_cwd = os.getcwd()
         os.chdir(self.project_root)
 
-        # Clear smart imports cache to avoid conflicts from previous tests
-        try:
-            from smart_imports import clear_import_cache
-
-            clear_import_cache()
-        except ImportError:
-            pass  # Function might not exist in all versions
+        # Note: Cache clearing no longer needed with direct imports
 
         # Initialize bridge in test mode with direct config path
         test_config_path = Path(__file__).parent / "ci_config_test.json"

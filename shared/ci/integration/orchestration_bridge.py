@@ -16,31 +16,21 @@ import numpy as np
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Use smart imports for module access
+# Setup import paths and import required modules
 try:
-    from smart_imports import import_semantic_duplicate_detector, import_decision_matrix
+    from utils import path_resolver  # noqa: F401
+    from ci.core.semantic_duplicate_detector import (
+        DuplicateFinder,
+        DuplicateFinderConfig,
+        CISystemError,
+    )
+    from ci.workflows.decision_matrix import (
+        DecisionMatrix,
+        ActionType,
+        DuplicationContext,
+    )
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import core duplication detection components - REQUIRED
-try:
-    semantic_detector_module = import_semantic_duplicate_detector()
-    DuplicateFinder = semantic_detector_module.DuplicateFinder
-    DuplicateFinderConfig = semantic_detector_module.DuplicateFinderConfig
-    CISystemError = semantic_detector_module.CISystemError
-except ImportError as e:
-    print(f"Error importing semantic duplicate detector: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import CTO decision logic - REQUIRED
-try:
-    decision_matrix_module = import_decision_matrix()
-    DecisionMatrix = decision_matrix_module.DecisionMatrix
-    ActionType = decision_matrix_module.ActionType
-    DuplicationContext = decision_matrix_module.DuplicationContext
-except ImportError as e:
-    print(f"Error importing decision matrix: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -129,12 +119,7 @@ class OrchestrationBridge:
     def _index_changed_files(self, changed_files: List[str]) -> None:
         """Index changed files in ChromaDB for improved duplicate detection."""
         try:
-            try:
-                from smart_imports import import_chromadb_indexer
-            except ImportError:
-                sys.path.insert(0, str(Path(__file__).parents[2] / "utils"))
-                from smart_imports import import_chromadb_indexer
-            ChromaDBIndexer = import_chromadb_indexer()
+            from ci.core.chromadb_indexer import ChromaDBIndexer
 
             indexer = ChromaDBIndexer(
                 project_root=str(self.project_root), test_mode=self.test_mode
@@ -164,13 +149,8 @@ class OrchestrationBridge:
 
         # Import tech stack detector for language patterns
         try:
-            try:
-                from smart_imports import import_tech_stack_detector
-            except ImportError:
-                sys.path.insert(0, str(Path(__file__).parents[2] / "utils"))
-                from smart_imports import import_tech_stack_detector
-            tech_stack_module = import_tech_stack_detector()
-            TechStackDetector = tech_stack_module.TechStackDetector
+            from utils import path_resolver  # noqa: F401
+            from core.utils.tech_stack_detector import TechStackDetector
 
             detector = TechStackDetector()
         except ImportError:

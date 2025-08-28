@@ -11,17 +11,12 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 
-# Use smart imports for module access
+# Setup import paths and import utilities
 try:
-    from smart_imports import import_cross_platform, get_analyzers_dir
+    from utils.path_resolver import get_analyzers_dir
+    from core.utils.cross_platform import CommandExecutor
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-try:
-    cross_platform_module = import_cross_platform()
-    CommandExecutor = cross_platform_module.CommandExecutor
-except ImportError as e:
-    print(f"Error importing cross platform utils: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -29,7 +24,6 @@ class RootCauseAnalysisIntegrationTest:
     """Test reactive root cause analysis workflow with various error scenarios."""
 
     def __init__(self):
-        # Use smart imports to get the root cause analyzers directory
         self.analyzers_dir = get_analyzers_dir("root_cause")
 
         # Test scenarios with different error types

@@ -30,16 +30,12 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Use smart imports for base profiler infrastructure
+# Setup import paths and import base profiler
 try:
-    from smart_imports import import_profiler_base
+    from utils import path_resolver  # noqa: F401
+    from core.base.profiler_base import BaseProfiler, ProfilerConfig
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-try:
-    BaseProfiler, ProfilerConfig = import_profiler_base()
-except ImportError as e:
-    print(f"Error importing base profiler: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 

@@ -14,18 +14,12 @@ import sys
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 
-# Use smart imports for Symbol
+# Setup import paths and import Symbol
 try:
-    from smart_imports import import_symbol_extractor
+    from utils import path_resolver  # noqa: F401
+    from ci.integration.symbol_extractor import Symbol
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    symbol_extractor_module = import_symbol_extractor()
-    Symbol = symbol_extractor_module.Symbol
-except ImportError as e:
-    print(f"Error importing Symbol: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 

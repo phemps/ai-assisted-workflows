@@ -19,29 +19,14 @@ from enum import Enum
 
 import numpy as np
 
-# Use smart imports for module access
+# Setup import paths and import utilities
 try:
-    from smart_imports import (
-        import_output_formatter,
-        import_tech_stack_detector,
-        import_symbol_extractor,
-    )
+    from utils import path_resolver  # noqa: F401
+    from core.utils.output_formatter import ResultFormatter
+    from core.utils.tech_stack_detector import TechStackDetector
+    from ci.integration.symbol_extractor import Symbol
 except ImportError as e:
-    print(f"Error importing smart imports: {e}", file=sys.stderr)
-    sys.exit(1)
-
-# Import utilities and existing components
-try:
-    output_formatter_module = import_output_formatter()
-    ResultFormatter = output_formatter_module.ResultFormatter
-
-    tech_stack_module = import_tech_stack_detector()
-    TechStackDetector = tech_stack_module.TechStackDetector
-
-    symbol_extractor_module = import_symbol_extractor()
-    Symbol = symbol_extractor_module.Symbol
-except ImportError as e:
-    print(f"Error importing utilities: {e}", file=sys.stderr)
+    print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Required transformers imports - fail fast if unavailable

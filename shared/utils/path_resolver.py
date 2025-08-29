@@ -80,6 +80,22 @@ def get_analyzers_dir(category: Optional[str] = None) -> Path:
     return analyzers_path
 
 
+def get_ci_dir(subdir: Optional[str] = None) -> Path:
+    """
+    Get the path to CI directory or a specific subdirectory.
+
+    Args:
+        subdir: Optional subdirectory name (e.g., 'core', 'integration', 'workflows')
+
+    Returns:
+        Path to the CI directory or specific subdirectory
+    """
+    ci_path = PACKAGE_ROOT / "ci"
+    if subdir:
+        return ci_path / subdir
+    return ci_path
+
+
 def get_analyzer_script_path(category: str, script_name: str) -> Path:
     """
     Get the full path to a specific analyzer script.

@@ -67,6 +67,7 @@ try:
     from core.utils.output_formatter import ResultFormatter
     from core.utils.tech_stack_detector import TechStackDetector
     from ci.integration.symbol_extractor import Symbol
+    from ci.core.memory_manager import MemoryManager, MemoryConfig
 except ImportError as e:
     raise CIDependencyError(f"Import error: {e}")
 
@@ -206,7 +207,15 @@ class DuplicateFinderConfig:
                 "Thresholds must be in ascending order: " "low < medium < high < exact"
             )
         if self.include_symbol_types is None:
-            self.include_symbol_types = ["function", "class", "method", "interface"]
+            self.include_symbol_types = [
+                "function",
+                "class",
+                "method",
+                "interface",
+                "variable",
+                "constant",
+                "type",
+            ]
 
         if self.exclude_file_patterns is None:
             self.exclude_file_patterns = [
@@ -283,19 +292,33 @@ class DuplicateFinder:
         config: Optional[DuplicateFinderConfig] = None,
         project_root: Optional[Path] = None,
         test_mode: bool = False,
+        verbose: bool = False,
+        memory_manager: Optional[MemoryManager] = None,
     ):
         self.config = config or DuplicateFinderConfig()
         self.project_root = project_root or Path.cwd()
         self.test_mode = test_mode
+        self.verbose = verbose
+
+        # Phase 5: Initialize memory manager if not provided
+        if memory_manager is None:
+            memory_config = MemoryConfig()
+            self.memory_manager = MemoryManager(memory_config)
+        else:
+            self.memory_manager = memory_manager
 
         # Initialize utilities
         self.tech_detector = TechStackDetector()
         self.result_formatter = ResultFormatter()
 
         # Initialize 3 core components - FAIL FAST if any unavailable
+        # Phase 5: Pass memory manager to enhanced components
         try:
             self.symbol_extractor = LSPSymbolExtractor(
-                self.config.extractor_config, self.project_root
+                self.config.extractor_config,
+                self.project_root,
+                memory_manager=self.memory_manager,
+                enable_async=True,
             )
         except Exception as e:
             print(
@@ -321,7 +344,9 @@ class DuplicateFinder:
 
         try:
             self.chromadb_storage = ChromaDBStorage(
-                self.config.chromadb_config, self.project_root
+                self.config.chromadb_config,
+                self.project_root,
+                memory_manager=self.memory_manager,
             )
         except Exception as e:
             print(f"FATAL: ChromaDBStorage initialization failed: {e}", file=sys.stderr)
@@ -399,6 +424,7 @@ class DuplicateFinder:
         self,
         project_root: Optional[Path] = None,
         file_patterns: Optional[List[str]] = None,
+        verbose: bool = False,
     ) -> ComparisonResult:
         """
         Perform full project analysis for duplicate detection.
@@ -450,7 +476,7 @@ class DuplicateFinder:
             "Formatting analysis results",
             90.0,
         )
-        result = self._create_comparison_result(duplicates, symbols)
+        result = self._create_comparison_result(duplicates, symbols, verbose)
 
         self._update_progress(ProgressStage.COMPLETED, "Analysis completed", 100.0)
 
@@ -550,7 +576,7 @@ class DuplicateFinder:
         return duplicates
 
     def incremental_analysis(
-        self, changed_files: Optional[List[Path]] = None
+        self, changed_files: Optional[List[Path]] = None, verbose: bool = False
     ) -> ComparisonResult:
         """
         Perform incremental analysis using registry change detection.
@@ -633,7 +659,7 @@ class DuplicateFinder:
         self._stats["execution_time"] = time.time() - start_time
 
         # Format results
-        result = self._create_comparison_result(duplicates, symbols)
+        result = self._create_comparison_result(duplicates, symbols, verbose)
         result.metadata["analysis_mode"] = "incremental"
         result.metadata["changed_files"] = [str(f) for f in changed_files]
 
@@ -735,7 +761,34 @@ class DuplicateFinder:
             if not excluded:
                 filtered_files.append(file_path)
 
-        # Extract symbols from files - FAIL FAST on component failure
+        # Phase 5: Use async batch processing when available
+        if (
+            hasattr(self.symbol_extractor, "extract_symbols_async")
+            and self.symbol_extractor.enable_async
+        ):
+            try:
+                import asyncio
+
+                # Use async processing for better performance
+                all_symbols, metrics = asyncio.run(
+                    self.symbol_extractor.extract_symbols_async(filtered_files)
+                )
+
+                if self.verbose:
+                    print(f"Async extraction metrics: {metrics.to_dict()}")
+
+                # Apply symbol limit
+                if len(all_symbols) > self.config.max_symbols:
+                    all_symbols = all_symbols[: self.config.max_symbols]
+
+                return all_symbols
+            except Exception as e:
+                if self.verbose:
+                    print(f"Async processing failed, falling back to sync: {e}")
+                # Fall back to sync processing
+                pass
+
+        # Fallback or sync processing
         all_symbols = []
         for file_path in filtered_files:
             try:
@@ -769,22 +822,54 @@ class DuplicateFinder:
             )
 
     def _filter_symbols(self, symbols: List[Symbol]) -> List[Symbol]:
-        """Filter symbols based on configuration with enhanced filtering logic."""
+        """Enhanced filtering using comprehensive LSP analysis and implementation content detection.
+
+        Applies sophisticated filtering to exclude symbol references, imports, type annotations,
+        boilerplate patterns, and other false positives BEFORE expensive embedding generation.
+        This is where the real duplicate detection intelligence should live.
+        """
+        # Import tech stack detector for language patterns
+        try:
+            from utils import path_resolver  # noqa: F401
+            from core.utils.tech_stack_detector import TechStackDetector
+
+            detector = TechStackDetector()
+        except ImportError:
+            detector = None
+
         filtered = []
+        filtered_stats = {
+            "total_input": len(symbols),
+            "type_filtered": 0,
+            "import_filtered": 0,
+            "length_filtered": 0,
+            "file_pattern_filtered": 0,
+            "symbol_reference_filtered": 0,
+            "lsp_analysis_filtered": 0,
+            "implementation_content_filtered": 0,
+            "boilerplate_pattern_filtered": 0,
+            "final_validation_filtered": 0,
+            "origin_reference_filtered": 0,
+            "origin_duplicate_filtered": 0,
+            "final_output": 0,
+        }
 
         for symbol in symbols:
-            # Type filtering
+            # Basic type filtering
             type_val = symbol.symbol_type.value
             if type_val not in self.config.include_symbol_types:
+                filtered_stats["type_filtered"] += 1
                 continue
 
             # Import filtering - exclude imports before expensive embedding generation
             if hasattr(symbol, "is_import") and symbol.is_import:
+                filtered_stats["import_filtered"] += 1
                 continue
 
             # Length filtering
             content_len = len(symbol.line_content.strip())
             if content_len < self.config.min_symbol_length:
+                filtered_stats["length_filtered"] += 1
                 continue
 
             # Enhanced file pattern filtering
@@ -808,12 +893,526 @@ class DuplicateFinder:
             ):
                 excluded = True
 
+            # Test file filtering (test patterns often legitimately similar)
+            # Only filter actual test files, not directories with "test" in name
+            if not excluded:
+                import os
+
+                file_name = os.path.basename(file_path)
+                test_indicators = [
+                    "test_",
+                    "_test.",
+                    ".test.",
+                    ".spec.",
+                    "test.",
+                    "spec_",
+                ]
+                if any(indicator in file_name.lower() for indicator in test_indicators):
+                    excluded = True
+                # Also check if file is in a dedicated test directory (but not if the whole project is "test-something")
+                path_parts = file_path.lower().split(os.sep)
+                if (
+                    len(path_parts) > 2
+                ):  # Only check subdirectories, not root project names
+                    test_dirs = ["tests", "__tests__", "test", "spec"]
+                    if any(
+                        test_dir in path_parts[1:-1] for test_dir in test_dirs
+                    ):  # Exclude first (project) and last (filename)
+                        excluded = True
+
             if excluded:
+                filtered_stats["file_pattern_filtered"] += 1
+                continue
+
+            # NEW: Advanced filtering to eliminate false positives
+
+            # 1. Symbol reference detection
+            if self._is_symbol_reference(symbol):
+                filtered_stats["symbol_reference_filtered"] += 1
+                continue
+
+            # 2. LSP-based symbol type filtering
+            if self._should_exclude_by_lsp_analysis(symbol):
+                filtered_stats["lsp_analysis_filtered"] += 1
+                continue
+
+            # 3. Implementation content analysis
+            if not self._has_meaningful_implementation_content(symbol):
+                filtered_stats["implementation_content_filtered"] += 1
+                continue
+
+            # 4. Language-specific boilerplate pattern filtering
+            if self._is_language_boilerplate_pattern(symbol, detector):
+                filtered_stats["boilerplate_pattern_filtered"] += 1
+                continue
+
+            # 5. Final validation checks
+            if not self._passes_final_validation(symbol):
+                filtered_stats["final_validation_filtered"] += 1
+                continue
+
+            # Phase 2: Origin-based filtering
+            # Skip symbol references - only compare definitions
+            if hasattr(symbol, "is_reference") and symbol.is_reference:
+                filtered_stats["origin_reference_filtered"] += 1
                 continue
 
             filtered.append(symbol)
 
-        return filtered
+        # Phase 2: Apply origin-based deduplication AFTER all individual filtering
+        pre_origin_filtering_count = len(filtered)
+
+        # Group symbols by origin and filter duplicates
+        origin_groups = self._group_symbols_by_origin(filtered)
+        origin_deduplicated = self._filter_origin_duplicates(origin_groups)
+
+        # Count how many were filtered by origin deduplication
+        filtered_stats["origin_duplicate_filtered"] = pre_origin_filtering_count - len(
+            origin_deduplicated
+        )
+        filtered_stats["final_output"] = len(origin_deduplicated)
+
+        # Log filtering statistics for debugging
+        if self.verbose:
+            print("\n📊 Symbol Filtering Statistics:")
+            print(f"   Total input symbols: {filtered_stats['total_input']:,}")
+            print(f"   Type filtered: {filtered_stats['type_filtered']:,}")
+            print(f"   Import filtered: {filtered_stats['import_filtered']:,}")
+            print(f"   Length filtered: {filtered_stats['length_filtered']:,}")
+            print(
+                f"   File pattern filtered: {filtered_stats['file_pattern_filtered']:,}"
+            )
+            print(
+                f"   Symbol reference filtered: {filtered_stats['symbol_reference_filtered']:,}"
+            )
+            print(
+                f"   LSP analysis filtered: {filtered_stats['lsp_analysis_filtered']:,}"
+            )
+            print(
+                f"   Implementation content filtered: {filtered_stats['implementation_content_filtered']:,}"
+            )
+            print(
+                f"   Boilerplate pattern filtered: {filtered_stats['boilerplate_pattern_filtered']:,}"
+            )
+            print(
+                f"   Final validation filtered: {filtered_stats['final_validation_filtered']:,}"
+            )
+            print(
+                f"   Origin reference filtered: {filtered_stats['origin_reference_filtered']:,}"
+            )
+            print(
+                f"   Origin duplicate filtered: {filtered_stats['origin_duplicate_filtered']:,}"
+            )
+            print(f"   Final output symbols: {filtered_stats['final_output']:,}")
+
+        return origin_deduplicated
+
+    def _is_symbol_reference(self, symbol: Symbol) -> bool:
+        """Detect if this is a symbol reference rather than implementation.
+
+        Symbol references include imports, type annotations, enum references, etc.
+        These should be excluded as they represent normal architectural patterns.
+        """
+        content = symbol.line_content.strip()
+        name = symbol.name
+
+        # Check for import statement contexts
+        import_indicators = ["import", "from", "require("]
+        if any(indicator in content.lower() for indicator in import_indicators):
+            return True
+
+        # Check for type annotation contexts
+        type_indicators = [": ", "-> ", "Union[", "Optional[", "List[", "Dict["]
+        if any(indicator in content for indicator in type_indicators):
+            return True
+
+        # Check for enum member usage
+        if "." in name and content.count(".") > 0:
+            return True
+
+        return False
+
+    def _should_exclude_by_lsp_analysis(self, symbol: Symbol) -> bool:
+        """Enhanced LSP kind analysis to exclude symbol references.
+
+        Comprehensive mapping of LSP symbol kinds that represent references rather than implementations.
+        """
+        if not symbol.lsp_kind:
+            return False
+
+        lsp_kind = symbol.lsp_kind
+
+        # LSP Symbol Kind mappings (from LSP specification)
+        REFERENCE_KINDS = {
+            1,  # FILE
+            2,  # MODULE
+            3,  # NAMESPACE
+            4,  # PACKAGE
+            14,  # CONSTANT
+            15,  # STRING
+            16,  # NUMBER
+            17,  # BOOLEAN
+            18,  # ARRAY
+            21,  # ENUM
+            22,  # ENUMMEMBER
+            23,  # KEYWORD
+            24,  # TEXT
+            25,  # COLOR
+        }
+
+        # Skip known reference types
+        if lsp_kind in REFERENCE_KINDS:
+            return True
+
+        # Skip type parameters (generics)
+        if lsp_kind == 26:  # TYPEPARAMETER
+            return True
+
+        # Skip constructors unless they have substantial content
+        if lsp_kind == 9 and symbol.line_count < 3:  # CONSTRUCTOR
+            return True
+
+        # Skip properties/fields unless they have implementation
+        if lsp_kind == 7 and symbol.line_count < 2:  # PROPERTY/FIELD
+            return True
+
+        # Skip variables unless they have complex initialization
+        if lsp_kind == 13:  # VARIABLE
+            content = symbol.line_content.strip()
+            # Simple declarations like "x = 1" or "let x;" are not meaningful duplicates
+            if len(content.split("=", 1)) == 2:
+                value_part = content.split("=", 1)[1].strip()
+                if (
+                    len(value_part) < 10
+                    or value_part.isdigit()
+                    or value_part in ["true", "false", "null", "None"]
+                ):
+                    return True
+
+        return False
+
+    def _has_meaningful_implementation_content(self, symbol: Symbol) -> bool:
+        """Analyze if symbols have meaningful implementation content vs just declarations.
+
+        This helps distinguish between interface definitions, type annotations, and actual code logic.
+        """
+        lsp_kind = symbol.lsp_kind or 0
+        content = symbol.line_content.strip()
+        line_count = symbol.line_count
+
+        # Functions and methods need substantial content to be meaningful duplicates
+        if lsp_kind in [12, 6]:  # FUNCTION or METHOD
+            # Require multiple lines for functions (avoid single-line getters/setters)
+            if line_count < 3:
+                return False
+
+            # Look for actual implementation vs just signatures
+            implementation_indicators = [
+                "{",
+                "}",  # Code blocks
+                "if ",
+                "for ",
+                "while ",  # Control structures
+                "return ",
+                "yield ",  # Return statements
+                "=",
+                "==",
+                "!=",  # Assignments and comparisons
+                "try:",
+                "except:",
+                "finally:",  # Exception handling
+            ]
+
+            has_impl = any(
+                indicator in content for indicator in implementation_indicators
+            )
+            if not has_impl:
+                return False
+
+        # Classes need substantial member content
+        if lsp_kind == 5:  # CLASS
+            if line_count < 5:
+                return False
+
+        # Interfaces are rarely meaningful duplicates
+        if lsp_kind == 11:  # INTERFACE
+            return False
+
+        # Single character names are usually not meaningful
+        if len(symbol.name) <= 1:
+            return False
+
+        return True
+
+    def _is_language_boilerplate_pattern(self, symbol: Symbol, detector) -> bool:
+        """Enhanced language-specific boilerplate pattern detection.
+
+        Identifies common framework patterns, standard library usage, and architectural boilerplate.
+        """
+        name = symbol.name
+        file_path = symbol.file_path
+
+        # Common framework and library patterns that are legitimately duplicated
+        FRAMEWORK_PATTERNS = {
+            # Python patterns
+            "__init__",
+            "__str__",
+            "__repr__",
+            "setUp",
+            "tearDown",
+            "test_*",
+            "*_test",
+            "mock_*",
+            "assert*",
+            # JavaScript/TypeScript patterns
+            "constructor",
+            "render",
+            "componentDidMount",
+            "useEffect",
+            "useState",
+            "describe",
+            "it",
+            "expect",
+            "beforeEach",
+            "afterEach",
+            # Go patterns
+            "New*",
+            "*Handler",
+            "*Client",
+            "*Server",
+            "*Config",
+            "Test*",
+            "*Test",
+            "Benchmark*",
+            "*Benchmark",
+            "String",
+            "Error",
+            "Close",
+            "Read",
+            "Write",
+            "ServeHTTP",
+            "Marshal",
+            "Unmarshal",
+            "Decode",
+            "Encode",
+            "Init",
+            "Start",
+            "Stop",
+            "Run",
+            "Execute",
+            # Java patterns
+            "toString",
+            "hashCode",
+            "equals",
+            "clone",
+            "finalize",
+            "get*",
+            "set*",
+            "is*",
+            "has*",
+            "create*",
+            "build*",
+            "parse*",
+            "test*",
+            "*Test",
+            "setUp",
+            "tearDown",
+            "before*",
+            "after*",
+            "*Should*",
+            "*When*",
+            "*Given*",
+            "*Then*",
+            "*Verify*",
+            "*Controller",
+            "*Service",
+            "*Repository",
+            "*Manager",
+            "*Factory",
+            "*Handler",
+            "*Processor",
+            "*Validator",
+            "*Mapper",
+            "*Converter",
+            # Common UI patterns
+            "Button",
+            "Modal",
+            "Dialog",
+            "Panel",
+            "Form",
+            "Input",
+            "Label",
+            "Console",
+            "Logger",
+            "Config",
+            "Settings",
+            "Manager",
+            "Service",
+            "Handler",
+            # HTTP/API patterns
+            "get",
+            "post",
+            "put",
+            "delete",
+            "patch",
+            "head",
+            "options",
+            "request",
+            "response",
+            "middleware",
+            "route",
+            "controller",
+        }
+
+        # Check for framework pattern matches
+        import fnmatch
+
+        for pattern in FRAMEWORK_PATTERNS:
+            if fnmatch.fnmatch(name, pattern):
+                # Framework patterns are acceptable boilerplate
+                return True
+
+        # Use tech stack detector for additional patterns
+        if detector and file_path:
+            language = self._detect_language_from_file(file_path)
+            boilerplate_patterns = set()
+
+            # Load boilerplate patterns for this language
+            for stack_id, config in detector.tech_stacks.items():
+                if language in config.primary_languages and config.boilerplate_patterns:
+                    boilerplate_patterns.update(config.boilerplate_patterns)
+
+            # Check against language-specific patterns
+            if boilerplate_patterns:
+                for pattern in boilerplate_patterns:
+                    if fnmatch.fnmatch(name, pattern):
+                        return True
+
+        return False
+
+    def _passes_final_validation(self, symbol: Symbol) -> bool:
+        """Final validation checks for meaningful duplicates."""
+        name = symbol.name
+
+        # Skip single-character names (likely parameters or generic variables)
+        if len(name) <= 1:
+            return False
+
+        # Skip very generic names
+        generic_names = {
+            "i",
+            "j",
+            "k",
+            "x",
+            "y",
+            "z",
+            "n",
+            "m",
+            "e",
+            "f",
+            "v",
+            "a",
+            "b",
+            "c",
+            "id",
+            "key",
+            "val",
+            "tmp",
+            "temp",
+            "item",
+            "data",
+            "obj",
+            "res",
+            "result",
+            "get",
+            "set",
+            "add",
+            "new",
+            "old",
+            "init",
+            "start",
+            "stop",
+            "run",
+            "exec",
+        }
+        if name.lower() in generic_names:
+            return False
+
+        return True
+
+    def _group_symbols_by_origin(
+        self, symbols: List[Symbol]
+    ) -> Dict[str, List[Symbol]]:
+        """Group symbols by their origin signature to avoid comparing inherited/imported symbols."""
+        origin_groups = {}
+
+        for symbol in symbols:
+            origin_key = getattr(symbol, "origin_signature", None)
+            if origin_key:
+                if origin_key not in origin_groups:
+                    origin_groups[origin_key] = []
+                origin_groups[origin_key].append(symbol)
+            else:
+                # Generate fallback origin key for symbols without origin tracking
+                fallback_key = (
+                    f"{symbol.file_path}::{symbol.line_number}::{symbol.name}"
+                )
+                if fallback_key not in origin_groups:
+                    origin_groups[fallback_key] = []
+                origin_groups[fallback_key].append(symbol)
+
+        return origin_groups
+
+    def _filter_origin_duplicates(
+        self, symbol_groups: Dict[str, List[Symbol]]
+    ) -> List[Symbol]:
+        """Filter symbols to keep only unique origins for comparison."""
+        unique_symbols = []
+
+        for origin_key, group_symbols in symbol_groups.items():
+            if len(group_symbols) == 1:
+                # Single symbol for this origin - include it
+                unique_symbols.append(group_symbols[0])
+            else:
+                # Multiple symbols with same origin - keep only the definition
+                definition_symbol = None
+                for symbol in group_symbols:
+                    if hasattr(symbol, "is_definition") and symbol.is_definition:
+                        definition_symbol = symbol
+                        break
+
+                # If no explicit definition found, use the first one
+                if definition_symbol:
+                    unique_symbols.append(definition_symbol)
+                elif group_symbols:
+                    unique_symbols.append(group_symbols[0])
+
+        return unique_symbols
+
+    def _detect_language_from_file(self, file_path: str) -> str:
+        """Detect programming language from file extension."""
+        file_path = file_path.lower()
+
+        if file_path.endswith((".py", ".pyx", ".pyi")):
+            return "python"
+        elif file_path.endswith((".js", ".jsx", ".ts", ".tsx")):
+            return "javascript"
+        elif file_path.endswith(".go"):
+            return "go"
+        elif file_path.endswith((".java", ".scala", ".kt")):
+            return "java"
+        elif file_path.endswith((".cs", ".vb")):
+            return "csharp"
+        elif file_path.endswith((".rs",)):
+            return "rust"
+        elif file_path.endswith((".c", ".cpp", ".cc", ".cxx", ".h", ".hpp")):
+            return "cpp"
+        elif file_path.endswith((".php",)):
+            return "php"
+        elif file_path.endswith((".rb",)):
+            return "ruby"
+        else:
+            return "unknown"
 
     def _handle_incremental_updates(self, symbols: List[Symbol]) -> List[Symbol]:
         """Handle incremental updates using ChromaDB storage - NO FALLBACK."""
@@ -828,10 +1427,36 @@ class DuplicateFinder:
         """Find similar symbol pairs using ChromaDB storage."""
         duplicates = []
 
-        # Perform batch similarity search using ChromaDB - NO FALLBACK
-        similarity_results = self.chromadb_storage.batch_similarity_search(
-            embeddings, threshold
-        )
+        # Phase 5: Use async batch similarity search when available
+        if (
+            hasattr(self.chromadb_storage, "batch_similarity_search_async")
+            and self.chromadb_storage.config.enable_async_operations
+        ):
+            try:
+                import asyncio
+
+                # Use async processing for better performance
+                similarity_results = asyncio.run(
+                    self.chromadb_storage.batch_similarity_search_async(
+                        embeddings, threshold
+                    )
+                )
+                if self.verbose:
+                    print(
+                        f"Used async similarity search for {len(embeddings)} embeddings"
+                    )
+            except Exception as e:
+                if self.verbose:
+                    print(f"Async similarity search failed, falling back to sync: {e}")
+                # Fallback to sync processing
+                similarity_results = self.chromadb_storage.batch_similarity_search(
+                    embeddings, threshold
+                )
+        else:
+            # Sync processing
+            similarity_results = self.chromadb_storage.batch_similarity_search(
+                embeddings, threshold
+            )
 
         # Convert similarity matches to duplicate results
         processed_pairs = set()
@@ -908,7 +1533,10 @@ class DuplicateFinder:
         return []
 
     def _create_comparison_result(
-        self, duplicates: List[DuplicateResult], symbols: List[Symbol]
+        self,
+        duplicates: List[DuplicateResult],
+        symbols: List[Symbol],
+        verbose: bool = False,
     ) -> ComparisonResult:
         """Create ComparisonResult from duplicate results."""
         findings = []
@@ -937,7 +1565,9 @@ class DuplicateFinder:
                         "type": duplicate.original_symbol.symbol_type.value,
                         "file": duplicate.original_symbol.file_path,
                         "line": duplicate.original_symbol.line_number,
-                        "content": duplicate.original_symbol.line_content[:100],
+                        "content": duplicate.original_symbol.line_content
+                        if verbose
+                        else duplicate.original_symbol.line_content[:100],
                         "lsp_kind": duplicate.original_symbol.lsp_kind,
                         "line_count": duplicate.original_symbol.line_count,
                     },
@@ -946,7 +1576,9 @@ class DuplicateFinder:
                         "type": duplicate.duplicate_symbol.symbol_type.value,
                         "file": duplicate.duplicate_symbol.file_path,
                         "line": duplicate.duplicate_symbol.line_number,
-                        "content": duplicate.duplicate_symbol.line_content[:100],
+                        "content": duplicate.duplicate_symbol.line_content
+                        if verbose
+                        else duplicate.duplicate_symbol.line_content[:100],
                         "lsp_kind": duplicate.duplicate_symbol.lsp_kind,
                         "line_count": duplicate.duplicate_symbol.line_count,
                     },

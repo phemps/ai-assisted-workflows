@@ -62,6 +62,16 @@ class Symbol:
     lsp_kind: Optional[int] = None
     line_count: int = 1  # Number of lines this symbol spans
 
+    # Phase 2: Symbol Origin Tracking
+    definition_file: Optional[str] = None  # Original file where symbol is defined
+    definition_line: Optional[int] = None  # Line number of definition
+    is_reference: bool = False  # True if this is a reference vs definition
+    is_definition: bool = True  # True if this is the original definition
+    parent_class: Optional[str] = None  # For inherited methods
+    import_source: Optional[str] = None  # Module path for imported symbols
+    origin_signature: Optional[str] = None  # Unique identifier for grouping
+    reference_count: int = 0  # Number of references to this symbol
+
 
 class SerenaFallbackExtractor:
     """Robust AST-based symbol extraction when Serena MCP is unavailable."""

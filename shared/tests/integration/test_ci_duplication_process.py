@@ -174,7 +174,7 @@ def run_orchestration_bridge(
     Args:
         project_root: Root directory of project to analyze
         config_path: Optional path to custom CI configuration file
-        verbose: Enable verbose output
+        verbose: Enable verbose output (includes code snippets in analysis)
 
     Returns:
         Dictionary containing analysis results and any errors
@@ -196,6 +196,9 @@ def run_orchestration_bridge(
 
     if config_path:
         args.extend(["--config-path", config_path])
+
+    if verbose:
+        args.append("--verbose")
 
     if verbose:
         print(f"  Script: {bridge_script}")
@@ -263,13 +266,12 @@ def run_orchestration_bridge(
         }
 
 
-def analyze_results(results: Dict[str, Any], verbose: bool = False) -> Dict[str, Any]:
+def analyze_results(results: Dict[str, Any]) -> Dict[str, Any]:
     """
     Analyze and summarize the orchestration bridge results.
 
     Args:
         results: Raw results from orchestration bridge
-        verbose: Enable detailed output
 
     Returns:
         Analysis summary with key metrics
@@ -285,29 +287,53 @@ def analyze_results(results: Dict[str, Any], verbose: bool = False) -> Dict[str,
     summary = {
         "status": "success",
         "execution_time": results.get("execution_time", 0),
-        "files_scanned": results.get("summary", {}).get("files_scanned", 0),
-        "symbols_extracted": results.get("summary", {}).get("symbols_extracted", 0),
-        "duplicate_groups": len(results.get("duplicates", [])),
+        "findings_processed": results.get("findings_processed", 0),
+        "duplicate_groups": 0,
         "total_duplicates": 0,
         "expert_agent_calls": 0,
         "failed_agent_calls": 0,
+        "pending_agent_calls": 0,
         "decisions": {"auto_fix": 0, "create_issue": 0, "ignore": 0, "escalate": 0},
     }
 
-    # Count duplicates and analyze expert agent calls
-    for group in results.get("duplicates", []):
-        summary["total_duplicates"] += len(group.get("duplicates", []))
+    # Parse results from orchestration bridge structure
+    bridge_results = results.get("results", [])
+
+    for result in bridge_results:
+        # Count file pairs and total duplicates
+        summary["duplicate_groups"] += result.get("findings_count", 0)
+        summary["total_duplicates"] += result.get("total_duplicates", 0)
 
         # Check for expert agent analysis
-        if "expert_analysis" in group:
-            summary["expert_agent_calls"] += 1
-            if group["expert_analysis"].get("error"):
+        if result.get("action") == "expert_review":
+            expert_result = result.get("expert_result", {})
+            if expert_result.get("status") == "agent_call_required":
+                # Agent call is pending (not completed yet)
+                summary["pending_agent_calls"] = (
+                    summary.get("pending_agent_calls", 0) + 1
+                )
+                # Store the expert analysis details for reporting
+                summary["expert_analysis"] = expert_result
+            elif "error" in expert_result:
+                summary["expert_agent_calls"] += 1
                 summary["failed_agent_calls"] += 1
+            else:
+                # Agent call completed successfully
+                summary["expert_agent_calls"] += 1
 
-        # Count decision types
-        decision = group.get("decision", {}).get("action", "unknown")
-        if decision in summary["decisions"]:
-            summary["decisions"][decision] += 1
+        # Count decision types based on action
+        action = result.get("action", "unknown")
+        if action == "expert_review":
+            summary["decisions"]["create_issue"] += 1
+        elif action in summary["decisions"]:
+            summary["decisions"][action] += 1
+
+    # Get summary statistics from orchestration bridge
+    bridge_summary = results.get("summary", {})
+    summary["expert_reviews"] = bridge_summary.get("expert_reviews", 0)
+    summary["automatic_fixes"] = bridge_summary.get("automatic_fixes", 0)
+    summary["github_issues"] = bridge_summary.get("github_issues", 0)
+    summary["agents_used"] = bridge_summary.get("agents_used", [])
 
     # Add false positive filtering stats if available
     if "filtering_stats" in results:
@@ -335,20 +361,27 @@ def print_report(summary: Dict[str, Any], verbose: bool = False):
         return
 
     print("\n📊 Summary Statistics:")
-    print(f"   Files scanned:        {summary['files_scanned']:,}")
-    print(f"   Symbols extracted:    {summary['symbols_extracted']:,}")
-    print(f"   Duplicate groups:     {summary['duplicate_groups']}")
+    print(f"   Findings processed:   {summary['findings_processed']:,}")
+    print(f"   File pairs analyzed:  {summary['duplicate_groups']}")
     print(f"   Total duplicates:     {summary['total_duplicates']}")
+    print(f"   Expert reviews:       {summary.get('expert_reviews', 0)}")
     print(f"   Execution time:       {summary['execution_time']:.2f}s")
 
-    if summary["expert_agent_calls"] > 0:
+    if summary["expert_agent_calls"] > 0 or summary["pending_agent_calls"] > 0:
         print("\n🤖 Expert Agent Analysis:")
-        print(f"   Total calls:          {summary['expert_agent_calls']}")
-        print(f"   Failed calls:         {summary['failed_agent_calls']}")
-        success_rate = (
-            1 - summary["failed_agent_calls"] / summary["expert_agent_calls"]
-        ) * 100
-        print(f"   Success rate:         {success_rate:.1f}%")
+        if summary["expert_agent_calls"] > 0:
+            print(f"   Completed calls:      {summary['expert_agent_calls']}")
+            print(f"   Failed calls:         {summary['failed_agent_calls']}")
+            if summary.get("agents_used"):
+                print(f"   Agents used:          {', '.join(summary['agents_used'])}")
+            success_rate = (
+                1 - summary["failed_agent_calls"] / summary["expert_agent_calls"]
+            ) * 100
+            print(f"   Success rate:         {success_rate:.1f}%")
+
+        if summary["pending_agent_calls"] > 0:
+            print(f"   Pending calls:        {summary['pending_agent_calls']}")
+            print("   Status:               Tasks prepared, agent execution pending")
 
     print("\n📋 Decision Matrix Actions:")
     for action, count in summary["decisions"].items():
@@ -362,6 +395,25 @@ def print_report(summary: Dict[str, Any], verbose: bool = False):
         print(f"   Boilerplate patterns: {stats.get('boilerplate', 0)}")
         print(f"   Low complexity:       {stats.get('low_complexity', 0)}")
         print(f"   Total filtered:       {stats.get('total_filtered', 0)}")
+
+    # Show expert analysis details if available
+    if "expert_analysis" in summary and verbose:
+        expert_analysis = summary["expert_analysis"]
+        print("\n📋 Expert Analysis Details:")
+        print(f"   Status: {expert_analysis.get('status', 'Unknown')}")
+        print(f"   Agent: {expert_analysis.get('agent', 'Unknown')}")
+
+        # Show task description (truncated)
+        task_desc = expert_analysis.get("task_description", "")
+        if task_desc:
+            print("\n   Task Summary:")
+            # Show first few lines of task description
+            lines = task_desc.split("\n")[:10]
+            for line in lines:
+                if line.strip():
+                    print(f"   {line}")
+            if len(task_desc.split("\n")) > 10:
+                print(f"   ... ({len(task_desc.split(chr(10))) - 10} more lines)")
 
     print("\n" + "=" * 60)
 
@@ -406,6 +458,12 @@ Examples:
         help="Output raw JSON results instead of formatted report",
     )
 
+    parser.add_argument(
+        "--show-expert-analysis",
+        action="store_true",
+        help="Show full expert analysis details (can be very long)",
+    )
+
     args = parser.parse_args()
 
     # Validate project root
@@ -423,8 +481,19 @@ Examples:
         print(json.dumps(results, indent=2))
     else:
         # Analyze and print formatted report
-        summary = analyze_results(results, verbose=args.verbose)
+        summary = analyze_results(results)
         print_report(summary, verbose=args.verbose)
+
+        # Show full expert analysis if requested
+        if args.show_expert_analysis and "expert_analysis" in summary:
+            expert_analysis = summary["expert_analysis"]
+            task_desc = expert_analysis.get("task_description", "")
+            if task_desc:
+                print(f"\n{'='*60}")
+                print("FULL EXPERT ANALYSIS TASK")
+                print("=" * 60)
+                print(task_desc)
+                print("=" * 60)
 
     # Exit with appropriate code
     sys.exit(0 if results.get("success") else 1)

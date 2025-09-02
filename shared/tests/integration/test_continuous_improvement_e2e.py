@@ -163,7 +163,10 @@ if __name__ == '__main__':
         # Initialize bridge in test mode with direct config path
         test_config_path = Path(__file__).parent / "ci_config_test.json"
         self.bridge = OrchestrationBridge(
-            str(self.project_root), test_mode=True, config_path=str(test_config_path)
+            str(self.project_root),
+            test_mode=True,
+            config_path=str(test_config_path),
+            verbose=False,
         )
 
     def tearDown(self):

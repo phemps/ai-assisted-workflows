@@ -7,15 +7,19 @@ Provides unified vector storage, metadata management, and similarity search.
 Part of AI-Assisted Workflows - integrates with 8-agent orchestration system.
 """
 
+import asyncio
 import hashlib
 import json
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum
+from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -49,10 +53,11 @@ except ImportError as e:
     )
     sys.exit(1)
 
-# Setup import paths and import Symbol
+# Setup import paths and import required modules
 try:
     from utils import path_resolver  # noqa: F401
     from ci.integration.symbol_extractor import Symbol, SymbolType
+    from ci.core.memory_manager import MemoryManager
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -65,6 +70,75 @@ class ChromaDBStatus(Enum):
     INITIALIZING = "initializing"
     ERROR = "error"
     NOT_FOUND = "not_found"
+
+
+@dataclass
+class QueryCacheEntry:
+    """Cache entry for query results."""
+
+    result: Any
+    timestamp: float
+    access_count: int = 0
+
+    def is_expired(self, ttl_seconds: int) -> bool:
+        """Check if cache entry is expired."""
+        return (time.time() - self.timestamp) > ttl_seconds
+
+
+class ConnectionPool:
+    """Connection pool for ChromaDB clients."""
+
+    def __init__(self, max_connections: int = 5, timeout: float = 30.0):
+        self.max_connections = max_connections
+        self.timeout = timeout
+        self._pool = asyncio.Queue(maxsize=max_connections)
+        self._connections = set()
+        self._lock = asyncio.Lock()
+
+    async def get_connection(self, persist_directory: Path) -> chromadb.Client:
+        """Get a connection from the pool."""
+        try:
+            # Try to get existing connection
+            connection = self._pool.get_nowait()
+            return connection
+        except asyncio.QueueEmpty:
+            # Create new connection if under limit
+            async with self._lock:
+                if len(self._connections) < self.max_connections:
+                    connection = await self._create_connection(persist_directory)
+                    self._connections.add(connection)
+                    return connection
+                else:
+                    # Wait for available connection
+                    connection = await asyncio.wait_for(
+                        self._pool.get(), timeout=self.timeout
+                    )
+                    return connection
+
+    async def return_connection(self, connection: chromadb.Client) -> None:
+        """Return a connection to the pool."""
+        try:
+            self._pool.put_nowait(connection)
+        except asyncio.QueueFull:
+            # Pool is full, connection will be garbage collected
+            pass
+
+    async def _create_connection(self, persist_directory: Path) -> chromadb.Client:
+        """Create a new ChromaDB connection."""
+        return chromadb.PersistentClient(
+            path=str(persist_directory),
+            settings=Settings(anonymized_telemetry=False, allow_reset=False),
+        )
+
+    async def close_all(self) -> None:
+        """Close all connections in the pool."""
+        while not self._pool.empty():
+            try:
+                self._pool.get_nowait()
+                # ChromaDB doesn't have explicit close, connections are GC'd
+            except asyncio.QueueEmpty:
+                break
+        self._connections.clear()
 
 
 @dataclass
@@ -89,10 +163,19 @@ class ChromaDBConfig:
     # Memory management
     max_memory_gb: float = 2.0
 
+    # Phase 5: Performance and caching settings
+    enable_connection_pooling: bool = True
+    max_connections: int = 5
+    connection_timeout: float = 30.0
+    enable_query_caching: bool = True
+    cache_ttl_seconds: int = 300  # 5 minutes
+    max_cache_entries: int = 1000
+    enable_async_operations: bool = True
+
     def __post_init__(self):
-        """Initialize default paths and validate config."""
-        if self.persist_directory is None:
-            self.persist_directory = Path.cwd() / ".ci-registry" / "chromadb"
+        """Validate config. Persist directory initialization moved to ChromaDBStorage.__init__"""
+        # Note: persist_directory initialization now happens in ChromaDBStorage.__init__
+        # to ensure it uses project_root instead of cwd()
 
         # Validate thresholds
         thresholds = [
@@ -138,12 +221,20 @@ class ChromaDBStorage:
         self,
         config: Optional[ChromaDBConfig] = None,
         project_root: Optional[Path] = None,
+        memory_manager: Optional[MemoryManager] = None,
     ):
         self.config = config or ChromaDBConfig()
         self.project_root = project_root or Path.cwd()
+        self.memory_manager = memory_manager
 
-        # Update persist directory to be relative to project root
-        if not self.config.persist_directory.is_absolute():
+        # Initialize persist_directory if None (moved from __post_init__ to use project_root)
+        if self.config.persist_directory is None:
+            self.config.persist_directory = (
+                self.project_root / ".ci-registry" / "chromadb"
+            )
+
+        # Update persist directory to be relative to project root if it's relative
+        elif not self.config.persist_directory.is_absolute():
             self.config.persist_directory = (
                 self.project_root / self.config.persist_directory
             )
@@ -152,6 +243,16 @@ class ChromaDBStorage:
         self._client = None
         self._collection = None
         self._status = ChromaDBStatus.INITIALIZING
+
+        # Phase 5: Connection pooling and caching
+        self._connection_pool = None
+        self._query_cache: Dict[str, QueryCacheEntry] = {}
+        self._cache_lock = threading.Lock()
+        self._executor = (
+            ThreadPoolExecutor(max_workers=4)
+            if self.config.enable_async_operations
+            else None
+        )
 
         # Performance tracking
         self._search_times = []
@@ -163,8 +264,13 @@ class ChromaDBStorage:
             "cache_misses": 0,
         }
 
-        # Initialize ChromaDB
+        # Initialize ChromaDB and connection pool
         self._initialize_chromadb()
+        if self.config.enable_connection_pooling:
+            self._connection_pool = ConnectionPool(
+                max_connections=self.config.max_connections,
+                timeout=self.config.connection_timeout,
+            )
 
     def _initialize_chromadb(self) -> None:
         """Initialize ChromaDB client and collection."""
@@ -349,11 +455,190 @@ class ChromaDBStorage:
             print(f"Error in ChromaDB similarity search: {e}", file=sys.stderr)
             return []
 
+    def _generate_cache_key(
+        self,
+        query_embedding: np.ndarray,
+        threshold: float,
+        k: int,
+        filters: Optional[Dict[str, Any]],
+    ) -> str:
+        """Generate cache key for query results."""
+        key_parts = [
+            hashlib.md5(query_embedding.tobytes()).hexdigest()[:16],
+            f"t{threshold:.3f}",
+            f"k{k}",
+        ]
+        if filters:
+            filter_str = json.dumps(filters, sort_keys=True)
+            key_parts.append(hashlib.md5(filter_str.encode()).hexdigest()[:8])
+        return "_".join(key_parts)
+
+    def _get_cached_result(self, cache_key: str) -> Optional[List[SimilarityMatch]]:
+        """Get cached query result if available and not expired."""
+        if not self.config.enable_query_caching:
+            return None
+
+        with self._cache_lock:
+            entry = self._query_cache.get(cache_key)
+            if entry and not entry.is_expired(self.config.cache_ttl_seconds):
+                entry.access_count += 1
+                self._stats["cache_hits"] += 1
+                return entry.result
+            elif entry:
+                # Remove expired entry
+                del self._query_cache[cache_key]
+
+        self._stats["cache_misses"] += 1
+        return None
+
+    def _cache_result(self, cache_key: str, result: List[SimilarityMatch]) -> None:
+        """Cache query result."""
+        if not self.config.enable_query_caching:
+            return
+
+        with self._cache_lock:
+            # Clean up old entries if cache is full
+            if len(self._query_cache) >= self.config.max_cache_entries:
+                # Remove least recently used entries (simple LRU)
+                sorted_entries = sorted(
+                    self._query_cache.items(),
+                    key=lambda x: (x[1].access_count, x[1].timestamp),
+                )
+                for key, _ in sorted_entries[: len(sorted_entries) // 4]:  # Remove 25%
+                    del self._query_cache[key]
+
+            # Add new entry
+            self._query_cache[cache_key] = QueryCacheEntry(
+                result=result, timestamp=time.time()
+            )
+
+    async def find_similar_async(
+        self,
+        query_embedding: np.ndarray,
+        threshold: float = None,
+        k: int = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[SimilarityMatch]:
+        """
+        Async version of find_similar using connection pool and caching.
+        """
+        if not self.is_available() or not self.config.enable_async_operations:
+            # Fallback to sync version
+            return self.find_similar(query_embedding, threshold, k, filters)
+
+        threshold = threshold or self.config.medium_similarity_threshold
+        k = k or self.config.max_results
+
+        # Check cache first
+        cache_key = self._generate_cache_key(query_embedding, threshold, k, filters)
+        cached_result = self._get_cached_result(cache_key)
+        if cached_result is not None:
+            return cached_result
+
+        start_time = time.time()
+
+        try:
+            if self._connection_pool:
+                # Use connection pool
+                async with self._get_pooled_connection() as client:
+                    collection = client.get_collection(self.config.collection_name)
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        self._executor,
+                        self._execute_query,
+                        collection,
+                        query_embedding,
+                        k,
+                        filters,
+                    )
+            else:
+                # Fallback to executor without connection pool
+                result = await asyncio.get_event_loop().run_in_executor(
+                    self._executor,
+                    self._execute_query,
+                    self._collection,
+                    query_embedding,
+                    k,
+                    filters,
+                )
+
+            # Process results
+            matches = self._process_query_results(result, threshold)
+
+            # Cache result
+            self._cache_result(cache_key, matches)
+
+            # Track performance
+            search_time = time.time() - start_time
+            self._search_times.append(search_time)
+            self._stats["total_searches"] += 1
+
+            return matches
+
+        except Exception as e:
+            print(f"Error in async ChromaDB similarity search: {e}", file=sys.stderr)
+            return []
+
+    @asynccontextmanager
+    async def _get_pooled_connection(self):
+        """Context manager for getting connection from pool."""
+        if not self._connection_pool:
+            yield self._client
+            return
+
+        connection = await self._connection_pool.get_connection(
+            self.config.persist_directory
+        )
+        try:
+            yield connection
+        finally:
+            await self._connection_pool.return_connection(connection)
+
+    def _execute_query(
+        self,
+        collection,
+        query_embedding: np.ndarray,
+        k: int,
+        filters: Optional[Dict[str, Any]],
+    ):
+        """Execute the ChromaDB query (sync operation for thread pool)."""
+        return collection.query(
+            query_embeddings=[query_embedding.tolist()],
+            n_results=k,
+            where=filters,
+            include=["documents", "metadatas", "distances"],
+        )
+
+    def _process_query_results(
+        self, results, threshold: float
+    ) -> List[SimilarityMatch]:
+        """Process ChromaDB query results into SimilarityMatch objects."""
+        matches = []
+        if results["ids"] and len(results["ids"][0]) > 0:
+            for i in range(len(results["ids"][0])):
+                # ChromaDB returns distances, convert to similarity
+                distance = results["distances"][0][i]
+                similarity = max(0.0, 1.0 - distance)  # Assuming cosine distance
+
+                if similarity >= threshold:
+                    symbol = self._metadata_to_symbol(results["metadatas"][0][i])
+
+                    match = SimilarityMatch(
+                        query_index=0,
+                        match_index=i,
+                        similarity_score=similarity,
+                        distance=distance,
+                        match_symbol=symbol,
+                        confidence=0.95,
+                        metadata=results["metadatas"][0][i],
+                    )
+                    matches.append(match)
+        return matches
+
     def batch_similarity_search(
         self, embeddings: np.ndarray, threshold: float = None
     ) -> Dict[int, List[SimilarityMatch]]:
         """
-        Perform batch similarity search using ChromaDB.
+        Perform batch similarity search using ChromaDB with memory-aware batching.
 
         Replaces similarity_detector.batch_similarity_search().
         """
@@ -363,9 +648,14 @@ class ChromaDBStorage:
         threshold = threshold or self.config.medium_similarity_threshold
         results = {}
 
+        # Use memory manager for dynamic batch sizing if available
+        batch_size = self.config.batch_size
+        if self.memory_manager:
+            batch_size = self.memory_manager.calculate_optimal_batch_size(batch_size)
+
         # Process in batches to manage memory
-        for start_idx in range(0, len(embeddings), self.config.batch_size):
-            end_idx = min(start_idx + self.config.batch_size, len(embeddings))
+        for start_idx in range(0, len(embeddings), batch_size):
+            end_idx = min(start_idx + batch_size, len(embeddings))
             batch = embeddings[start_idx:end_idx]
 
             for i, query_embedding in enumerate(batch):
@@ -377,6 +667,51 @@ class ChromaDBStorage:
                     match.query_index = query_idx
 
                 results[query_idx] = matches
+
+        return results
+
+    async def batch_similarity_search_async(
+        self, embeddings: np.ndarray, threshold: float = None, max_concurrent: int = 5
+    ) -> Dict[int, List[SimilarityMatch]]:
+        """
+        Async batch similarity search with controlled concurrency.
+        """
+        if not self.is_available() or not self.config.enable_async_operations:
+            # Fallback to sync version
+            return self.batch_similarity_search(embeddings, threshold)
+
+        threshold = threshold or self.config.medium_similarity_threshold
+        results = {}
+
+        # Use memory manager for optimal batch and concurrency sizing
+        batch_size = self.config.batch_size
+        if self.memory_manager:
+            batch_size = self.memory_manager.calculate_optimal_batch_size(batch_size)
+            # Adjust concurrency based on memory
+            if self.memory_manager.get_memory_usage_percentage() > 80:
+                max_concurrent = min(max_concurrent, 2)
+
+        # Create semaphore to limit concurrent operations
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def process_single_query(query_idx: int, query_embedding: np.ndarray):
+            async with semaphore:
+                matches = await self.find_similar_async(query_embedding, threshold)
+                # Update query indices in matches
+                for match in matches:
+                    match.query_index = query_idx
+                return query_idx, matches
+
+        # Create tasks for all queries
+        tasks = []
+        for i in range(len(embeddings)):
+            task = asyncio.create_task(process_single_query(i, embeddings[i]))
+            tasks.append(task)
+
+        # Execute all tasks and collect results
+        for task in asyncio.as_completed(tasks):
+            query_idx, matches = await task
+            results[query_idx] = matches
 
         return results
 
@@ -547,7 +882,7 @@ class ChromaDBStorage:
         parameters = symbol.parameters or []
         parameters_str = ",".join(parameters) if parameters else ""
 
-        return {
+        metadata = {
             "file_path": str(symbol.file_path),
             "symbol_name": symbol.name,
             "symbol_type": symbol.symbol_type.value,
@@ -563,13 +898,32 @@ class ChromaDBStorage:
             "timestamp": time.time(),
         }
 
+        # Phase 2: Symbol Origin Tracking metadata
+        if hasattr(symbol, "definition_file"):
+            metadata.update(
+                {
+                    "definition_file": str(symbol.definition_file or ""),
+                    "definition_line": int(symbol.definition_line or 0),
+                    "is_reference": bool(getattr(symbol, "is_reference", False)),
+                    "is_definition": bool(getattr(symbol, "is_definition", True)),
+                    "parent_class": str(getattr(symbol, "parent_class", "") or ""),
+                    "import_source": str(getattr(symbol, "import_source", "") or ""),
+                    "origin_signature": str(
+                        getattr(symbol, "origin_signature", "") or ""
+                    ),
+                    "reference_count": int(getattr(symbol, "reference_count", 0)),
+                }
+            )
+
+        return metadata
+
     def _metadata_to_symbol(self, metadata: Dict[str, Any]) -> Symbol:
         """Convert ChromaDB metadata back to Symbol object."""
         # Convert parameters string back to list
         params_str = metadata.get("parameters", "")
         parameters = params_str.split(",") if params_str else []
 
-        return Symbol(
+        symbol = Symbol(
             name=metadata["symbol_name"],
             symbol_type=SymbolType(metadata["symbol_type"]),
             file_path=metadata["file_path"],
@@ -581,6 +935,19 @@ class ChromaDBStorage:
             line_count=metadata.get("line_count", 1),
             lsp_kind=metadata.get("lsp_kind", ""),
         )
+
+        # Phase 2: Restore origin tracking information if available
+        if "definition_file" in metadata:
+            symbol.definition_file = metadata.get("definition_file") or None
+            symbol.definition_line = metadata.get("definition_line") or None
+            symbol.is_reference = metadata.get("is_reference", False)
+            symbol.is_definition = metadata.get("is_definition", True)
+            symbol.parent_class = metadata.get("parent_class") or None
+            symbol.import_source = metadata.get("import_source") or None
+            symbol.origin_signature = metadata.get("origin_signature") or None
+            symbol.reference_count = metadata.get("reference_count", 0)
+
+        return symbol
 
     def update_indexing_status(
         self,
@@ -781,6 +1148,18 @@ class ChromaDBStorage:
         # ChromaDB handles persistence automatically
         self._search_times.clear()
         self._storage_times.clear()
+
+        # Phase 5: Clean up async resources
+        if self._executor:
+            self._executor.shutdown(wait=False)
+
+        # Clean up connection pool
+        if self._connection_pool:
+            asyncio.create_task(self._connection_pool.close_all())
+
+        # Clear cache
+        with self._cache_lock:
+            self._query_cache.clear()
 
 
 def main():

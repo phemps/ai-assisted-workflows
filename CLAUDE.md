@@ -1,15 +1,13 @@
 # Project: AI-Assisted Workflows
 
-A comprehensive development automation system that combines Claude Code CLI workflows, Python analysis tools, and an 8-agent orchestration system for intelligent code quality management with AI-powered semantic duplicate detection.
+A comprehensive development automation system that combines Claude Code CLI workflows, Python analysis tools, and an 8-agent orchestration system for intelligent code quality management.
 
 ## Features
 
 - 8-Agent Orchestration System - Multi-agent workflow coordination with quality gates and CTO escalation
 - 28 Slash Commands - Development workflow automation including security, performance, and architecture analysis
 - 22 Python Analysis Tools - Across 4 categories: Security, Performance, Quality, Architecture, and Root Cause analysis
-- AI-Powered Duplicate Detection - Semantic code analysis using CodeBERT embeddings and ChromaDB vector storage
-- Python Aanalysis Tools - multi-Language Support analysis for 10+ programming languages (Python, TypeScript, Java, Go, Rust, C#, PHP, SQL, Solidity)
-- CI Framework - GitHub Actions workflows with automated quality monitoring and refactoring recommendations
+- Python Analysis Tools - multi-Language Support analysis for 10+ programming languages (Python, TypeScript, Java, Go, Rust, C#, PHP, SQL, Solidity)
 - Expert Agent System - 6 specialized expert agents for language-specific planning and architecture decisions
 - Security Evaluation Framework - Testing against 14 vulnerable applications with known security issues
 - Cross-Platform Installation - Bash and PowerShell installers for macOS, Linux, and Windows
@@ -21,14 +19,6 @@ A comprehensive development automation system that combines Claude Code CLI work
 - **Architecture**: Dependency analysis, coupling metrics, scalability checks, pattern evaluation
 - **Performance**: Code profiling, database profiling, bottleneck detection, frontend analysis
 - **Root Cause**: Error patterns, trace execution, recent changes analysis
-
-### **CI Framework** (`shared/ci/`)
-
-- Semantic duplicate detection using CodeBERT embeddings
-- Dynamic quality gate detection based on tech stack
-- Integration with Serena MCP for efficient code search
-- Real-time indexing via PostToolUse hooks for Write/Edit/MultiEdit operations
-- Metrics collection and recommendation generation
 
 ### 8-Agent Orchestration System
 
@@ -53,13 +43,11 @@ A comprehensive development automation system that combines Claude Code CLI work
 ## Tech Stack
 
 - Languages: Python 3.7+, TypeScript/JavaScript, Bash/Shell, SQL
-- AI/ML Frameworks: ChromaDB, Transformers (Hugging Face), CodeBERT, PyTorch, Sentence-Transformers
 - Security Tools: Semgrep, Detect-secrets, Bandit, Safety, SQLFluff
 - Quality Analysis: Flake8, Pylint, Lizard, Radon, McCabe, Vulture
 - Testing: pytest, pytest-cov, Karma, Jasmine, Custom evaluation frameworks
 - Development Tools: Biome, Ruff, Black, Rich CLI, Click
 - CI/CD: GitHub Actions, Cross-platform workflows
-- Vector Storage: ChromaDB for semantic code search and duplicate detection
 
 ## Project Structure
 
@@ -79,11 +67,6 @@ ai-assisted-workflows/
 │ │ ├── architecture/ # Dependency analysis and scalability checks
 │ │ ├── performance/ # Profiling, bottleneck detection, and optimization
 │ │ └── root_cause/ # Error pattern analysis and trace execution
-│ ├── ci/ # AI-powered continuous improvement system
-│ │ ├── core/ # Semantic duplicate detection with CodeBERT
-│ │ ├── workflows/ # Decision matrix and GitHub integration
-│ │ ├── integration/ # Orchestration bridge and codebase search
-│ │ └── tools/ # ChromaDB search and unified codebase search
 │ ├── config/ # Configuration templates and CI workflows
 │ ├── setup/ # Installation scripts and dependency management
 │ └── tests/ # Comprehensive test suite with E2E integration tests
@@ -105,7 +88,6 @@ ai-assisted-workflows/
 - README.md - Quick start guide and feature overview
 - claude-code/install.sh - Main installation script
 - shared/core/base/analyzer_base.py - Base framework for all analysis tools
-- shared/ci/core/semantic_duplicate_detector.py - AI-powered duplicate detection
 
 ### Entry Points:
 
@@ -121,19 +103,14 @@ The system uses a hybrid AI-automation approach combining traditional static ana
 
 - BaseAnalyzer Framework: Provides shared infrastructure for all 22 analysis tools with strict validation
 - 8-Agent Orchestration: State-machine workflow management with quality gates and CTO escalation
-- Semantic Analysis Pipeline: LSP symbol extraction → CodeBERT embeddings → ChromaDB storage → similarity search
 - Expert Agent Routing: Language and complexity-based delegation to specialized agents
-- CI Integration: GitHub Actions with incremental analysis and automated refactoring recommendations
 
 ### Data Flow:
 
 User Input → Claude Commands → Agent Orchestration → Analysis Tools → Results
-↓
-CI Pipeline → Duplicate Detection → Decision Matrix → Expert Agents → Actions
 
 ### Key Integrations:
 
-- ChromaDB: Vector database for semantic code search and duplicate detection
 - Serena MCP: Enhanced codebase search via Language Server Protocol
 - GitHub Actions: Automated CI/CD with quality gate enforcement
 - Multi-Language LSP: Symbol extraction across 10+ programming languages
@@ -200,15 +177,6 @@ from core.utils.tech_stack_detector import TechStackDetector
 from core.utils.cross_platform import PlatformDetector
 ```
 
-**CI/CD Components**:
-
-```python
-from utils.path_resolver import PACKAGE_ROOT
-from ci.core.chromadb_storage import ChromaDBStorage
-from ci.core.semantic_duplicate_detector import DuplicateFinder
-from ci.workflows.decision_matrix import DecisionMatrix
-```
-
 ### Development Guidelines
 
 **Standard Import Approach**:
@@ -250,7 +218,6 @@ This provides consistent module resolution with significantly reduced complexity
 - Analysis: /analyze-security, /analyze-code-quality, /analyze-performance, /analyze-architecture
 - Development: /plan-solution, /plan-refactor, /create-project, /fix-bug
 - Orchestration: /todo-orchestrate implementation-plan.md - Multi-agent workflow execution
-- CI Setup: /setup-ci-monitoring - Configure automated duplicate detection
 - Testing: /add-serena-mcp - Enhanced code search capabilities
 - Python Tools: cd shared && python analyzers/security/semgrep_analyzer.py ../test_codebase/project --output-format json
 
@@ -267,10 +234,6 @@ cd shared && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared
 # Security analyzer evaluation
 
 cd shared/tests/integration && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python test_security_analysers.py --analyzer detect_secrets --verbose
-
-# E2E continuous improvement pipeline testing
-
-cd shared && python tests/integration/test_continuous_improvement_e2e.py
 
 # Root cause analyzers integration test
 
@@ -318,48 +281,3 @@ python test_security_analysers.py --analyzer semgrep --max-files 10
 - `--min-severity medium`: Filter findings by severity
 - `--verbose`: Show detailed execution progress and debug information
 - `--output-format json` Output results in JSON format
-
-## Continuous Improvement Integration
-
-**Code Duplication Detection**: Automated via GitHub Actions and Claude Code agents
-
-### System Status
-
-- **Languages Monitored**: Auto-detected
-- **Registry**: `.ci-registry/` (SQLite database with symbol tracking)
-- **Analysis Threshold**: Configurable in `.ci-registry/ci_config.json`
-- **GitHub Integration**: Workflow configured for PR/push analysis
-
-### Available Commands
-
-```bash
-# Check system status
-claude /continuous-improvement-status
-
-# Manual duplicate analysis
-python shared/ci/integration/orchestration_bridge.py
-
-# Generate metrics report
-python shared/ci/metrics/ci_metrics_collector.py report
-
-# Registry management
-python shared/ci/core/registry_manager.py --status
-```
-
-### Workflow Integration
-
-- **Automatic**: GitHub Actions analyze changes and create issues for complex duplicates
-- **CTO Escalation**: Complex refactoring delegated to `claude /todo-orchestrate`
-- **Quality Gates**: Integrated with existing project quality checks
-- **Metrics**: Performance tracking in `.ci-registry/reports/`
-
-### Configuration
-
-Edit `.ci-registry/ci_config.json` to adjust:
-
-- Similarity thresholds (exact: 1.0, high: 0.8, medium: 0.6)
-- Auto-refactor settings (enabled: false by default)
-- Language-specific exclusions
-- Quality gate integration
-
-The system uses fail-fast architecture requiring MCP, CodeBERT, and Faiss dependencies.

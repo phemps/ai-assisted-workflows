@@ -26,13 +26,6 @@
 /todo-orchestrate --seq
 ```
 
-**System automatically:**
-
-- ✅ Detects code duplications during implementation
-- ✅ Runs appropriate quality gates based on tech stack
-- ✅ Escalates complex issues to CTO agent
-- ✅ Generates refactoring suggestions and PRs
-
 ## 🔧 Example 3: Existing Project Integration
 
 ```bash
@@ -40,17 +33,7 @@
 /analyze-architecture
 /analyze-code-quality
 /analyze-security
-
-# 2. Setup continuous improvement for existing project
-/setup-ci-monitoring
 ```
-
-**The system will:**
-
-- 🔍 Detect your current tech stack automatically
-- ⚙️ Configure appropriate similarity thresholds
-- 🛠️ Set up quality gates matching your build tools
-- 📊 Begin monitoring for code quality improvements
 
 ## 🎯 Example 4: Task Implementation with Worktree Isolation
 

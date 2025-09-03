@@ -12,7 +12,7 @@
 ---
 
 > **🤖 Hybrid AI-Automation System**
-> Specialized workflow commands + LLM actions + Python analysis scripts + 8-Agent orchestration = comprehensive development automation with intelligent code quality management
+> Specialized workflow commands + LLM actions + Python analysis scripts + 8-Agent orchestration = comprehensive development automation
 
 ---
 
@@ -40,7 +40,6 @@
 ./claude-code/install.sh              # Install to current directory
 ./claude-code/install.sh ~            # Install globally
 /setup-dev-monitoring                 # Optional: Setup unified dev logging
-/setup-ci-monitoring                  # Optional: Continuous improvement monitoring with duplicate detection
 /add-serena-mcp                       # Recommended per project mcp lsp tool
 ```
 
@@ -70,32 +69,6 @@ For detailed agent strategy information, see [Agent Orchestration System](docs/a
 
 For detailed information about language support and analysis capabilities, see [Analysis Scripts](docs/analysis-scripts.md).
 
-## Continuous Integration Process
-
-CI system automatically detects and addresses code duplication through GitHub Actions, leveraging advanced ML techniques to maintain code quality.
-
-### Code Duplication Detection Workflow
-
-The [Continuous Improvement workflow](.github/workflows/continuous-improvement.yml) runs on every push to `main`/`develop` branches and pull requests, performing these steps:
-
-1. **Change Detection**: Identifies modified files using Git diff or GitHub API
-2. **Real-time Indexing**: PostToolUse hooks automatically update ChromaDB index during development
-3. **ML-Powered Analysis**: Uses transformer models to detect similar code segments
-4. **Risk Assessment**: Evaluates duplication impact using our [Decision Matrix](docs/ci-decision-matrix.md)
-5. **Automated Resolution**: Applies fixes for low-risk duplications or creates GitHub issues for complex cases
-6. **PR Feedback**: Comments results directly on pull requests with detailed analysis
-
-### Decision Logic
-
-The system evaluates:
-
-- **Similarity scores** using transformer embeddings
-- **Risk factors** including cross-module impact and public API changes
-- **Confidence levels** based on test coverage and code complexity
-- **Auto-fix criteria** for simple, well-tested code segments
-
-For detailed information about the CI process, see [CI Decision Matrix](docs/ci-decision-matrix.md).
-
 ## Common Workflow Examples
 
 ### 1. Setup a project from scratch with monitoring and CI process
@@ -104,7 +77,6 @@ For detailed information about the CI process, see [CI Decision Matrix](docs/ci-
 /create-project my-app --from-todos ./todos/todos.md
 /setup-dev-monitoring
 /add-code-precommit-checks
-/setup-ci-monitoring
 ```
 
 [See detailed project setup documentation](docs/workflow-examples.md#example-1-complete-project-setup-with-continuous-improvement)
@@ -152,14 +124,6 @@ claude-code/
 │   └── qwen-code-cli-guide.md # Qwen Code CLI setup and usage
 ├── templates/                 # Project and code generation templates
 └── scripts/
-    ├── ci/                    # Continuous improvement engine
-    │   ├── core/              # Embeddings, Serena MCP, similarity
-    │   ├── analyzers/         # Symbol extraction, duplication, metrics
-    │   ├── workflows/         # GitHub, escalation, orchestration
-    │   ├── framework/         # CI framework core logic
-    │   ├── metrics/           # Metrics collection and reporting
-    │   ├── detection/         # Build/test/lint/quality gate detection
-    │   └── integration/       # Agent and CI/CD integration
     ├── analyze/               # Security, performance, architecture analysis
     ├── setup/                 # Install, monitoring, environment setup
     └── utils/                 # Cross-platform utilities and helpers
@@ -167,7 +131,6 @@ claude-code/
 docs/
 ├── analysis-scripts.md        # Language support and analysis capabilities
 ├── agents.md                  # Agent orchestration system documentation
-├── ci-decision-matrix.md      # Code duplication decision criteria
 ├── installation.md            # Installation and setup guide
 ├── monitoring.md              # Development and CI monitoring systems
 └── workflow-examples.md       # Common workflow examples and use cases
@@ -182,7 +145,6 @@ For detailed documentation on specific components, see:
 - [Language Support and Analysis Capabilities](docs/analysis-scripts.md)
 - [Development Monitoring System](docs/monitoring.md)
 - [Workflow Examples](docs/workflow-examples.md)
-- [CI Decision Matrix](docs/ci-decision-matrix.md)
 
 ## License
 

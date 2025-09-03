@@ -43,29 +43,6 @@ The `/setup-dev-monitoring` command establishes comprehensive development monito
 8. **Project Integration** - Update project documentation with monitoring commands
 9. **Validation and Testing** - Verify all generated files and configurations
 
-## Continuous Improvement Monitoring
-
-The `/setup-ci-monitoring` command configures proactive code duplication detection and refactoring automation for the current project.
-
-### Workflow
-
-1. **Dependency Check and Setup** - Install continuous improvement dependencies
-2. **Environment Analysis** - Detect project technology stack automatically
-3. **Configuration Setup** - Setup project-specific continuous improvement configuration
-4. **Real-time Indexing Hooks** - Configure PostToolUse hooks for automatic ChromaDB indexing on file modifications
-5. **GitHub Actions Setup** - Configure GitHub Actions workflows
-6. **Initial Registry Population** - Perform initial codebase analysis and symbol extraction
-7. **Post-Setup Verification** - Verify all systems are operational
-
-### Real-time Code Indexing
-
-After setup, the system automatically maintains an up-to-date code index through:
-
-- **PostToolUse Hooks**: Triggered when Write, Edit, or MultiEdit tools are used in Claude Code
-- **Background Processing**: Non-blocking indexing that doesn't interfere with development workflow
-- **ChromaDB Vector Storage**: Maintains semantic embeddings for efficient duplicate detection
-- **Hook Logs**: Activity logged to `.ci-registry/logs/chromadb_hooks.log` for monitoring
-
 ## Quality Gates
 
 The `/add-code-precommit-checks` command sets up pre-commit framework to enforce quality standards by preventing commits containing code violations.

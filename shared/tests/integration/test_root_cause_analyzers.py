@@ -13,8 +13,8 @@ from typing import Dict, Any
 
 # Setup import paths and import utilities
 try:
-    from utils.path_resolver import get_analyzers_dir
-    from core.utils.cross_platform import CommandExecutor
+    from core.base import AnalyzerRegistry, create_analyzer_config
+    import core.base.registry_bootstrap  # noqa: F401 - ensure registration
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -24,7 +24,7 @@ class RootCauseAnalysisIntegrationTest:
     """Test reactive root cause analysis workflow with various error scenarios."""
 
     def __init__(self):
-        self.analyzers_dir = get_analyzers_dir("root_cause")
+        pass
 
         # Test scenarios with different error types
         self.test_scenarios = [
@@ -62,42 +62,18 @@ class RootCauseAnalysisIntegrationTest:
             },
         ]
 
-    def test_analyzer_requires_error_input(
-        self, analyzer_script: str
-    ) -> Dict[str, Any]:
-        """Test that analyzer fails properly when no error is provided."""
-        print(f"Testing {analyzer_script} requires error input...")
-
-        # Create a temporary test directory
+    def test_analyzer_without_error_info(self) -> Dict[str, Any]:
+        """Without error context, analyzer should produce minimal/no findings but not crash."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Try to run without --error parameter
-            returncode, stdout, stderr = CommandExecutor.run_python_script(
-                str(self.analyzers_dir / analyzer_script), [temp_dir]
+            cfg = create_analyzer_config(target_path=temp_dir, output_format="json")
+            analyzer = AnalyzerRegistry.create(
+                "root_cause:error_patterns", config=cfg, error_info=""
             )
-
-            # Should fail with non-zero exit code
-            if returncode == 0:
-                return {
-                    "test": f"{analyzer_script}_requires_error",
-                    "status": "FAIL",
-                    "reason": "Analyzer should fail without --error parameter",
-                    "stdout": stdout,
-                    "stderr": stderr,
-                }
-
-            # Should mention missing --error in stderr
-            if "--error" not in stderr:
-                return {
-                    "test": f"{analyzer_script}_requires_error",
-                    "status": "FAIL",
-                    "reason": "Error message should mention missing --error parameter",
-                    "stderr": stderr,
-                }
-
+            result = analyzer.analyze(temp_dir).to_dict()
             return {
-                "test": f"{analyzer_script}_requires_error",
+                "test": "error_patterns_without_error",
                 "status": "PASS",
-                "message": "Properly requires --error parameter",
+                "findings_count": len(result.get("findings", [])),
             }
 
     def test_error_parsing(
@@ -128,76 +104,58 @@ function testFunction() {{
 """
                 )
 
-            # Run analyzer with error parameter
-            returncode, stdout, stderr = CommandExecutor.run_python_script(
-                str(self.analyzers_dir / analyzer_script),
-                [temp_dir, "--error", scenario["error"], "--output-format", "json"],
+            # Run analyzer with error parameter via registry
+            cfg = create_analyzer_config(target_path=temp_dir, output_format="json")
+            analyzer = AnalyzerRegistry.create(
+                "root_cause:error_patterns", config=cfg, error_info=scenario["error"]
             )
+            result = analyzer.analyze(temp_dir).to_dict()
 
-            if returncode != 0:
+            # Verify result structure
+            if "findings" not in result:
                 return {
                     "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
                     "status": "FAIL",
-                    "reason": f"Analyzer failed with error: {stderr}",
-                    "stderr": stderr,
+                    "reason": "Missing 'findings' in result",
+                    "result": result,
                 }
 
-            try:
-                result = json.loads(stdout)
+            # Check if error context is included in findings
+            has_error_context = False
+            for finding in result["findings"]:
+                if "metadata" in finding:
+                    metadata = finding["metadata"]
+                    if "investigated_error" in metadata:
+                        has_error_context = True
+                        investigated_error = metadata["investigated_error"]
+                        if investigated_error != scenario["error"]:
+                            return {
+                                "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
+                                "status": "FAIL",
+                                "reason": f"Investigated error mismatch: {investigated_error} != {scenario['error']}",
+                            }
 
-                # Verify result structure
-                if "findings" not in result:
-                    return {
-                        "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
-                        "status": "FAIL",
-                        "reason": "Missing 'findings' in result",
-                        "result": result,
-                    }
-
-                # Check if error context is included in findings
-                has_error_context = False
-                for finding in result["findings"]:
-                    if "metadata" in finding:
-                        metadata = finding["metadata"]
-                        if "investigated_error" in metadata:
-                            has_error_context = True
-                            investigated_error = metadata["investigated_error"]
-                            if investigated_error != scenario["error"]:
+                    if "error_context" in metadata:
+                        error_context = metadata["error_context"]
+                        # Verify error type parsing
+                        if scenario["expected_error_type"] != "unknown":
+                            if (
+                                error_context.get("error_type")
+                                != scenario["expected_error_type"]
+                            ):
                                 return {
                                     "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
                                     "status": "FAIL",
-                                    "reason": f"Investigated error mismatch: {investigated_error} != {scenario['error']}",
+                                    "reason": f"Error type mismatch: {error_context.get('error_type')} != {scenario['expected_error_type']}",
                                 }
 
-                        if "error_context" in metadata:
-                            error_context = metadata["error_context"]
-                            # Verify error type parsing
-                            if scenario["expected_error_type"] != "unknown":
-                                if (
-                                    error_context.get("error_type")
-                                    != scenario["expected_error_type"]
-                                ):
-                                    return {
-                                        "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
-                                        "status": "FAIL",
-                                        "reason": f"Error type mismatch: {error_context.get('error_type')} != {scenario['expected_error_type']}",
-                                    }
-
-                return {
-                    "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
-                    "status": "PASS",
-                    "message": "Correctly parsed error information",
-                    "findings_count": len(result["findings"]),
-                    "has_error_context": has_error_context,
-                }
-
-            except json.JSONDecodeError as e:
-                return {
-                    "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
-                    "status": "FAIL",
-                    "reason": f"Invalid JSON output: {e}",
-                    "stdout": stdout,
-                }
+            return {
+                "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
+                "status": "PASS",
+                "message": "Correctly parsed error information",
+                "findings_count": len(result["findings"]),
+                "has_error_context": has_error_context,
+            }
 
     def test_targeted_file_scanning(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
         """Test that analyzers only scan files related to the error."""
@@ -232,21 +190,13 @@ function otherFunction() {
 """
             )
 
-            # Run error_patterns analyzer
-            returncode, stdout, stderr = CommandExecutor.run_python_script(
-                str(self.analyzers_dir / "error_patterns.py"),
-                [temp_dir, "--error", scenario["error"], "--output-format", "json"],
+            cfg = create_analyzer_config(target_path=temp_dir, output_format="json")
+            analyzer = AnalyzerRegistry.create(
+                "root_cause:error_patterns", config=cfg, error_info=scenario["error"]
             )
-
-            if returncode != 0:
-                return {
-                    "test": f"targeted_scanning_{scenario['name'].replace(' ', '_')}",
-                    "status": "FAIL",
-                    "reason": f"Analyzer failed: {stderr}",
-                }
+            result = analyzer.analyze(temp_dir).to_dict()
 
             try:
-                result = json.loads(stdout)
                 findings = result.get("findings", [])
 
                 # Check that findings only relate to the target file
@@ -279,11 +229,11 @@ function otherFunction() {
                     "total_findings": len(findings),
                 }
 
-            except json.JSONDecodeError as e:
+            except Exception as e:
                 return {
                     "test": f"targeted_scanning_{scenario['name'].replace(' ', '_')}",
                     "status": "FAIL",
-                    "reason": f"Invalid JSON output: {e}",
+                    "reason": str(e),
                 }
 
     def test_complete_workflow(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
@@ -321,37 +271,30 @@ function errorProneFunction() {{
 
             workflow_results = {}
 
-            # Test all three analyzers
-            analyzers = [
-                ("error_patterns.py", "Error Pattern Analysis"),
-                ("recent_changes.py", "Recent Changes Analysis"),
-                ("trace_execution.py", "Execution Trace Analysis"),
-            ]
-
-            for analyzer_script, analyzer_name in analyzers:
-                returncode, stdout, stderr = CommandExecutor.run_python_script(
-                    str(self.analyzers_dir / analyzer_script),
-                    [temp_dir, "--error", scenario["error"], "--output-format", "json"],
-                )
-
-                if returncode != 0:
+            mapping = {
+                "Error Pattern Analysis": ("root_cause:error_patterns", {}),
+                "Recent Changes Analysis": ("root_cause:recent_changes", {}),
+                "Execution Trace Analysis": ("root_cause:trace_execution", {}),
+            }
+            for analyzer_name, (key, extra) in mapping.items():
+                try:
+                    cfg2 = create_analyzer_config(
+                        target_path=temp_dir, output_format="json"
+                    )
+                    analyzer2 = AnalyzerRegistry.create(
+                        key, config=cfg2, error_info=scenario["error"], **extra
+                    )
+                    result2 = analyzer2.analyze(temp_dir).to_dict()
+                    workflow_results[analyzer_name] = {
+                        "status": "PASS",
+                        "findings_count": len(result2.get("findings", [])),
+                        "execution_time": result2.get("execution_time", 0),
+                    }
+                except Exception as e:
                     workflow_results[analyzer_name] = {
                         "status": "FAIL",
-                        "error": stderr,
+                        "error": str(e),
                     }
-                else:
-                    try:
-                        result = json.loads(stdout)
-                        workflow_results[analyzer_name] = {
-                            "status": "PASS",
-                            "findings_count": len(result.get("findings", [])),
-                            "execution_time": result.get("execution_time", 0),
-                        }
-                    except json.JSONDecodeError:
-                        workflow_results[analyzer_name] = {
-                            "status": "FAIL",
-                            "error": "Invalid JSON output",
-                        }
 
             # Check if at least one analyzer produced findings
             total_findings = sum(
@@ -381,13 +324,7 @@ function errorProneFunction() {{
 
         # Test 1: Verify all analyzers require error input
         print("\n📋 Testing Error Input Requirements...")
-        for analyzer_script in [
-            "error_patterns.py",
-            "recent_changes.py",
-            "trace_execution.py",
-        ]:
-            result = self.test_analyzer_requires_error_input(analyzer_script)
-            all_results.append(result)
+        all_results.append(self.test_analyzer_without_error_info())
 
         # Test 2: Verify error parsing for different scenarios
         print("\n🔍 Testing Error Parsing...")

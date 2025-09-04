@@ -7,13 +7,13 @@ Tests the complete analyzer pipeline and generates combined reports.
 import sys
 import json
 import time
-from pathlib import Path
-from typing import List, Dict, Any
+import os
+from typing import Dict, Any, List
 
-# Setup import paths and import required modules
+# Registry-based orchestration (no subprocess execution)
 try:
-    from utils.path_resolver import PACKAGE_ROOT
-    from core.utils.cross_platform import CommandExecutor
+    from core.base import AnalyzerRegistry, create_analyzer_config
+    import core.base.registry_bootstrap  # noqa: F401 - side-effect import registers analyzers
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -23,88 +23,52 @@ class AnalysisRunner:
     """Run all analysis scripts and combine results."""
 
     def __init__(self):
-        # Calculate the analyzers directory from PACKAGE_ROOT
-        self.script_dir = PACKAGE_ROOT / "analyzers"
-        self.scripts = {
-            # Security analysis - Updated to use established tools
-            "security_semgrep": "security/semgrep_analyzer.py",  # Replaces vulnerabilities, auth, input validation
-            "security_secrets": "security/detect_secrets_analyzer.py",  # Enhanced secrets detection
-            # Performance analysis - Updated to use established tools
-            "performance_frontend": "performance/analyze_frontend.py",
-            "performance_flake8": "performance/flake8_performance_analyzer.py",  # Replaces check_bottlenecks.py
-            "performance_baseline": "performance/performance_baseline.py",
-            "performance_sqlfluff": "performance/sqlfluff_analyzer.py",  # Replaces profile_database.py
-            # Code quality analysis
-            "code_quality": "quality/complexity_lizard.py",
-            "code_quality_coverage": "quality/coverage_analysis.py",
-            # Architecture analysis
-            "architecture_patterns": "architecture/pattern_evaluation.py",
-            "architecture_scalability": "architecture/scalability_check.py",
-            "architecture_coupling": "architecture/coupling_analysis.py",
-            # Note: Root cause analyzers removed - they require --error parameter and are not suitable for general testing
+        # Map logical names to registry keys
+        self.analyzers = {
+            # Security (may rely on external tools)
+            "security_semgrep": "security:semgrep",
+            "security_secrets": "security:detect_secrets",
+            # Performance (may rely on external tools)
+            "performance_frontend": "performance:frontend",
+            "performance_flake8": "performance:flake8-perf",
+            "performance_baseline": "performance:baseline",
+            "performance_sqlfluff": "performance:sqlfluff",
+            # Code quality
+            "code_quality": "quality:lizard",
+            "code_quality_coverage": "quality:coverage",
+            # Architecture
+            "architecture_patterns": "architecture:patterns",
+            "architecture_scalability": "architecture:scalability",
+            "architecture_coupling": "architecture:coupling",
         }
+        # Optionally skip categories requiring external tools in constrained envs
+        self.skip_external = os.environ.get("NO_EXTERNAL", "").lower() == "true"
 
-    def run_script(
+    def run_analyzer(
         self,
-        script_name: str,
+        key: str,
         target_path: str,
-        summary_mode: bool = True,
-        min_severity: str = "low",
-        max_files: int = None,
+        summary_mode: bool,
+        min_severity: str,
+        max_files: int | None,
     ) -> Dict[str, Any]:
-        """Run a single analysis script."""
-        script_path = Path(self.script_dir) / self.scripts[script_name]
-
-        print(f"🔄 Running {script_name} analysis...", file=sys.stderr)
-
-        args = [str(script_path), target_path]
-        # Only lizard script supports --summary flag
-        if summary_mode and script_name == "code_quality":
-            args.append("--summary")
-
-        # Only certain scripts support --min-severity flag
-        scripts_with_severity = [
-            "security_semgrep",
-            "security_secrets",
-            "performance_frontend",
-            "performance_flake8",
-            "performance_sqlfluff",
-            "code_quality",
-            "architecture_patterns",
-            "architecture_scalability",
-            "architecture_coupling",
-            "root_cause_execution",
-        ]
-
-        if min_severity != "low" and script_name in scripts_with_severity:
-            args.extend(["--min-severity", min_severity])
-
-        # Add max-files limit if specified (for testing/debugging purposes)
-        if max_files is not None:
-            args.extend(["--max-files", str(max_files)])
-
-        start_time = time.time()
-        returncode, stdout, stderr = CommandExecutor.run_python_script(
-            str(script_path), args[1:]
+        cfg = create_analyzer_config(
+            target_path=target_path,
+            max_files=max_files,
+            min_severity=min_severity,
+            summary_mode=summary_mode,
+            output_format="json",
         )
-        duration = time.time() - start_time
-
-        if returncode == 0:
-            try:
-                result = json.loads(stdout)
-                result["runner_duration"] = round(duration, 3)
-
-                # Validate result quality in testing environment
-                self._validate_test_result_quality(script_name, result, stderr)
-
-                print(f"✅ {script_name} completed in {duration:.3f}s", file=sys.stderr)
-                return result
-            except json.JSONDecodeError as e:
-                print(f"❌ {script_name} - JSON decode error: {e}", file=sys.stderr)
-                return {"error": f"JSON decode error: {e}", "stderr": stderr}
-        else:
-            print(f"❌ {script_name} failed: {stderr}", file=sys.stderr)
-            return {"error": f"Script failed (code {returncode})", "stderr": stderr}
+        start = time.time()
+        analyzer = AnalyzerRegistry.create(key, config=cfg)
+        try:
+            result = analyzer.analyze(target_path)
+            duration = time.time() - start
+            data = result.to_dict(summary_mode=summary_mode, min_severity=min_severity)
+            data["runner_duration"] = round(duration, 3)
+            return data
+        except Exception as e:
+            return {"error": f"Analyzer failed: {e}"}
 
     def run_all_analyses(
         self,
@@ -120,9 +84,14 @@ class AnalysisRunner:
         start_time = time.time()
         results = {}
 
-        for script_name in self.scripts.keys():
-            results[script_name] = self.run_script(
-                script_name, target_path, summary_mode, min_severity, max_files
+        for logical_name, key in self.analyzers.items():
+            if self.skip_external and logical_name.startswith(
+                ("security_", "performance_")
+            ):
+                results[logical_name] = {"skipped": True, "reason": "NO_EXTERNAL=true"}
+                continue
+            results[logical_name] = self.run_analyzer(
+                key, target_path, summary_mode, min_severity, max_files
             )
 
         total_duration = time.time() - start_time

@@ -18,11 +18,9 @@ import argparse
 
 # Setup import paths and import utilities
 try:
-    from utils.path_resolver import (
-        get_analyzer_script_path,
-        get_test_codebase_dir,
-    )
-    from core.utils.cross_platform import CommandExecutor
+    from utils.path_resolver import get_test_codebase_dir
+    from core.base import AnalyzerRegistry, create_analyzer_config
+    import core.base.registry_bootstrap  # noqa: F401
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -153,91 +151,26 @@ def calculate_simplified_metrics(
 
 
 def run_analyzer_direct(
-    analyzer_script: Path, app_path: Path, app_name: str, max_files: int = 50
+    analyzer_key: str, app_path: Path, app_name: str, max_files: int = 50
 ) -> Dict[str, Any]:
-    """Run analyzer directly without BaseAnalyzer inheritance."""
-
-    print(f"  🔍 Running {analyzer_script.name} on {app_name}...")
-
+    print(f"  🔍 Running {analyzer_key} on {app_name}...")
     start_time = time.time()
-
     try:
-        # Build arguments list
-        args = [
-            str(app_path),
-            "--output-format",
-            "json",
-            "--max-files",
-            str(max_files),
-        ]
-
-        if getattr(run_analyzer_direct, "_verbose_mode", False):
-            print(f"    Script: {analyzer_script}")
-            print(f"    Args: {args}")
-            print(f"    App path exists: {app_path.exists()}")
-            print(f"    Analyzer script exists: {analyzer_script.exists()}")
-
-        # Use CommandExecutor to run the script (handles imports properly)
-        returncode, stdout, stderr = CommandExecutor.run_python_script(
-            str(analyzer_script), args
+        cfg = create_analyzer_config(
+            target_path=str(app_path), output_format="json", max_files=max_files
         )
-
+        analyzer = AnalyzerRegistry.create(analyzer_key, config=cfg)
+        result = analyzer.analyze(str(app_path))
         execution_time = time.time() - start_time
-
-        # Parse JSON output
-        findings = []
-        if returncode == 0 and stdout:
-            try:
-                output_data = json.loads(stdout)
-                if getattr(run_analyzer_direct, "_verbose_mode", False):
-                    print(f"    Return code: {returncode}")
-                    print(f"    Stdout length: {len(stdout) if stdout else 0}")
-                    print(f"    JSON structure type: {type(output_data)}")
-
-                if isinstance(output_data, dict):
-                    if getattr(run_analyzer_direct, "_verbose_mode", False):
-                        print(f"    JSON keys: {list(output_data.keys())}")
-                    findings = output_data.get("findings", [])
-                    if getattr(run_analyzer_direct, "_verbose_mode", False):
-                        print(
-                            f"    Findings field type: {type(findings)}, length: {len(findings) if isinstance(findings, list) else 'N/A'}"
-                        )
-                        if findings and len(findings) > 0:
-                            print(
-                                f"    First finding keys: {list(findings[0].keys()) if isinstance(findings[0], dict) else 'Not a dict'}"
-                            )
-                elif isinstance(output_data, list):
-                    findings = output_data
-                    if getattr(run_analyzer_direct, "_verbose_mode", False):
-                        print(f"    Direct list with {len(findings)} items")
-                print(
-                    f"    ✅ Success: {len(findings)} findings in {execution_time:.1f}s"
-                )
-            except json.JSONDecodeError as e:
-                print(f"    ❌ JSON Parse Error: {e}")
-                if getattr(run_analyzer_direct, "_verbose_mode", False):
-                    print(f"    First 500 chars of stdout: {stdout[:500]}")
-                return {"error": f"JSON parse error: {e}", "stderr": stderr}
-        else:
-            print(f"    ❌ Failed: returncode={returncode}")
-            if stderr and getattr(run_analyzer_direct, "_verbose_mode", False):
-                print(f"    Error: {stderr[:200]}")
-            return {
-                "error": "Analyzer execution failed",
-                "returncode": returncode,
-                "stderr": stderr,
-            }
-
+        data = result.to_dict()
         return {
-            "analyzer": analyzer_script.stem.replace("_analyzer", ""),
+            "analyzer": analyzer_key,
             "application": app_name,
-            "findings_count": len(findings),
-            "findings": findings,
+            "findings_count": len(data.get("findings", [])),
+            "findings": data.get("findings", []),
             "execution_time": execution_time,
             "success": True,
-            "raw_output": stdout if stdout else "NO OUTPUT",  # Store for debug report
         }
-
     except Exception as e:
         return {"error": f"Execution error: {str(e)}"}
 
@@ -302,19 +235,17 @@ def load_expected_findings(config_path: Path) -> Dict[str, Any]:
         return json.load(f)
 
 
-def resolve_analyzer_script(analyzer: str) -> Path:
-    """Map analyzer name to script path using path resolver."""
+def resolve_analyzer_key(analyzer: str) -> str:
+    """Map analyzer name to registry key."""
     mapping = {
-        "detect_secrets": get_analyzer_script_path(
-            "security", "detect_secrets_analyzer.py"
-        ),
-        "semgrep": get_analyzer_script_path("security", "semgrep_analyzer.py"),
+        "detect_secrets": "security:detect_secrets",
+        "semgrep": "security:semgrep",
     }
-    script = mapping.get(analyzer)
-    if not script or not script.exists():
-        print(f"❌ Analyzer script not found: {script}")
+    key = mapping.get(analyzer)
+    if not key:
+        print(f"❌ Analyzer not found: {analyzer}")
         sys.exit(1)
-    return script
+    return key
 
 
 def select_applications(
@@ -470,7 +401,7 @@ def resolve_app_path(app_name: str, expected_findings: Dict[str, Any]) -> Path:
 
 def evaluate_applications(
     applications: List[str],
-    analyzer_script: Path,
+    analyzer_key: str,
     analyzer_name: str,
     expected_findings: Dict[str, Any],
     max_files: int,
@@ -489,7 +420,7 @@ def evaluate_applications(
             continue
         if verbose:
             print(f"\n📂 Evaluating: {app_name}")
-        result = run_analyzer_direct(analyzer_script, app_path, app_name, max_files)
+        result = run_analyzer_direct(analyzer_key, app_path, app_name, max_files)
         if result.get("success"):
             metrics = calculate_metrics(
                 app_name, analyzer_name, result["findings"], expected_findings
@@ -508,15 +439,15 @@ def main(argv: List[str] = None):
         print(f"  Analyzer: {args.analyzer}")
         print(f"  Max files: {args.max_files}")
     expected_findings = load_expected_findings(Path(args.config))
-    analyzer_script = resolve_analyzer_script(args.analyzer)
+    analyzer_key = resolve_analyzer_key(args.analyzer)
     if args.verbose:
-        print(f"✅ Found analyzer: {analyzer_script}")
+        print(f"✅ Selected analyzer: {analyzer_key}")
     applications = select_applications(expected_findings, args.applications)
     if args.verbose:
         print(f"📂 Testing applications: {applications}")
     results, total_findings, total_time = evaluate_applications(
         applications,
-        analyzer_script,
+        analyzer_key,
         args.analyzer,
         expected_findings,
         args.max_files,

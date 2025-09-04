@@ -33,10 +33,12 @@ class AnalyzerRegistry:
             raise KeyError(f"Analyzer not registered: {name}")
 
     @classmethod
-    def create(cls, name: str, config: Optional[AnalyzerConfig] = None) -> BaseAnalyzer:
+    def create(
+        cls, name: str, config: Optional[AnalyzerConfig] = None, **kwargs: Any
+    ) -> BaseAnalyzer:
         analyzer_cls = cls.get(name)
-        # Analyzer classes in this project accept (config: Optional[AnalyzerConfig])
-        return analyzer_cls(config=config)  # type: ignore[call-arg]
+        # Analyzer classes in this project accept (config: Optional[AnalyzerConfig]) and may take extra kwargs
+        return analyzer_cls(config=config, **kwargs)  # type: ignore[call-arg]
 
 
 def register_analyzer(name: str) -> Callable[[Any], Any]:

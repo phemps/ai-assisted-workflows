@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Minimal Security Analysis Evaluator
-===================================
+Minimal Security Analysis Evaluator (CLI)
+=========================================
 
-Lightweight evaluation script that bypasses BaseAnalyzer import chain
-to avoid subprocess hanging issues in the import system.
-
-Direct analyzer execution with JSON parsing and report generation.
+Lightweight evaluator that runs security analyzers end-to-end and produces
+JSON and console reports. This script is designed for direct execution and
+now lives under shared/integration/cli rather than pytest's test tree.
 """
 
 import json

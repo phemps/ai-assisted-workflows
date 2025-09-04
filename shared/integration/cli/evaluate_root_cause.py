@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Integration test for reactive root cause analysis workflow.
-Tests the complete error investigation pipeline using the transformed analyzers.
+Root Cause Analysis Evaluator (CLI)
+===================================
+
+Runs the reactive root cause analysis workflow end-to-end and reports results.
+This script is intended for direct execution and is placed in
+shared/integration/cli outside pytest's test discovery path.
 """
 
 import sys

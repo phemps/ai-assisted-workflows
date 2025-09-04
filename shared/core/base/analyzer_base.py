@@ -34,7 +34,6 @@ from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
 
 from .module_base import CIAnalysisModule
-from .config_factory import ConfigFactory
 from .vendor_detector import VendorDetector
 from .validation_rules import (
     ValidationRule,
@@ -515,7 +514,8 @@ def create_analyzer_config(**kwargs) -> AnalyzerConfig:
     Returns:
         Validated AnalyzerConfig instance
     """
-    return ConfigFactory.create_config("analyzer", AnalyzerConfig, **kwargs)
+    # ConfigFactory.create() expects a registered type; AnalyzerConfig is direct here
+    return AnalyzerConfig(**kwargs)
 
 
 # Standardized Helper Functions for Finding Creation and Validation

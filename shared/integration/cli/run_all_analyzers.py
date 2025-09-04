@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Integration test: Run all analysis scripts and validate they work together.
+Integration CLI: Run all analysis scripts and validate they work together.
 Tests the complete analyzer pipeline and generates combined reports.
+
+Note: This script is a CLI evaluator and is intentionally located under
+shared/integration/cli for direct execution outside pytest.
 """
 
 import sys
@@ -114,7 +117,7 @@ class AnalysisRunner:
                 "target_path": target_path,
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "total_duration": round(total_duration, 3),
-                "scripts_run": len(self.scripts),
+                "scripts_run": len(self.analyzers),
                 "summary_mode": True,
                 "overall_success": all(
                     not result.get("error") for result in results.values()

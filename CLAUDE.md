@@ -217,17 +217,19 @@ Frameworks: pytest, Custom evaluation frameworks, Integration test suites
 
 Running Tests:
 
-# Run all analyzer integration tests
+# Run all analyzer integration tests (registry-based)
 
-cd shared && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python tests/integration/test_all_analyzers.py ../test_codebase/juice-shop-monorepo --output-format json --max-files 2
+PYTHONPATH=shared NO_EXTERNAL=true python shared/tests/integration/test_all_analyzers.py test_codebase/juice-shop-monorepo --output-format json --max-files 2
+
+# Omit NO_EXTERNAL to include analyzers that require external tools (semgrep, detect-secrets, sqlfluff)
 
 # Security analyzer evaluation
 
-cd shared/tests/integration && PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python test_security_analysers.py --analyzer detect_secrets --verbose
+PYTHONPATH=shared python shared/tests/integration/test_security_analysers.py --analyzer detect_secrets --verbose
 
 # Root cause analyzers integration test
 
-PYTHONPATH=/Users/adamjackson/LocalDev/ai-assisted-workflows/shared/utils:/Users/adamjackson/LocalDev/ai-assisted-workflows/shared python shared/tests/integration/test_root_cause_analyzers.py
+PYTHONPATH=shared python shared/tests/integration/test_root_cause_analyzers.py
 
 # Individual analyzer testing
 
@@ -250,19 +252,19 @@ cd shared && python analyzers/security/detect_secrets_analyzer.py ../test_codeba
 ### Test Commands:
 
 ```bash
-cd shared/tests/integration
+from repo root:
 
 # Run evaluation with specific analyzer (clean output)
-python test_security_analysers.py --analyzer detect_secrets
+PYTHONPATH=shared python shared/tests/integration/test_security_analysers.py --analyzer detect_secrets
 
 # Run with detailed progress information
-python test_security_analysers.py --analyzer semgrep --verbose
+PYTHONPATH=shared python shared/tests/integration/test_security_analysers.py --analyzer semgrep --verbose
 
 # Test specific applications only
-python test_security_analysers.py --analyzer detect_secrets --applications test-python test-java
+PYTHONPATH=shared python shared/tests/integration/test_security_analysers.py --analyzer detect_secrets --applications test-python test-java
 
 # Run with limited file scanning
-python test_security_analysers.py --analyzer semgrep --max-files 10
+PYTHONPATH=shared python shared/tests/integration/test_security_analysers.py --analyzer semgrep --max-files 10
 ```
 
 - `--analyzer`: Choose specific analyzer (detect_secrets, semgrep)

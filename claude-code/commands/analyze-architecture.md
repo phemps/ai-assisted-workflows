@@ -30,13 +30,14 @@ Execute architecture analysis scripts via Bash tool for measurable design metric
    - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py, dependency_analysis.py)
    - Set SCRIPT_PATH to user-provided location
 
-**THEN - Execute with resolved SCRIPT_PATH:**
+**THEN - Execute with resolved SCRIPT_PATH (module execution):**
 
 ```bash
-python [SCRIPT_PATH]/pattern_evaluation.py . --output-format json
-python [SCRIPT_PATH]/scalability_check.py . --output-format json
-python [SCRIPT_PATH]/coupling_analysis.py . --output-format json
-python [SCRIPT_PATH]/dependency_analysis.py . --output-format json
+SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.pattern_evaluation . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.scalability_check . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.coupling_analysis . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.dependency_analysis . --output-format json
 ```
 
 ### Architecture Assessment Areas

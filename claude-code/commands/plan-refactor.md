@@ -29,12 +29,13 @@
       - Validate provided path contains expected scripts (quality/complexity_lizard.py, architecture/coupling_analysis.py, performance/performance_baseline.py)
       - Set SCRIPT_PATH to user-provided location
 
-   **THEN - Execute with resolved SCRIPT_PATH:**
+   **THEN - Execute with resolved SCRIPT_PATH (module execution):**
 
    ```bash
-   python [SCRIPT_PATH]/quality/complexity_lizard.py . --output-format json
-   python [SCRIPT_PATH]/architecture/coupling_analysis.py . --output-format json
-   python [SCRIPT_PATH]/performance/performance_baseline.py . --output-format json
+   SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.quality.complexity_lizard . --output-format json
+   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.coupling_analysis . --output-format json
+   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.performance_baseline . --output-format json
    ```
 
 2. **Identify refactoring priorities** - Analyze complexity hotspots and architectural debt
@@ -69,10 +70,10 @@
 
 2. **Create testing strategy** - Establish baselines and regression coverage
 
-   **Use previously resolved SCRIPT_PATH:**
+   **Use previously resolved SCRIPT_PATH (module execution):**
 
    ```bash
-   python [SCRIPT_PATH]/test_coverage_analysis.py . --output-format json
+   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.quality.coverage_analysis . --output-format json
    ```
 
 3. **Define success metrics** - Set measurable complexity and performance targets

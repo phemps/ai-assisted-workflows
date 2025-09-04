@@ -39,7 +39,6 @@ class CIModuleBase:
         """Import commonly used utilities with error handling."""
         # Setup import paths and import utilities
         try:
-            from utils import path_resolver  # noqa: F401
             from core.utils.output_formatter import ResultFormatter, AnalysisResult
             from core.utils.tech_stack_detector import TechStackDetector
             from core.utils.cross_platform import PlatformDetector

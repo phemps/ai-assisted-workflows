@@ -30,12 +30,13 @@ Execute performance analysis scripts via Bash tool for measurable bottleneck det
    - Validate provided path contains expected scripts (flake8_performance_analyzer.py, analyze_frontend.py, sqlfluff_analyzer.py)
    - Set SCRIPT_PATH to user-provided location
 
-**THEN - Execute with resolved SCRIPT_PATH:**
+**THEN - Execute with resolved SCRIPT_PATH (module execution):**
 
 ```bash
-python [SCRIPT_PATH]/flake8_performance_analyzer.py . --output-format json
-python [SCRIPT_PATH]/analyze_frontend.py . --output-format json
-python [SCRIPT_PATH]/sqlfluff_analyzer.py . --output-format json
+SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.flake8_performance_analyzer . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.analyze_frontend . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.sqlfluff_analyzer . --output-format json
 ```
 
 ### Performance Assessment Areas

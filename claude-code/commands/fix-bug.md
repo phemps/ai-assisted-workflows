@@ -60,12 +60,13 @@ Execute debugging analysis scripts via Bash tool for systematic issue analysis:
    - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py)
    - Set SCRIPT_PATH to user-provided location
 
-**THEN - Execute with resolved SCRIPT_PATH:**
+**THEN - Execute with resolved SCRIPT_PATH (module execution):**
 
 ```bash
-python [SCRIPT_PATH]/trace_execution.py . --output-format json
-python [SCRIPT_PATH]/recent_changes.py . --output-format json
-python [SCRIPT_PATH]/error_patterns.py . --output-format json
+SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.root_cause.trace_execution . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.root_cause.recent_changes . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.root_cause.error_patterns . --output-format json
 ```
 
 ## Quality Gates

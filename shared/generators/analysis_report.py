@@ -7,18 +7,12 @@ Placeholder implementation for generating comprehensive analysis reports.
 Integrates with the GitHub Actions workflow monitoring system.
 """
 
-import sys
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Setup import paths and import output formatter
-try:
-    from utils import path_resolver  # noqa: F401
-    from core.utils.output_formatter import ResultFormatter, AnalysisResult
-except ImportError as e:
-    print(f"Import error: {e}", file=sys.stderr)
-    sys.exit(1)
+# Import output formatter (package root must be on PYTHONPATH)
+from core.utils.output_formatter import ResultFormatter, AnalysisResult
 
 
 def generate_comprehensive_report(

@@ -7,17 +7,12 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
-# Setup import paths and import file utilities
-try:
-    from utils import path_resolver  # noqa: F401
-    from core.utils.cross_platform import (
-        PlatformDetector,
-        CommandExecutor,
-        DependencyChecker,
-    )
-except ImportError as e:
-    print(f"Import error: {e}", file=sys.stderr)
-    sys.exit(1)
+# Import cross-platform utilities (package root must be on PYTHONPATH)
+from core.utils.cross_platform import (
+    PlatformDetector,
+    CommandExecutor,
+    DependencyChecker,
+)
 
 
 class DependencyInstaller:

@@ -37,13 +37,8 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 
-# Setup import paths and import base analyzer
-try:
-    from utils import path_resolver  # noqa: F401
-    from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
-except ImportError as e:
-    print(f"Import error: {e}", file=sys.stderr)
-    sys.exit(1)
+# Import base analyzer (package root must be on PYTHONPATH)
+from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

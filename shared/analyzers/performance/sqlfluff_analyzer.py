@@ -30,13 +30,8 @@ import tempfile
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Setup import paths and import base analyzer
-try:
-    from utils import path_resolver  # noqa: F401
-    from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
-except ImportError as e:
-    print(f"Import error: {e}", file=sys.stderr)
-    sys.exit(1)
+# Import base analyzer (package root must be on PYTHONPATH)
+from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 
 
 class SQLFluffAnalyzer(BaseAnalyzer):

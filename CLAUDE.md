@@ -128,42 +128,42 @@ The AI-Assisted Workflows framework uses a simplified path resolver system that 
 - User-global deployment (`~/.claude/scripts/`)
 - Custom path deployment (`/anywhere/.claude/scripts/`)
 
-**Solution**: A simplified import system using a central path resolver that establishes the package root and enables direct imports throughout the framework.
+**Solution**: A simplified import system using a central path helper module (no sys.path mutation) and module execution. Runners set `PYTHONPATH` to the package root and analyzers run as modules.
 
 ### How It Works
 
-1. **Central Path Resolution**: `shared/utils/path_resolver.py` contains the package root detection logic
-2. **Simple Import Pattern**: All modules use direct imports after importing the path resolver
-3. **No Complex Configuration**: Installation simply copies files without path manipulation
-4. **Standard Python Imports**: Uses normal Python import mechanism with established paths
+1. **Central Path Helpers**: `shared/utils/path_resolver.py` provides path utilities without modifying `sys.path`
+2. **Module Execution**: Commands run analyzers via `python -m analyzers.<category>.<name>` with `PYTHONPATH` set to the package root
+3. **No Complex Configuration**: Installation simply copies files; runners ensure `PYTHONPATH` is set
+4. **Standard Python Imports**: Modules use direct imports (no side-effect imports)
 
 ### Standard Usage Pattern
 
-All analyzers, CI components, and framework modules follow this simplified pattern:
+- Invocation (runner):
+
+```bash
+# path to package root (shared/ in dev, scripts/ in deploy)
+SCRIPTS_ROOT=/path/to/scripts/root
+PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.quality.complexity_lizard . --output-format json
+```
+
+- Imports (inside modules):
 
 ```python
-# Setup import paths and import utilities
-try:
-    from utils.path_resolver import PACKAGE_ROOT
-    from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
-except ImportError as e:
-    print(f"Import error: {e}", file=sys.stderr)
-    sys.exit(1)
+from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 ```
 
 **Key Requirements**:
 
-- Import `path_resolver` first to establish package root
-- Use direct imports for all framework modules
-- Single try/except block for clean error handling
-- Always use `sys.exit(1)` on import failure
+- Runners must ensure the package root is on `PYTHONPATH` (or run from the root)
+- Modules use direct imports for all framework components
+- Avoid import side-effects for path setup
 
 ### Common Import Patterns
 
 **Core Infrastructure**:
 
 ```python
-from utils.path_resolver import PACKAGE_ROOT
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 from core.base.profiler_base import BaseProfiler, ProfilerConfig
 ```
@@ -171,7 +171,6 @@ from core.base.profiler_base import BaseProfiler, ProfilerConfig
 **Utility Modules**:
 
 ```python
-from utils.path_resolver import PACKAGE_ROOT
 from core.utils.output_formatter import ResultFormatter, AnalysisResult
 from core.utils.tech_stack_detector import TechStackDetector
 from core.utils.cross_platform import PlatformDetector
@@ -181,10 +180,9 @@ from core.utils.cross_platform import PlatformDetector
 
 **Standard Import Approach**:
 
-- ✅ Always import `path_resolver` first
+- ✅ Ensure runner sets `PYTHONPATH` to the package root (or `cd` to it)
 - ✅ Use direct imports for all framework modules
-- ✅ Single try/except block for import error handling
-- ✅ Clear error messages with sys.exit(1) on failure
+- ✅ Keep imports simple; avoid side-effect imports to modify `sys.path`
 
 **Direct Imports (no path_resolver needed)**:
 
@@ -202,15 +200,7 @@ from core.utils.cross_platform import PlatformDetector
 
 ### Installation Integration
 
-The path resolver system requires minimal configuration during installation:
-
-1. **Path Detection**: Install script detects target deployment location
-2. **File Copying**: Framework files copied to `$INSTALL_DIR/scripts/`
-3. **Path Resolver**: `path_resolver.py` establishes package root automatically
-4. **No Complex Setup**: No sed manipulation or dynamic configuration needed
-5. **Standard Structure**: Uses conventional Python package layout
-
-This provides consistent module resolution with significantly reduced complexity compared to the previous smart imports system.
+The installation provides the scripts and command workflows. Runners (commands or CI) set `PYTHONPATH` to the package root (e.g., `$INSTALL_DIR/scripts`) and call analyzers via `python -m`. This ensures consistent module resolution without mutating `sys.path` at runtime.
 
 ### Commands
 

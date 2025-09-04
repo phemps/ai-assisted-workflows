@@ -3,14 +3,14 @@
 Simple Path Resolution System
 ============================
 
-Replaces the complex smart_imports system with simple path-based resolution.
-Works across all deployment scenarios:
+Lightweight helpers to work with paths relative to the package root.
+Works across all deployment scenarios without mutating sys.path:
 - Development environment (shared/)
 - Local deployment (.claude/scripts/)
 - Global deployment (~/.claude/scripts/)
 - Custom deployment (anywhere)
 
-The PACKAGE_ROOT is intelligently discovered once and used throughout.
+The PACKAGE_ROOT is computed from this file location (parent of utils/).
 """
 
 import sys
@@ -20,38 +20,12 @@ from typing import Optional
 
 def setup_import_paths() -> Path:
     """
-    One-time path setup for the entire framework.
-    Returns the resolved package root.
+    Return the resolved package root (parent of utils/).
 
-    This function intelligently discovers the package root by looking for
-    characteristic directories that indicate the AI-Assisted Workflows structure.
+    Note: This function does not modify sys.path. Runners must ensure the
+    package root is on PYTHONPATH or be the current working directory.
     """
-    current_file = Path(__file__).resolve()
-
-    # Start from the parent of utils/ directory
-    search_start = current_file.parent.parent
-
-    # Look for characteristic directories that indicate our package structure
-    indicators = ["analyzers", "core", "ci"]
-
-    # Try current location and parent directories
-    candidates = [search_start, search_start.parent]
-
-    for candidate in candidates:
-        # Check if all required directories exist
-        if all((candidate / indicator).exists() for indicator in indicators):
-            package_root = candidate
-            break
-    else:
-        # Fallback: assume current structure is correct
-        package_root = search_start
-
-    # Add to sys.path only if not already there
-    package_str = str(package_root)
-    if package_str not in sys.path:
-        sys.path.insert(0, package_str)
-
-    return package_root
+    return Path(__file__).resolve().parent.parent
 
 
 def get_package_root() -> Path:

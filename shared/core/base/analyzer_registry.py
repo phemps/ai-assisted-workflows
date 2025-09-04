@@ -21,7 +21,14 @@ class AnalyzerRegistry:
     def register(cls, name: str, analyzer_cls: type) -> None:
         if not name or not isinstance(name, str):
             raise ValueError("Analyzer name must be a non-empty string")
-        if name in cls._registry:
+        # Idempotent registration: allow same class to be registered multiple times
+        # within the same process (e.g., when packages import submodules and modules
+        # are also executed via `python -m package.module`). If a different class is
+        # already registered under the same name, raise an error.
+        existing = cls._registry.get(name)
+        if existing is not None:
+            if existing is analyzer_cls:
+                return
             raise ValueError(f"Analyzer already registered: {name}")
         cls._registry[name] = analyzer_cls
 

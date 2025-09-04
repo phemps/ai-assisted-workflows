@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from enum import Enum
+from dataclasses import dataclass
 
 
 class Severity(Enum):
@@ -188,6 +189,17 @@ class AnalysisResult:
 class ResultFormatter:
     """Utility class for formatting analysis results."""
 
+    @dataclass
+    class FindingInput:
+        finding_id: str
+        title: str
+        description: str
+        severity: str
+        file_path: Optional[str] = None
+        line_number: Optional[int] = None
+        recommendation: Optional[str] = None
+        evidence: Optional[Dict[str, Any]] = None
+
     @staticmethod
     def create_security_result(script_name: str, target_path: str) -> AnalysisResult:
         """Create a security analysis result."""
@@ -218,27 +230,18 @@ class ResultFormatter:
         return AnalysisResult(AnalysisType.MONITORING, script_name, target_path)
 
     @staticmethod
-    def create_finding(
-        finding_id: str,
-        title: str,
-        description: str,
-        severity: str,
-        file_path: Optional[str] = None,
-        line_number: Optional[int] = None,
-        recommendation: Optional[str] = None,
-        evidence: Optional[Dict[str, Any]] = None,
-    ) -> Finding:
-        """Create a finding with string severity."""
-        severity_enum = Severity(severity.lower())
+    def create_finding(f: "ResultFormatter.FindingInput") -> Finding:
+        """Create a finding from a parameter object to reduce parameter count."""
+        severity_enum = Severity(f.severity.lower())
         return Finding(
-            finding_id,
-            title,
-            description,
+            f.finding_id,
+            f.title,
+            f.description,
             severity_enum,
-            file_path,
-            line_number,
-            recommendation,
-            evidence,
+            f.file_path,
+            f.line_number,
+            f.recommendation,
+            f.evidence,
         )
 
     @staticmethod
@@ -313,24 +316,28 @@ def main():
 
     # Add test findings
     finding1 = ResultFormatter.create_finding(
-        "SEC001",
-        "Hardcoded Password",
-        "Password found in source code",
-        "critical",
-        "/test/path/config.py",
-        42,
-        "Use environment variables for sensitive data",
-        {"pattern": "password = 'secret123'"},
+        ResultFormatter.FindingInput(
+            finding_id="SEC001",
+            title="Hardcoded Password",
+            description="Password found in source code",
+            severity="critical",
+            file_path="/test/path/config.py",
+            line_number=42,
+            recommendation="Use environment variables for sensitive data",
+            evidence={"pattern": "password = 'secret123'"},
+        )
     )
 
     finding2 = ResultFormatter.create_finding(
-        "SEC002",
-        "Missing Input Validation",
-        "User input not validated",
-        "medium",
-        "/test/path/api.py",
-        15,
-        "Add input validation and sanitization",
+        ResultFormatter.FindingInput(
+            finding_id="SEC002",
+            title="Missing Input Validation",
+            description="User input not validated",
+            severity="medium",
+            file_path="/test/path/api.py",
+            line_number=15,
+            recommendation="Add input validation and sanitization",
+        )
     )
 
     result.add_finding(finding1)
@@ -347,11 +354,13 @@ def main():
     # Test merge functionality
     result2 = ResultFormatter.create_performance_result("perf_script.py", "/test/path")
     finding3 = ResultFormatter.create_finding(
-        "PERF001",
-        "Slow Database Query",
-        "Query takes > 1s to execute",
-        "high",
-        recommendation="Add database index",
+        ResultFormatter.FindingInput(
+            finding_id="PERF001",
+            title="Slow Database Query",
+            description="Query takes > 1s to execute",
+            severity="high",
+            recommendation="Add database index",
+        )
     )
     result2.add_finding(finding3)
 

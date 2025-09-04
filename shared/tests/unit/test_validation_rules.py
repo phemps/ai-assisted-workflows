@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+
+from core.base.analyzer_base import validate_finding
+import pytest
+
+
+def test_validate_finding_success():
+    finding = {
+        "title": "SQL Injection Vulnerability",
+        "description": "Unsanitized input used in SQL construction",
+        "severity": "high",
+        "file_path": "app/models/user.py",
+        "line_number": 42,
+        "recommendation": "Use parameterized queries",
+        "metadata": {"pattern_type": "sql_injection", "confidence": 0.91},
+    }
+    assert validate_finding(finding) is True
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    ["title", "description", "severity", "file_path", "line_number", "recommendation"],
+)
+def test_validate_finding_missing_required_field(missing_field):
+    finding = {
+        "title": "A",
+        "description": "B",
+        "severity": "low",
+        "file_path": "x.py",
+        "line_number": 1,
+        "recommendation": "C",
+    }
+    finding.pop(missing_field)
+    with pytest.raises(ValueError) as exc:
+        validate_finding(finding)
+    assert "Missing required field" in str(exc.value)
+
+
+def test_validate_finding_placeholder_values_rejected():
+    finding = {
+        "title": "security finding",
+        "description": "analysis issue detected",
+        "severity": "medium",
+        "file_path": "unknown",
+        "line_number": 0,
+        "recommendation": "Review issue",
+        "metadata": {},
+    }
+    with pytest.raises(ValueError):
+        validate_finding(finding)
+
+
+def test_validate_finding_line_zero_needs_error_metadata():
+    finding = {
+        "title": "Runtime error",
+        "description": "Analyzer crashed",
+        "severity": "low",
+        "file_path": "x.py",
+        "line_number": 0,
+        "recommendation": "Check stacktrace",
+        "metadata": {"error_type": "RuntimeError"},
+    }
+    # Should pass because error metadata is provided
+    assert validate_finding(finding) is True

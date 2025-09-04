@@ -34,9 +34,16 @@ from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
 
 from .module_base import CIAnalysisModule
-from .cli_utils import CLIBase
 from .config_factory import ConfigFactory
 from .vendor_detector import VendorDetector
+from .validation_rules import (
+    ValidationRule,
+    RequiredFieldsRule,
+    FieldTypesRule,
+    SeverityRule,
+    PlaceholderRule,
+    PathAndLineRules,
+)
 
 
 @dataclass
@@ -427,14 +434,16 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
             try:
                 # Create Finding object - require all fields to be present
                 finding = self.ResultFormatter.create_finding(
-                    f"{self.analyzer_type.upper()}{finding_id:03d}",
-                    finding_data["title"],
-                    finding_data["description"],
-                    finding_data["severity"],
-                    finding_data["file_path"],
-                    finding_data["line_number"],
-                    finding_data["recommendation"],
-                    finding_data.get("metadata", {}),
+                    self.ResultFormatter.FindingInput(
+                        finding_id=f"{self.analyzer_type.upper()}{finding_id:03d}",
+                        title=finding_data["title"],
+                        description=finding_data["description"],
+                        severity=finding_data["severity"],
+                        file_path=finding_data["file_path"],
+                        line_number=finding_data["line_number"],
+                        recommendation=finding_data["recommendation"],
+                        evidence=finding_data.get("metadata", {}),
+                    )
                 )
 
                 result.add_finding(finding)
@@ -493,117 +502,7 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
         return breakdown
 
-    def create_cli(self) -> CLIBase:
-        """
-        Create standard CLI interface for this analyzer.
-
-        Returns:
-            CLIBase instance with analyzer-specific arguments
-        """
-        cli = CLIBase(f"{self.analyzer_type.title()} Analyzer")
-
-        # Add analyzer-specific arguments
-        cli.parser.add_argument(
-            "target_path",
-            nargs="?",
-            default=self.config.target_path,
-            help="Path to analyze (default: current directory)",
-        )
-
-        cli.parser.add_argument(
-            "--max-files",
-            type=int,
-            default=self.config.max_files,
-            help="Maximum files to analyze (default: unlimited)",
-        )
-
-        cli.parser.add_argument(
-            "--max-file-size",
-            type=int,
-            default=self.config.max_file_size_mb,
-            help=f"Maximum file size in MB (default: {self.config.max_file_size_mb})",
-        )
-
-        cli.parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=self.config.batch_size,
-            help=f"Batch size for processing (default: {self.config.batch_size})",
-        )
-
-        cli.parser.add_argument(
-            "--timeout",
-            type=int,
-            default=self.config.timeout_seconds,
-            help=f"Timeout in seconds (default: {self.config.timeout_seconds})",
-        )
-
-        # Add severity filtering and summary arguments
-        cli.parser.add_argument(
-            "--min-severity",
-            choices=["critical", "high", "medium", "low"],
-            default=self.config.min_severity,
-            help=f"Minimum severity level (default: {self.config.min_severity})",
-        )
-
-        cli.parser.add_argument(
-            "--summary",
-            action="store_true",
-            default=self.config.summary_mode,
-            help="Show only top 10 critical/high severity findings",
-        )
-
-        return cli
-
-    def run_cli(self) -> int:
-        """
-        Run CLI interface with standard error handling.
-
-        Returns:
-            Exit code (0 for success, non-zero for error)
-        """
-        try:
-            cli = self.create_cli()
-            args = cli.parser.parse_args()
-
-            # Update config from CLI args
-            self.config.target_path = args.target_path
-            self.config.output_format = args.output_format
-            self.config.max_files = args.max_files
-            self.config.max_file_size_mb = args.max_file_size
-            self.config.batch_size = args.batch_size
-            self.config.timeout_seconds = args.timeout
-            self.config.min_severity = args.min_severity
-            self.config.summary_mode = args.summary
-
-            # Run analysis
-            result = self.analyze()
-
-            # Output results
-            if self.config.output_format == "console":
-                print(self.ResultFormatter.format_console_output(result))
-            elif self.config.output_format == "summary":
-                print(
-                    result.to_json(
-                        summary_mode=True, min_severity=self.config.min_severity
-                    )
-                )
-            else:  # json (default)
-                print(
-                    result.to_json(
-                        summary_mode=self.config.summary_mode,
-                        min_severity=self.config.min_severity,
-                    )
-                )
-
-            return 0
-
-        except KeyboardInterrupt:
-            self.logger.info("Analysis interrupted by user")
-            return 130
-        except Exception as e:
-            self.logger.error(f"CLI execution failed: {e}")
-            return 1
+    # CLI functionality removed: analyzers are orchestrated by agents/commands in this project
 
 
 def create_analyzer_config(**kwargs) -> AnalyzerConfig:
@@ -629,7 +528,7 @@ def create_standard_finding(
     file_path: str,
     line_number: int,
     recommendation: str,
-    metadata: dict = None,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Helper to create properly formatted findings for BaseAnalyzer/BaseProfiler.
@@ -747,88 +646,25 @@ def validate_finding(finding: Dict[str, Any]) -> bool:
     if not isinstance(finding, dict):
         raise ValueError(f"Finding must be a dictionary, got {type(finding)}")
 
-    # Check for required fields (strict validation - no .get() fallbacks)
-    required_fields = [
-        "title",
-        "description",
-        "severity",
-        "file_path",
-        "line_number",
-        "recommendation",
+    rules: List[ValidationRule] = [
+        RequiredFieldsRule(
+            [
+                "title",
+                "description",
+                "severity",
+                "file_path",
+                "line_number",
+                "recommendation",
+            ]
+        ),
+        FieldTypesRule(),
+        SeverityRule(),
+        PlaceholderRule(),
+        PathAndLineRules(),
     ]
 
-    for required_field in required_fields:
-        if required_field not in finding:
-            available_fields = list(finding.keys())
-            raise ValueError(
-                f"Missing required field: '{required_field}'. Available fields: {available_fields}"
-            )
-
-    # Validate field types
-    if not isinstance(finding["title"], str) or not finding["title"].strip():
-        raise ValueError("Field 'title' must be a non-empty string")
-
-    if (
-        not isinstance(finding["description"], str)
-        or not finding["description"].strip()
-    ):
-        raise ValueError("Field 'description' must be a non-empty string")
-
-    if (
-        not isinstance(finding["recommendation"], str)
-        or not finding["recommendation"].strip()
-    ):
-        raise ValueError("Field 'recommendation' must be a non-empty string")
-
-    if not isinstance(finding["file_path"], str) or not finding["file_path"].strip():
-        raise ValueError("Field 'file_path' must be a non-empty string")
-
-    if not isinstance(finding["line_number"], int) or finding["line_number"] < 0:
-        raise ValueError("Field 'line_number' must be a non-negative integer")
-
-    # Validate severity levels
-    valid_severities = {"critical", "high", "medium", "low", "info"}
-    if finding["severity"] not in valid_severities:
-        raise ValueError(
-            f"Invalid severity '{finding['severity']}'. Must be one of: {valid_severities}"
-        )
-
-    # Check for generic placeholder values that were common before strict validation
-    generic_titles = {
-        "security finding",
-        "quality finding",
-        "performance finding",
-        "analysis finding",
-    }
-    if finding["title"].lower() in generic_titles:
-        raise ValueError(
-            f"Generic placeholder title '{finding['title']}' not allowed. Use specific finding title."
-        )
-
-    generic_descriptions = {
-        "analysis issue detected",
-        "issue found",
-        "problem detected",
-    }
-    if finding["description"].lower() in generic_descriptions:
-        raise ValueError(
-            f"Generic placeholder description '{finding['description']}' not allowed. Use specific issue description."
-        )
-
-    # Check for placeholder file paths
-    if finding["file_path"] == "unknown":
-        raise ValueError(
-            "Placeholder file_path 'unknown' not allowed. Use actual file path."
-        )
-
-    # Check for placeholder line numbers
-    if (
-        finding["line_number"] == 0
-        and "error" not in finding.get("metadata", {}).get("error_type", "").lower()
-    ):
-        raise ValueError(
-            "Placeholder line_number 0 not allowed unless it's an error case. Use actual line number."
-        )
+    for rule in rules:
+        rule.validate(finding)
 
     return True
 

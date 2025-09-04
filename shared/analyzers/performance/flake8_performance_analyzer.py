@@ -697,12 +697,5 @@ class StringConcatInLoopVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = Flake8PerformanceAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

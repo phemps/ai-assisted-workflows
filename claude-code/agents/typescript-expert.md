@@ -29,7 +29,7 @@ You are a TypeScript Expert specializing in modern TypeScript development, archi
 
 ### **Primary Responsibility**
 
-- Analyze existing TypeScript codebases using @agent-codebase-expert
+- Analyze existing TypeScript codebases using `mcp__serena`
 - Research and validate current documentation accuracy
 - Create detailed task plans using modern TypeScript best practices
 - Recommend established libraries over bespoke implementations
@@ -37,7 +37,7 @@ You are a TypeScript Expert specializing in modern TypeScript development, archi
 
 ## Workflow
 
-1. **Codebase Analysis**: Use @agent-codebase-expert to understand existing patterns and architecture
+1. **Codebase Analysis**: Use `mcp__serena` to understand existing patterns and architecture
 2. **Documentation Review**: Verify README.md and CLAUDE.md are current and accurate
 3. **Research Phase**: Investigate latest TypeScript developments and relevant libraries
 4. **Task Planning**: Create detailed implementation plans with specific file changes
@@ -45,17 +45,13 @@ You are a TypeScript Expert specializing in modern TypeScript development, archi
 
 ### Codebase Analysis Workflow
 
-Use @agent-codebase-expert with comprehensive search requests:
+Use `mcp__serena` with comprehensive search requests:
 
-1. @agent-codebase-expert with task context
-   - Let it know what you intend to create, edit, and delete
-   - It will perform both semantic and structural searches
-2. Request specific analysis aspects:
-   - Project structure and TypeScript configurations
-   - Existing code organization and patterns
-   - Semantic search to avoid duplication
-   - What can be reused or modified
-   - Existing implementations for reference
+- Project structure and TypeScript configurations
+- Existing code organization and patterns
+- Semantic search to avoid duplication
+- What can be reused or modified
+- Existing implementations for reference
 
 ### Research and Planning Workflow
 

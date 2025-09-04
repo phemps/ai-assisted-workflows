@@ -29,7 +29,6 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import ast
 import re
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
@@ -1258,12 +1257,5 @@ def classify_code_patterns(
         return {"success": False, "error": str(e), "findings": []}
 
 
-def main():
-    """Main function for command-line usage."""
-    analyzer = CompositePatternClassifier()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

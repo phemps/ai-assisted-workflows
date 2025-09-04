@@ -10,10 +10,7 @@ from .base import (
     CIConfigModule,
     ConfigFactory,
     ConfigBase,
-    CLIBase,
-    OutputHandler,
-    create_standard_cli,
-    run_cli_tool,
+    # CLI utilities intentionally not re-exported in this project
     timed_operation,
     time_operation,
     FileSystemUtils,
@@ -44,10 +41,7 @@ __all__ = [
     "CIConfigModule",
     "ConfigFactory",
     "ConfigBase",
-    "CLIBase",
-    "OutputHandler",
-    "create_standard_cli",
-    "run_cli_tool",
+    # (CLI utilities removed)
     "timed_operation",
     "time_operation",
     "FileSystemUtils",

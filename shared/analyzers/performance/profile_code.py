@@ -25,7 +25,6 @@ FUTURE INTEGRATIONS:
 - Node.js clinic for JavaScript profiling
 """
 
-import sys
 import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -445,12 +444,5 @@ def profile_code_performance(target_path: str = ".") -> Any:
     return profiler.analyze(target_path)
 
 
-def main():
-    """Main function for command-line usage."""
-    profiler = CodeProfiler()
-    exit_code = profiler.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

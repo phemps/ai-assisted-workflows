@@ -30,8 +30,10 @@ from typing import List, Dict, Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("security:detect_secrets")
 class DetectSecretsAnalyzer(BaseAnalyzer):
     """Hardcoded secrets detection using detect-secrets tool."""
 
@@ -459,12 +461,6 @@ class DetectSecretsAnalyzer(BaseAnalyzer):
         }
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = DetectSecretsAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    # CLI removed; this module is intended to be invoked via the orchestration layer
+    sys.exit(0)

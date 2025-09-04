@@ -277,15 +277,15 @@ def analyze_my_custom_logic(target_path: str, **kwargs) -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "error": str(e), "findings": []}
 
-# CLI Integration
-def main():
-    """CLI entry point using BaseAnalyzer infrastructure."""
-    analyzer = MyCustomAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-if __name__ == "__main__":
-    main()
+# Agent-Orchestrated Usage (No CLI)
+# Typical usage is via an orchestrator/agent that imports your analyzer and calls `analyze()`.
+# Minimal dev harness example:
+#
+# from core.base.analyzer_base import create_analyzer_config
+# cfg = create_analyzer_config(target_path="../some_repo", max_files=100)
+# analyzer = MyCustomAnalyzer(config=cfg)
+# result = analyzer.analyze()
+# print(result.to_json())
 ```
 
 ## ⚠️ **Common Implementation Pitfalls**
@@ -364,10 +364,17 @@ return {
 
 ### **Test Your Implementation**
 
-```bash
-# Test individual analyzer with strict validation
-cd shared && PYTHONPATH=. python analyzers/category/your_analyzer.py ../test_codebase/monorepo \
-  --max-files 5 --output-format json
+Use a quick REPL/script to construct the analyzer and call `analyze()`.
+
+```python
+# Quick dev check (Python REPL or script)
+from core.base.analyzer_base import create_analyzer_config
+from analyzers.category.your_analyzer import YourAnalyzer
+
+cfg = create_analyzer_config(target_path="../test_codebase/monorepo", max_files=5)
+analyzer = YourAnalyzer(config=cfg)
+result = analyzer.analyze()
+print(result.to_json())
 
 # Look for these success indicators:
 # ✅ No KeyError exceptions
@@ -393,7 +400,6 @@ Before submitting your BaseAnalyzer/BaseProfiler implementation:
 - [ ] **No generic placeholders** - All findings reflect actual analysis results
 - [ ] **Proper field names** - No "type", "message", "file", or "line" fields
 - [ ] **Abstract methods implemented** - analyze_target() and get_analyzer_metadata()
-- [ ] **CLI integration working** - Uses analyzer.run_cli() pattern
 - [ ] **Legacy compatibility** - Provides backward-compatible function wrapper
 - [ ] **Error handling** - Graceful handling of file access/parsing errors
 - [ ] **Validation testing** - Passes strict validation with real findings
@@ -409,7 +415,6 @@ Before submitting your BaseAnalyzer/BaseProfiler implementation:
 
 ### **Architecture Benefits**
 
-- **Consistent CLI**: All analyzers have identical command-line interfaces
 - **Standardized Output**: Uniform finding format across all analysis types
 - **Shared Infrastructure**: File scanning, error handling, timing, and logging
 - **Configuration Management**: Centralized configuration with validation

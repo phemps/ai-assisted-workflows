@@ -23,7 +23,6 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
@@ -714,12 +713,5 @@ class DependencyAnalyzer(BaseAnalyzer):
         return True
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = DependencyAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

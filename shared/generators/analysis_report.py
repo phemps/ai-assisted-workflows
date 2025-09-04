@@ -122,27 +122,34 @@ def generate_comprehensive_report(
 
         # Add informational finding about placeholder status
         finding = ResultFormatter.create_finding(
-            "PLACEHOLDER004",
-            "Placeholder Implementation",
-            "This is a placeholder report generator. Integrate with actual analysis tools for production use.",
-            "info",
-            __file__,
-            1,
-            "Replace with real analysis tool integrations for comprehensive reporting",
-            {"implementation_status": "placeholder", "output_file": str(output_path)},
+            ResultFormatter.FindingInput(
+                finding_id="PLACEHOLDER004",
+                title="Placeholder Implementation",
+                description="This is a placeholder report generator. Integrate with actual analysis tools for production use.",
+                severity="info",
+                file_path=__file__,
+                line_number=1,
+                recommendation="Replace with real analysis tool integrations for comprehensive reporting",
+                evidence={
+                    "implementation_status": "placeholder",
+                    "output_file": str(output_path),
+                },
+            )
         )
         result.add_finding(finding)
 
         # Add success finding
         finding = ResultFormatter.create_finding(
-            "REPORT001",
-            "Analysis Report Generated",
-            f"Comprehensive analysis report saved to {output_path}",
-            "info",
-            str(output_path),
-            1,
-            "Review report for quality insights and improvement recommendations",
-            {"report_size": output_path.stat().st_size},
+            ResultFormatter.FindingInput(
+                finding_id="REPORT001",
+                title="Analysis Report Generated",
+                description=f"Comprehensive analysis report saved to {output_path}",
+                severity="info",
+                file_path=str(output_path),
+                line_number=1,
+                recommendation="Review report for quality insights and improvement recommendations",
+                evidence={"report_size": output_path.stat().st_size},
+            )
         )
         result.add_finding(finding)
 

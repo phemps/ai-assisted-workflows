@@ -21,7 +21,6 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import re
-import sys
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -692,12 +691,5 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         return unique_findings
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = PatternEvaluationAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

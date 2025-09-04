@@ -978,12 +978,6 @@ def aggregate_analysis_results(
         return {"success": False, "error": str(e), "findings": []}
 
 
-def main():
-    """Main function for command-line usage."""
-    analyzer = AnalysisAggregator()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    # CLI removed; this module is intended to be invoked via the orchestration layer
+    sys.exit(0)

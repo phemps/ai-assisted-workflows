@@ -6,8 +6,11 @@ Distinguishes between language syntax and actual architectural patterns.
 
 import re
 import ast
-from typing import Dict, List, Any, Set
+from pathlib import Path
+from typing import Dict, List, Any, Set, Callable
 from dataclasses import dataclass
+
+from core.config.loader import load_architectural_pattern_sets, ConfigError
 
 
 @dataclass
@@ -24,212 +27,69 @@ class PatternMatch:
     is_language_feature: bool
 
 
+def _score_singleton(text: str) -> float:
+    score = 0.0
+    if "_instance" in text and "None" in text:
+        score += 0.3
+    if "__new__" in text:
+        score += 0.2
+    return score
+
+
+def _score_factory(text: str) -> float:
+    score = 0.0
+    low = text.lower()
+    if "create" in low and "return" in text:
+        score += 0.3
+    if "Factory" in text:
+        score += 0.2
+    return score
+
+
+def _score_observer(text: str) -> float:
+    low = text.lower()
+    return 0.4 if ("observer" in low and ("notify" in low or "update" in low)) else 0.0
+
+
+def _score_repository(text: str) -> float:
+    low = text.lower()
+    return (
+        0.4
+        if ("repository" in low and any(op in low for op in ["find", "save", "delete"]))
+        else 0.0
+    )
+
+
+def _score_god_class(text: str) -> float:
+    method_count = len(re.findall(r"def\s+\w+", text))
+    return min(0.4, method_count * 0.02) if method_count > 10 else 0.0
+
+
+_PATTERN_SCORERS: Dict[str, Callable[[str], float]] = {
+    "singleton": _score_singleton,
+    "factory": _score_factory,
+    "observer": _score_observer,
+    "repository": _score_repository,
+    "god_class": _score_god_class,
+}
+
+
 class ArchitecturalPatternDetector:
     """Detects architectural patterns while filtering out language syntax noise."""
 
-    def __init__(self):
-        # Architectural patterns (actual design patterns)
-        self.architectural_patterns = {
-            "singleton": {
-                "indicators": [
-                    # Real singleton implementation
-                    r"class\s+\w+.*:\s*\n(?:\s*\n)*\s*_instance\s*=\s*None",
-                    r"def\s+__new__\s*\(.*\):\s*\n.*if.*_instance.*is.*None",
-                    r"def\s+getInstance\s*\(",
-                ],
-                "severity": "medium",
-                "description": "Singleton pattern implementation detected",
-                "exclude_patterns": [
-                    r"@\w+",  # Exclude decorators
-                    r"\/\*\*.*\*\/",  # Exclude JSDoc
-                    r"#.*",  # Exclude comments
-                ],
-            },
-            "factory": {
-                "indicators": [
-                    r"class\s+\w*Factory\w*.*:\s*\n(?:\s|\n)*def\s+create",
-                    r"def\s+create\w*\(.*\):\s*\n.*return\s+\w+\(",
-                    r"def\s+make\w*\(.*\):\s*\n.*return\s+\w+\(",
-                ],
-                "severity": "low",
-                "description": "Factory pattern implementation detected",
-                "exclude_patterns": [
-                    r"@\w+",
-                    r"\/\*\*.*\*\/",
-                    r"#.*",
-                ],
-            },
-            "observer": {
-                "indicators": [
-                    r"class\s+\w*Observer\w*.*:\s*\n(?:\s|\n)*def\s+update",
-                    r"def\s+notify\s*\(.*\):\s*\n.*for.*in.*observers",
-                    r"def\s+subscribe\s*\(.*\):\s*\n.*observers.*append",
-                ],
-                "severity": "low",
-                "description": "Observer pattern implementation detected",
-                "exclude_patterns": [
-                    r"addEventListener\s*\(",  # DOM events, not observer pattern
-                    r"on\w+\s*=",  # Event handlers
-                ],
-            },
-            "strategy": {
-                "indicators": [
-                    r"class\s+\w*Strategy\w*.*:\s*\n(?:\s|\n)*def\s+execute",
-                    r"def\s+set_strategy\s*\(",
-                    r"strategy\s*=\s*\w+Strategy\(",
-                ],
-                "severity": "low",
-                "description": "Strategy pattern implementation detected",
-                "exclude_patterns": [],
-            },
-            "repository": {
-                "indicators": [
-                    r"class\s+\w*Repository\w*.*:\s*\n(?:(?:\s|\n)*def\s+(?:find|save|delete|get).*){2,}",
-                    r"def\s+findBy\w*\(.*\):\s*\n.*(?:SELECT|query|filter)",
-                ],
-                "severity": "low",
-                "description": "Repository pattern implementation detected",
-                "exclude_patterns": [],
-            },
-        }
+    def __init__(self, config_dir: Path | None = None):
+        # Load pattern definitions from config files (strict, no fallbacks)
+        if config_dir is None:
+            # shared/core/utils -> shared/config/patterns
+            config_dir = Path(__file__).resolve().parents[2] / "config" / "patterns"
+        try:
+            config = load_architectural_pattern_sets(config_dir)
+        except ConfigError as e:
+            raise RuntimeError(f"Architectural pattern config error: {e}")
 
-        # Anti-patterns (actual code smells)
-        self.antipatterns = {
-            "god_class": {
-                "indicators": [
-                    # Classes with many methods AND responsibilities
-                    r"class\s+\w+.*:\s*(?:\n(?:\s*(?:def|class|@).*\n?){15,})",
-                ],
-                "severity": "high",
-                "description": "God class detected - too many responsibilities",
-                "exclude_patterns": [
-                    r"test.*\.py",  # Test classes can be large
-                    r".*test\.py",
-                ],
-            },
-            "long_parameter_list": {
-                "indicators": [
-                    r"def\s+\w+\s*\([^)]*,\s*[^)]*,\s*[^)]*,\s*[^)]*,\s*[^)]*,\s*[^)]*,\s*[^)]*[^)]*\):",
-                ],
-                "severity": "medium",
-                "description": "Long parameter list detected",
-                "exclude_patterns": [],
-            },
-            "feature_envy": {
-                "indicators": [
-                    # Multiple chained method calls on external objects
-                    r"\w+\.\w+\.\w+\.\w+\.\w+",
-                ],
-                "severity": "medium",
-                "description": "Feature envy - excessive method chaining",
-                "exclude_patterns": [
-                    r"self\.",  # Method chaining on self is OK
-                    r"this\.",  # Method chaining on this is OK
-                ],
-            },
-        }
-
-        # Language features that are NOT architectural patterns - Extended for all supported languages
-        self.language_features = {
-            "decorators": {
-                "patterns": [r"@\w+", r"@\w+\(.*\)"],
-                "languages": ["python"],
-                "description": "Python decorator syntax",
-            },
-            "jsdoc": {
-                "patterns": [r"\/\*\*.*?\*\/", r"\/\*\*.*@type.*\*\/"],
-                "languages": ["javascript", "typescript"],
-                "description": "JSDoc documentation",
-            },
-            "comments": {
-                "patterns": [
-                    r"#.*",
-                    r"\/\/.*",
-                    r"\/\*.*?\*\/",
-                    r"<!--.*?-->",
-                    r"\(\*.*?\*\)",
-                ],
-                "languages": [
-                    "python",
-                    "javascript",
-                    "typescript",
-                    "java",
-                    "csharp",
-                    "go",
-                    "rust",
-                    "php",
-                    "ruby",
-                    "swift",
-                    "kotlin",
-                    "cpp",
-                    "c",
-                ],
-                "description": "Code comments across languages",
-            },
-            "annotations": {
-                "patterns": [r"@\w+", r"@\w+\(.*\)", r"#\[.*?\]"],
-                "languages": ["java", "csharp", "rust", "swift", "kotlin"],
-                "description": "Language annotations and attributes",
-            },
-            "type_hints": {
-                "patterns": [r":\s*\w+", r"->\s*\w+", r"<.*?>", r"var\s+\w+\s*:\s*\w+"],
-                "languages": [
-                    "python",
-                    "typescript",
-                    "swift",
-                    "kotlin",
-                    "rust",
-                    "go",
-                    "csharp",
-                ],
-                "description": "Type annotations and generics",
-            },
-            "generics": {
-                "patterns": [r"<[^>]+>", r"\w+<.*?>"],
-                "languages": [
-                    "java",
-                    "csharp",
-                    "typescript",
-                    "swift",
-                    "kotlin",
-                    "rust",
-                    "cpp",
-                ],
-                "description": "Generic type syntax",
-            },
-            "visibility_modifiers": {
-                "patterns": [
-                    r"public\s+",
-                    r"private\s+",
-                    r"protected\s+",
-                    r"internal\s+",
-                    r"fileprivate\s+",
-                ],
-                "languages": ["java", "csharp", "swift", "kotlin", "cpp"],
-                "description": "Access modifiers",
-            },
-            "package_imports": {
-                "patterns": [
-                    r"import\s+.*",
-                    r"from\s+.*\s+import",
-                    r"use\s+.*",
-                    r"#include\s*<.*?>",
-                ],
-                "languages": [
-                    "python",
-                    "javascript",
-                    "typescript",
-                    "java",
-                    "kotlin",
-                    "swift",
-                    "rust",
-                    "go",
-                    "cpp",
-                    "c",
-                ],
-                "description": "Import and include statements",
-            },
-        }
+        self.architectural_patterns = config["architectural_patterns"]
+        self.antipatterns = config["antipatterns"]
+        self.language_features = config["language_features"]
 
     def detect_patterns(
         self, content: str, file_path: str, language: str
@@ -267,17 +127,21 @@ class ArchitecturalPatternDetector:
         return matches
 
     def _identify_language_features(self, content: str, language: str) -> Set[int]:
-        """Identify line numbers that contain language features, not patterns."""
-        feature_lines = set()
+        """Identify line numbers that contain language features, not patterns.
 
-        for feature_name, feature_info in self.language_features.items():
-            if language in feature_info["languages"]:
+        Process input line-by-line to avoid cross-line regex matches creating false positives.
+        """
+        feature_lines: Set[int] = set()
+        lines = content.split("\n")
+
+        for idx, line in enumerate(lines, start=1):
+            for feature_name, feature_info in self.language_features.items():
+                if language not in feature_info["languages"]:
+                    continue
                 for pattern in feature_info["patterns"]:
-                    for match in re.finditer(
-                        pattern, content, re.MULTILINE | re.DOTALL
-                    ):
-                        line_num = content[: match.start()].count("\n") + 1
-                        feature_lines.add(line_num)
+                    if re.search(pattern, line):
+                        feature_lines.add(idx)
+                        break
 
         return feature_lines
 
@@ -347,53 +211,20 @@ class ArchitecturalPatternDetector:
     def _calculate_confidence(
         self, match: re.Match, content: str, pattern_name: str
     ) -> float:
-        """Calculate confidence score for a pattern match."""
-        confidence = 0.5  # Base confidence
-
-        match_text = match.group(0)
-
-        # Increase confidence based on pattern-specific criteria
-        if pattern_name == "singleton":
-            if "_instance" in match_text and "None" in match_text:
-                confidence += 0.3
-            if "__new__" in match_text:
-                confidence += 0.2
-
-        elif pattern_name == "factory":
-            if "create" in match_text.lower() and "return" in match_text:
-                confidence += 0.3
-            if "Factory" in match_text:
-                confidence += 0.2
-
-        elif pattern_name == "observer":
-            if "observer" in match_text.lower() and (
-                "notify" in match_text or "update" in match_text
-            ):
-                confidence += 0.4
-
-        elif pattern_name == "repository":
-            if "repository" in match_text.lower() and any(
-                op in match_text.lower() for op in ["find", "save", "delete"]
-            ):
-                confidence += 0.4
-
-        elif pattern_name == "god_class":
-            # Count methods in the class
-            method_count = len(re.findall(r"def\s+\w+", match_text))
-            if method_count > 10:
-                confidence += min(0.4, method_count * 0.02)
-
-        # Decrease confidence for common false positives
-        if re.search(r"@\w+", match_text):  # Contains decorators
-            confidence -= 0.2
-
-        if re.search(r"\/\*\*.*\*\/", match_text):  # Contains JSDoc
-            confidence -= 0.3
-
-        if re.search(r"#.*", match_text):  # Contains comments
-            confidence -= 0.1
-
-        return max(0.0, min(1.0, confidence))
+        """Calculate confidence score for a pattern match using small, pure scorers."""
+        base = 0.5
+        text = match.group(0)
+        scorer = _PATTERN_SCORERS.get(pattern_name)
+        if scorer is not None:
+            base += scorer(text)
+        # Penalize common false positives
+        if re.search(r"@\w+", text):
+            base -= 0.2
+        if re.search(r"\/\*\*.*\*\/", text):
+            base -= 0.3
+        if re.search(r"#.*", text):
+            base -= 0.1
+        return max(0.0, min(1.0, base))
 
     def analyze_python_ast(self, content: str, file_path: str) -> List[PatternMatch]:
         """Use AST analysis for more accurate Python pattern detection."""
@@ -449,8 +280,8 @@ class ArchitecturalPatternDetector:
         """Generate summary statistics for detected patterns."""
         total_matches = len(matches)
 
-        by_type = {}
-        by_severity = {}
+        by_type: Dict[str, int] = {}
+        by_severity: Dict[str, int] = {}
         by_confidence = {"high": 0, "medium": 0, "low": 0}
 
         for match in matches:
@@ -481,7 +312,7 @@ class ArchitecturalPatternDetector:
         """Generate actionable recommendations based on detected patterns."""
         recommendations = []
 
-        pattern_counts = {}
+        pattern_counts: Dict[str, int] = {}
         for match in matches:
             pattern_counts[match.pattern_name] = (
                 pattern_counts.get(match.pattern_name, 0) + 1

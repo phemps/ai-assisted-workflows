@@ -16,7 +16,6 @@ from .config_factory import (
     QualityGateConfig,
     MetricsConfig,
 )
-from .cli_utils import CLIBase, OutputHandler, create_standard_cli, run_cli_tool
 from .timing_utils import (
     TimingResult,
     PerformanceTracker,
@@ -36,6 +35,7 @@ from .fs_utils import (
 )
 from .profiler_base import BaseProfiler, ProfilerConfig, create_profiler_config
 from .analyzer_base import BaseAnalyzer, AnalyzerConfig, create_analyzer_config
+from .analyzer_registry import AnalyzerRegistry, register_analyzer
 
 __all__ = [
     # Error handling
@@ -55,11 +55,7 @@ __all__ = [
     "DetectionConfig",
     "QualityGateConfig",
     "MetricsConfig",
-    # CLI utilities
-    "CLIBase",
-    "OutputHandler",
-    "create_standard_cli",
-    "run_cli_tool",
+    # (CLI utilities removed: not used in this project)
     # Performance timing
     "TimingResult",
     "PerformanceTracker",
@@ -83,4 +79,6 @@ __all__ = [
     "BaseAnalyzer",
     "AnalyzerConfig",
     "create_analyzer_config",
+    "AnalyzerRegistry",
+    "register_analyzer",
 ]

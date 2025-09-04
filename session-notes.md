@@ -41,3 +41,61 @@ Run Examples
 Outcome
 
 - Deployed test confirmed working with module execution; import errors resolved without path mutations or fallbacks.
+
+---
+
+Refactor Plan — Code Quality Improvements Roadmap
+
+Scope and Goals
+
+- Reduce complexity in hotspot functions and constructors.
+- Externalize hard-coded pattern/config data into validated configs.
+- Decrease parameter counts using small, typed parameter objects.
+- Tighten tests with fixtures/parametrization and clearer orchestration.
+
+Acceptance Targets
+
+- Max function length ≤ 60 lines in refactored hotspots.
+- Cyclomatic complexity ≤ 10 for refactored functions.
+- No functions with >5 parameters in touched modules.
+- Architectural/tech patterns loaded from validated config files.
+
+Phased Plan (Trackable)
+
+1. Phase 1 — Quick Wins (1–2 days)
+
+- [ ] Refactor security evaluator into parse/run/report helpers.
+- [ ] Add config loader and schema validation utilities.
+- [ ] Externalize architectural pattern definitions to configs.
+- [x] Reduce parameter counts with dataclasses for formatter/CLI where applicable.
+
+2. Phase 2 — Structural Improvements (3–5 days)
+
+- [ ] Introduce validation rule chain (replace monolithic validate_finding).
+- [ ] Add pytest fixtures and parameterized tests for analyzers.
+- [ ] Create shared test helpers and builders.
+
+3. Phase 3 — Architecture (1 week)
+
+- [ ] Externalize all tech stack definitions; add detector factory.
+- [ ] Introduce strategy registry for analyzers.
+- [ ] Add CI gates: complexity thresholds and coverage fail-under.
+
+Implementation Notes
+
+- No fallbacks or legacy paths retained; migrate call sites as needed.
+- Configs include explicit `schema_version` and are validated at load time.
+- Prefer pure functions and guard clauses to reduce nesting/CC.
+
+Progress Log
+
+- [x] Start: Refactor test_security_analysers main() into helpers.
+- [x] Add `shared/core/config/loader.py` and minimal schemas.
+- [x] Replace in-code architectural patterns with `configs/patterns/*.json`.
+- [x] Swap analyzer finding validation to rule chain.
+- [x] Externalize TechStackDetector definitions to JSON; add from_config.
+- [x] Add pytest unit tests for validation rules, config loader, detectors.
+- [x] Add shared test fixtures (config paths) and builders for findings.
+- [x] Remove unused CLI framework (CLIBase, create_cli/run_cli paths) across analyzers; align modules for agent orchestration.
+- [x] Add ruff and mypy: pre-commit hook + CI steps; add mypy.ini.
+- [x] Update developer docs: remove CLI usage, show agent/orchestrated examples.

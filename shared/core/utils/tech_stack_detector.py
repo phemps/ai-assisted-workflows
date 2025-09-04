@@ -6,8 +6,10 @@ Automatically detects project technology stack and provides appropriate filterin
 
 import json
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Dict
 from dataclasses import dataclass
+
+from core.config.loader import load_tech_stacks, ConfigError
 
 
 @dataclass
@@ -31,307 +33,39 @@ class TechStackConfig:
 class TechStackDetector:
     """Detects project technology stack and provides filtering rules."""
 
-    def __init__(self):
-        self.tech_stacks = {
-            "react_native_expo": TechStackConfig(
-                name="React Native with Expo",
-                primary_languages={"javascript", "typescript", "jsx", "tsx"},
-                exclude_patterns={
-                    "node_modules/**/*",
-                    "ios/Pods/**/*",
-                    "android/build/**/*",
-                    ".expo/**/*",
-                    "web-build/**/*",
-                    "dist/**/*",
-                    ".next/**/*",
-                    "coverage/**/*",
-                    ".nyc_output/**/*",
-                    "**/*.log",
-                    "**/.DS_Store",
-                    "**/Thumbs.db",
-                },
-                dependency_dirs={"node_modules", "ios/Pods", "android/build"},
-                config_files={
-                    "package.json",
-                    "app.json",
-                    "expo.json",
-                    "metro.config.js",
-                },
-                source_patterns={
-                    "app/**/*",
-                    "src/**/*",
-                    "components/**/*",
-                    "screens/**/*",
-                },
-                build_artifacts={"dist", "build", "web-build", ".expo"},
-            ),
-            "node_js": TechStackConfig(
-                name="Node.js",
-                primary_languages={"javascript", "typescript"},
-                exclude_patterns={
-                    "node_modules/**/*",
-                    "dist/**/*",
-                    "build/**/*",
-                    "coverage/**/*",
-                    ".nyc_output/**/*",
-                    "logs/**/*",
-                    "*.log",
-                    ".next/**/*",
-                    ".nuxt/**/*",
-                },
-                dependency_dirs={"node_modules"},
-                config_files={"package.json", "tsconfig.json", "webpack.config.js"},
-                source_patterns={
-                    "src/**/*",
-                    "lib/**/*",
-                    "routes/**/*",
-                    "controllers/**/*",
-                },
-                build_artifacts={"dist", "build", "lib"},
-                boilerplate_patterns={
-                    "constructor",  # JS/TS constructor
-                    "toString",  # String representation
-                    "valueOf",  # Value conversion
-                    "get *",  # ES6 getter
-                    "set *",  # ES6 setter
-                    "componentDidMount",  # React lifecycle
-                    "componentWillUnmount",  # React lifecycle
-                    "render",  # React render
-                    "ngOnInit",  # Angular lifecycle
-                    "ngOnDestroy",  # Angular lifecycle
-                },
-            ),
-            "python": TechStackConfig(
-                name="Python",
-                primary_languages={"python"},
-                exclude_patterns={
-                    "venv/**/*",
-                    "env/**/*",
-                    ".venv/**/*",
-                    "__pycache__/**/*",
-                    "*.pyc",
-                    ".pytest_cache/**/*",
-                    "dist/**/*",
-                    "build/**/*",
-                    "*.egg-info/**/*",
-                    ".coverage",
-                    "htmlcov/**/*",
-                    ".tox/**/*",
-                },
-                dependency_dirs={"venv", "env", ".venv", "__pycache__"},
-                config_files={
-                    "requirements.txt",
-                    "setup.py",
-                    "pyproject.toml",
-                    "Pipfile",
-                },
-                source_patterns={"src/**/*", "app/**/*", "lib/**/*", "**/*.py"},
-                build_artifacts={"dist", "build", "*.egg-info"},
-                boilerplate_patterns={
-                    "__init__",  # Constructor
-                    "__str__",  # String representation
-                    "__repr__",  # Debug representation
-                    "__eq__",  # Equality
-                    "__hash__",  # Hash for sets/dicts
-                    "__enter__",  # Context manager
-                    "__exit__",  # Context manager
-                    "get_*",  # Getter pattern
-                    "set_*",  # Setter pattern
-                    "is_*",  # Boolean check pattern
-                    "has_*",  # Existence check pattern
-                    "_get_*",  # Private getter
-                    "_set_*",  # Private setter
-                },
-            ),
-            "java_maven": TechStackConfig(
-                name="Java with Maven",
-                primary_languages={"java"},
-                exclude_patterns={
-                    "target/**/*",
-                    ".m2/**/*",
-                    "*.class",
-                    "*.jar",
-                    "*.war",
-                    "logs/**/*",
-                    ".idea/**/*",
-                    ".vscode/**/*",
-                },
-                dependency_dirs={"target", ".m2"},
-                config_files={"pom.xml", "maven-wrapper.properties"},
-                source_patterns={"src/main/**/*", "src/test/**/*"},
-                build_artifacts={"target"},
-                boilerplate_patterns={
-                    "equals",  # Object equality
-                    "hashCode",  # Hash code
-                    "toString",  # String representation
-                    "get*",  # JavaBean getter
-                    "set*",  # JavaBean setter
-                    "is*",  # Boolean getter
-                    "compareTo",  # Comparable
-                },
-            ),
-            "java_gradle": TechStackConfig(
-                name="Java with Gradle",
-                primary_languages={"java", "kotlin"},
-                exclude_patterns={
-                    "build/**/*",
-                    ".gradle/**/*",
-                    "*.class",
-                    "*.jar",
-                    "*.war",
-                    "logs/**/*",
-                    ".idea/**/*",
-                    ".vscode/**/*",
-                },
-                dependency_dirs={"build", ".gradle"},
-                config_files={"build.gradle", "gradle.properties", "settings.gradle"},
-                source_patterns={"src/main/**/*", "src/test/**/*"},
-                build_artifacts={"build"},
-                boilerplate_patterns={
-                    "equals",  # Object equality
-                    "hashCode",  # Hash code
-                    "toString",  # String representation
-                    "get*",  # JavaBean getter
-                    "set*",  # JavaBean setter
-                    "is*",  # Boolean getter
-                    "compareTo",  # Comparable
-                },
-            ),
-            "dotnet": TechStackConfig(
-                name=".NET",
-                primary_languages={"csharp"},
-                exclude_patterns={
-                    "bin/**/*",
-                    "obj/**/*",
-                    "packages/**/*",
-                    "*.dll",
-                    "*.exe",
-                    "*.pdb",
-                    ".vs/**/*",
-                    "TestResults/**/*",
-                },
-                dependency_dirs={"bin", "obj", "packages"},
-                config_files={"*.csproj", "*.sln", "packages.config", "project.json"},
-                source_patterns={
-                    "**/*.cs",
-                    "Controllers/**/*",
-                    "Models/**/*",
-                    "Views/**/*",
-                },
-                build_artifacts={"bin", "obj"},
-            ),
-            "go": TechStackConfig(
-                name="Go",
-                primary_languages={"go"},
-                exclude_patterns={
-                    "vendor/**/*",
-                    "bin/**/*",
-                    "*.exe",
-                    ".idea/**/*",
-                    ".vscode/**/*",
-                },
-                dependency_dirs={"vendor", "bin"},
-                config_files={"go.mod", "go.sum"},
-                source_patterns={"**/*.go", "cmd/**/*", "pkg/**/*", "internal/**/*"},
-                build_artifacts={"bin"},
-            ),
-            "rust": TechStackConfig(
-                name="Rust",
-                primary_languages={"rust"},
-                exclude_patterns={
-                    "target/**/*",
-                    "Cargo.lock",
-                    ".idea/**/*",
-                    ".vscode/**/*",
-                },
-                dependency_dirs={"target"},
-                config_files={"Cargo.toml"},
-                source_patterns={"src/**/*", "**/*.rs"},
-                build_artifacts={"target"},
-            ),
-            "php": TechStackConfig(
-                name="PHP",
-                primary_languages={"php"},
-                exclude_patterns={
-                    "vendor/**/*",
-                    "composer.lock",
-                    ".phpunit.cache/**/*",
-                    "coverage/**/*",
-                },
-                dependency_dirs={"vendor"},
-                config_files={"composer.json", "composer.lock"},
-                source_patterns={"**/*.php", "src/**/*", "app/**/*"},
-                build_artifacts={"vendor"},
-            ),
-            "ruby": TechStackConfig(
-                name="Ruby",
-                primary_languages={"ruby"},
-                exclude_patterns={
-                    "vendor/**/*",
-                    ".bundle/**/*",
-                    "coverage/**/*",
-                    "log/**/*",
-                    "tmp/**/*",
-                },
-                dependency_dirs={"vendor", ".bundle"},
-                config_files={"Gemfile", "Gemfile.lock"},
-                source_patterns={"**/*.rb", "app/**/*", "lib/**/*"},
-                build_artifacts={"vendor"},
-            ),
-            "cpp": TechStackConfig(
-                name="C/C++",
-                primary_languages={"cpp", "c"},
-                exclude_patterns={
-                    "build/**/*",
-                    "cmake-build-*/**/*",
-                    "*.o",
-                    "*.exe",
-                    "*.out",
-                    ".vscode/**/*",
-                    ".idea/**/*",
-                },
-                dependency_dirs={"build", "cmake-build-debug", "cmake-build-release"},
-                config_files={"CMakeLists.txt", "Makefile", "*.vcxproj"},
-                source_patterns={
-                    "**/*.cpp",
-                    "**/*.c",
-                    "**/*.h",
-                    "**/*.hpp",
-                    "src/**/*",
-                },
-                build_artifacts={"build"},
-            ),
-            "swift": TechStackConfig(
-                name="Swift",
-                primary_languages={"swift"},
-                exclude_patterns={
-                    ".build/**/*",
-                    "build/**/*",
-                    "DerivedData/**/*",
-                    "*.xcworkspace/**/*",
-                    "*.xcodeproj/**/*",
-                },
-                dependency_dirs={".build", "build", "DerivedData"},
-                config_files={"Package.swift", "*.xcodeproj", "*.xcworkspace"},
-                source_patterns={"**/*.swift", "Sources/**/*"},
-                build_artifacts={".build", "build"},
-            ),
-            "kotlin": TechStackConfig(
-                name="Kotlin",
-                primary_languages={"kotlin"},
-                exclude_patterns={
-                    "build/**/*",
-                    ".gradle/**/*",
-                    "*.class",
-                    "*.jar",
-                    ".idea/**/*",
-                },
-                dependency_dirs={"build", ".gradle"},
-                config_files={"build.gradle.kts", "settings.gradle.kts"},
-                source_patterns={"**/*.kt", "src/**/*"},
-                build_artifacts={"build"},
-            ),
-        }
+    def __init__(self, config_path: Path | None = None):
+        # Default to repo config if not provided
+        if config_path is None:
+            config_path = (
+                Path(__file__).resolve().parents[2]
+                / "config"
+                / "tech_stacks"
+                / "tech_stacks.json"
+            )
+        try:
+            stacks_raw: Dict[str, Dict] = load_tech_stacks(config_path)
+        except ConfigError as e:
+            raise RuntimeError(f"Tech stacks config error: {e}")
+
+        # Materialize dataclass configs, ensure sets
+        self.tech_stacks: Dict[str, TechStackConfig] = {}
+        for key, spec in stacks_raw.items():
+            self.tech_stacks[key] = TechStackConfig(
+                name=spec["name"],
+                primary_languages=set(spec.get("primary_languages", [])),
+                exclude_patterns=set(spec.get("exclude_patterns", [])),
+                dependency_dirs=set(spec.get("dependency_dirs", [])),
+                config_files=set(spec.get("config_files", [])),
+                source_patterns=set(spec.get("source_patterns", [])),
+                build_artifacts=set(spec.get("build_artifacts", [])),
+                boilerplate_patterns=set(spec.get("boilerplate_patterns", []))
+                if spec.get("boilerplate_patterns")
+                else None,
+            )
+
+    @classmethod
+    def from_config(cls, config_path: Path) -> "TechStackDetector":
+        return cls(config_path=config_path)
 
     def detect_tech_stack(self, project_path: str) -> List[str]:
         """

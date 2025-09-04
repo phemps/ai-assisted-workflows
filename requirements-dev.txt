@@ -1,0 +1,6 @@
+pytest>=7.4
+pytest-cov>=4.1
+radon>=6.0
+xenon>=0.9
+ruff>=0.5
+mypy>=1.10

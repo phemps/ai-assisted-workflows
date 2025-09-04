@@ -409,12 +409,5 @@ def analyze_complexity(target_path: str = ".") -> Any:
     return analyzer.analyze_with_lizard(target_path)
 
 
-def main():
-    """Main function for command-line usage."""
-    analyzer = LizardComplexityAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

@@ -21,7 +21,6 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import re
 import ast
-import sys
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -700,12 +699,5 @@ class ScalabilityAnalyzer(BaseAnalyzer):
         return recommendations.get(pattern_name, "Review and optimize this pattern")
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = ScalabilityAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

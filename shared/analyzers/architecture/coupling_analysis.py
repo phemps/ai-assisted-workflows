@@ -21,7 +21,6 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import re
-import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
@@ -573,12 +572,5 @@ class CouplingAnalyzer(BaseAnalyzer):
         )
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = CouplingAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

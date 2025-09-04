@@ -942,12 +942,5 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                 pass
 
 
-def main():
-    """Main entry point for command-line usage."""
-    analyzer = FrontendPerformanceAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

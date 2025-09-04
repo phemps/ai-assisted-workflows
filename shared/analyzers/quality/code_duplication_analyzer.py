@@ -39,7 +39,6 @@ import ast
 import hashlib
 import re
 import difflib
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
@@ -749,12 +748,5 @@ def analyze_code_duplication(
         return {"success": False, "error": str(e), "findings": []}
 
 
-def main():
-    """Main function for command-line usage."""
-    analyzer = CodeDuplicationAnalyzer()
-    exit_code = analyzer.run_cli()
-    sys.exit(exit_code)
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

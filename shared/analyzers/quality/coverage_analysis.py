@@ -299,11 +299,5 @@ def analyze_coverage(target_path: str, output_format: str = "json") -> dict:
     return analyzer.analyze(target_path)
 
 
-def main():
-    """CLI entry point using BaseAnalyzer infrastructure."""
-    analyzer = TestCoverageAnalyzer()
-    analyzer.run_cli()
-
-
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0)

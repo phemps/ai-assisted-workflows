@@ -28,8 +28,10 @@ from typing import Dict, Any, List, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("quality:lizard")
 class LizardComplexityAnalyzer(BaseAnalyzer):
     """Wrapper around Lizard for code complexity analysis using BaseAnalyzer infrastructure."""
 

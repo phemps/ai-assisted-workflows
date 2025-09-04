@@ -27,8 +27,10 @@ from collections import defaultdict
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("architecture:coupling")
 class CouplingAnalyzer(BaseAnalyzer):
     """Analyzes code coupling patterns and dependency relationships."""
 

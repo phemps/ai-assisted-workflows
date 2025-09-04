@@ -27,8 +27,10 @@ from typing import List, Dict, Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("architecture:scalability")
 class ScalabilityAnalyzer(BaseAnalyzer):
     """Analyzes code for scalability bottlenecks and architectural constraints."""
 

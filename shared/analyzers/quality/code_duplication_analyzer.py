@@ -47,6 +47,7 @@ from abc import ABC, abstractmethod
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -522,6 +523,7 @@ Matches by Type:
         return report
 
 
+@register_analyzer("quality:duplication")
 class CodeDuplicationAnalyzer(BaseAnalyzer):
     """Analyzes code duplication using multiple detection strategies."""
 

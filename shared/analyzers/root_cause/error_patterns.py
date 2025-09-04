@@ -26,8 +26,10 @@ from collections import defaultdict
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("root_cause:error_patterns")
 class ErrorPatternAnalyzer(BaseAnalyzer):
     """Analyze code for known error patterns and failure modes to assist with root cause analysis."""
 

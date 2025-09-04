@@ -27,8 +27,10 @@ from typing import List, Dict, Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("architecture:patterns")
 class PatternEvaluationAnalyzer(BaseAnalyzer):
     """Evaluates design patterns and architectural decisions."""
 

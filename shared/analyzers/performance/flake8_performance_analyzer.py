@@ -33,8 +33,10 @@ from typing import List, Dict, Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("performance:flake8-perf")
 class Flake8PerformanceAnalyzer(BaseAnalyzer):
     """Performance analysis using Flake8 and plugins instead of regex patterns."""
 

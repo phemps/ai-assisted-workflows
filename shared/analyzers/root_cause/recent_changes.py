@@ -28,8 +28,10 @@ from collections import defaultdict
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("root_cause:recent_changes")
 class RecentChangesAnalyzer(BaseAnalyzer):
     """Analyze recent code changes using git history to identify potential root causes."""
 

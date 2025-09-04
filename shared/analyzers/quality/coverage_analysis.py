@@ -13,8 +13,10 @@ from typing import Dict, List, Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("quality:coverage")
 class TestCoverageAnalyzer(BaseAnalyzer):
     """Language-agnostic test coverage analyzer extending BaseAnalyzer infrastructure."""
 

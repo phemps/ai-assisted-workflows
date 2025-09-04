@@ -38,6 +38,7 @@ from enum import Enum
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -833,6 +834,7 @@ class SecurityPatternDetector(PatternDetector):
         return matches
 
 
+@register_analyzer("quality:patterns")
 class CompositePatternClassifier(BaseAnalyzer):
     """Combines multiple pattern detectors for comprehensive analysis extending BaseAnalyzer infrastructure."""
 

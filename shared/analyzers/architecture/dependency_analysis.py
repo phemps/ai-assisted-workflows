@@ -29,8 +29,10 @@ from collections import defaultdict
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 
+@register_analyzer("architecture:dependency")
 class DependencyAnalyzer(BaseAnalyzer):
     """Analyzes project dependencies and identifies potential issues."""
 

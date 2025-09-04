@@ -44,6 +44,7 @@ from collections import defaultdict, Counter
 
 # Import base analyzer (package root must be on PYTHONPATH)
 from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_registry import register_analyzer
 
 try:
     from .code_duplication_analyzer import DuplicateMatch
@@ -359,6 +360,7 @@ class ResultCorrelator:
         return correlations
 
 
+@register_analyzer("quality:aggregate")
 class AnalysisAggregator(BaseAnalyzer):
     """Main aggregator that combines and organizes analysis results extending BaseAnalyzer infrastructure."""
 

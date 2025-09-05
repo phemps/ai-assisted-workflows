@@ -48,10 +48,16 @@ Execute root cause analysis scripts via Bash tool for systematic investigation:
    - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py)
    - Set SCRIPT_PATH to user-provided location
 
+**Pre-flight environment check (fail fast if imports not resolved):**
+
+```bash
+SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/.." && pwd)"
+PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
+```
+
 **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer root_cause:trace_execution --target . --output-format json
 PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer root_cause:recent_changes --target . --output-format json
 PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer root_cause:error_patterns --target . --output-format json

@@ -29,10 +29,16 @@
       - Validate provided path contains expected scripts (quality/complexity_lizard.py, architecture/coupling_analysis.py, performance/performance_baseline.py)
       - Set SCRIPT_PATH to user-provided location
 
+   **Pre-flight environment check (fail fast if imports not resolved):**
+
+   ```bash
+   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/.." && pwd)"
+   PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
+   ```
+
    **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
    ```bash
-   SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
    PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer quality:lizard --target . --output-format json
    PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target . --output-format json
    PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer performance:baseline --target . --output-format json

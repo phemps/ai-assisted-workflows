@@ -39,10 +39,16 @@ Execute code quality analysis scripts via Bash tool for measurable quality metri
    - Validate provided path contains expected scripts (complexity_lizard.py)
    - Set SCRIPT_PATH to user-provided location
 
+**Pre-flight environment check (fail fast if imports not resolved):**
+
+```bash
+SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/.." && pwd)"
+PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
+```
+
 **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer quality:lizard --target . --output-format json
 ```
 

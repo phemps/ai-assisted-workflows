@@ -55,10 +55,16 @@ Please provide your technical challenge and any relevant constraints, or confirm
       - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py)
       - Set SCRIPT_PATH to user-provided location
 
+   **Pre-flight environment check (fail fast if imports not resolved):**
+
+   ```bash
+   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/.." && pwd)"
+   PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
+   ```
+
    **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
    ```bash
-   SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
    PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:patterns --target .
    PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:scalability --target .
    PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target .

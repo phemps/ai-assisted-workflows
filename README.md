@@ -146,22 +146,6 @@ For detailed documentation on specific components, see:
 - [Development Monitoring System](docs/monitoring.md)
 - [Workflow Examples](docs/workflow-examples.md)
 
-### Integration CLI Evaluators
-
-Some end-to-end evaluators are designed as CLI scripts rather than pytest tests. These live under `shared/integration/cli` and thin pytest wrappers exercise them in CI:
-
-- `shared/integration/cli/run_all_analyzers.py` — orchestrates all analyzers. The pytest wrapper skips external tools by setting `NO_EXTERNAL=true` for fast, deterministic CI.
-- `shared/integration/cli/evaluate_security.py` — evaluates security analyzers (`semgrep`, `detect-secrets`) over configured sample apps.
-- `shared/integration/cli/evaluate_root_cause.py` — runs the reactive root cause analysis workflow end-to-end.
-
-Run them directly when iterating locally (ensure `PYTHONPATH=shared` so `core.*` imports resolve):
-
-```
-PYTHONPATH=shared NO_EXTERNAL=true python shared/integration/cli/run_all_analyzers.py test_codebase --max-files 20
-PYTHONPATH=shared python shared/integration/cli/evaluate_security.py --analyzer semgrep --config shared/tests/integration/security_expected_findings.json --max-files 10 --applications test-python clean-python
-PYTHONPATH=shared python shared/integration/cli/evaluate_root_cause.py --output-format console
-```
-
 ## License
 
 **MIT License** - See LICENSE file for details.

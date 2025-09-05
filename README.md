@@ -89,7 +89,7 @@ For detailed information about language support and analysis capabilities, see [
 
 [See detailed orchestration documentation](docs/agents.md#todo-orchestration)
 
-### 3. Passing a simple todo list to todo-worktree for single agent focus
+### 3. Passing a simple todo list to todo-worktree for single agent focus (based on @badlogics https://github.com/badlogic/claude-commands)
 
 ```bash
 /todo-worktree

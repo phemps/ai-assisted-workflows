@@ -32,12 +32,12 @@ Comprehensive security analysis using OWASP Top 10 framework with automated scri
       - Validate provided path contains expected scripts (semgrep_analyzer.py, detect_secrets_analyzer.py)
       - Set SCRIPT_PATH to user-provided location
 
-   **THEN - Execute with resolved SCRIPT_PATH (module execution):**
+   **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
    ```bash
    SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
-   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.security.semgrep_analyzer . --output-format json
-   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.security.detect_secrets_analyzer . --output-format json
+   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer security:semgrep --target . --output-format json
+   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer security:detect_secrets --target . --output-format json
    ```
 
 2. **Analyze script outputs** - Process automated findings against OWASP framework

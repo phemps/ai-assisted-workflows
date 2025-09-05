@@ -30,14 +30,14 @@ Execute architecture analysis scripts via Bash tool for measurable design metric
    - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py, dependency_analysis.py)
    - Set SCRIPT_PATH to user-provided location
 
-**THEN - Execute with resolved SCRIPT_PATH (module execution):**
+**THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
 ```bash
 SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.pattern_evaluation . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.scalability_check . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.coupling_analysis . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.dependency_analysis . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:patterns --target . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:scalability --target . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target . --output-format json
+PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:dependency --target . --output-format json
 ```
 
 ### Architecture Assessment Areas

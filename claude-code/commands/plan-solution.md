@@ -55,13 +55,13 @@ Please provide your technical challenge and any relevant constraints, or confirm
       - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py)
       - Set SCRIPT_PATH to user-provided location
 
-   **THEN - Execute with resolved SCRIPT_PATH (module execution):**
+   **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
    ```bash
    SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
-   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.pattern_evaluation .
-   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.scalability_check .
-   PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.architecture.coupling_analysis .
+   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:patterns --target .
+   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:scalability --target .
+   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target .
    ```
 
 2. **Document findings**:

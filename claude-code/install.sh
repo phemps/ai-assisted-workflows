@@ -62,6 +62,11 @@ VERBOSE=false
 DRY_RUN=false
 SKIP_MCP=false
 SKIP_PYTHON=false
+# Optional non-interactive mode selection for existing installs: fresh|merge|update|cancel
+INSTALL_MODE=""
+# State flags
+MERGE_MODE=false
+UPDATE_WORKFLOWS_ONLY=false
 
 # Performance optimization: cache pip list
 PIP_LIST_CACHE=""
@@ -132,6 +137,24 @@ parse_args() {
             --skip-python)
                 SKIP_PYTHON=true
                 shift
+                ;;
+            --mode)
+                # Non-interactive install mode for existing installations
+                if [[ -n "${2:-}" ]]; then
+                    case "$2" in
+                        fresh|merge|update|cancel)
+                            INSTALL_MODE="$2"
+                            shift 2
+                            ;;
+                        *)
+                            echo "Invalid value for --mode: $2 (use fresh|merge|update|cancel)" >&2
+                            exit 1
+                            ;;
+                    esac
+                else
+                    echo "--mode requires a value (fresh|merge|update|cancel)" >&2
+                    exit 1
+                fi
                 ;;
             -*)
                 echo "Unknown option: $1" >&2
@@ -436,7 +459,31 @@ setup_install_dir() {
             echo "  3) Update workflows only (overwrite commands & scripts, preserve everything else)"
             echo "  4) Cancel installation (backup remains)"
             echo ""
-            read -p "Enter choice [1-4]: " choice
+
+            # Determine choice based on mode/TTY
+            if [[ -n "$INSTALL_MODE" ]]; then
+                case "$INSTALL_MODE" in
+                    fresh) choice=1 ;;
+                    merge) choice=2 ;;
+                    update) choice=3 ;;
+                    cancel) choice=4 ;;
+                esac
+                echo "Non-interactive mode: $INSTALL_MODE"
+            elif [[ ! -t 0 ]]; then
+                # No TTY attached; default to update workflows only
+                choice=3
+                echo "Non-interactive environment detected. Defaulting to: Update workflows only"
+            else
+                # Interactive prompt with default=3 and validation loop
+                while true; do
+                    read -r -p "Enter choice [1-4] (default 3): " choice
+                    choice=${choice:-3}
+                    case $choice in
+                        1|2|3|4) break ;;
+                        *) echo "Invalid choice. Please enter 1, 2, 3, or 4." ;;
+                    esac
+                done
+            fi
 
             case $choice in
                 1)
@@ -455,11 +502,6 @@ setup_install_dir() {
                     log "Installation cancelled by user"
                     echo "Your backup is preserved at: $backup_dir"
                     exit 0
-                    ;;
-                *)
-                    log_error "Invalid choice"
-                    echo "Your backup is preserved at: $backup_dir"
-                    exit 1
                     ;;
             esac
         fi
@@ -569,7 +611,7 @@ copy_files() {
         local shared_dir="$(dirname "$source_dir")/shared"
         if [[ ! -d "$INSTALL_DIR/scripts" ]]; then
             mkdir -p "$INSTALL_DIR/scripts"
-            for subdir in analyzers generators setup utils tests ci core; do
+            for subdir in analyzers generators setup utils tests ci core config; do
                 if [[ -d "$shared_dir/$subdir" ]]; then
                     ( cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir" ) &
                     spinner $! "Copying $subdir scripts"
@@ -634,7 +676,7 @@ copy_files() {
                 while IFS= read -r -d '' script_file; do
                     local rel_path="${script_file#$INSTALL_DIR/scripts/}"
                     local found_in_source=false
-                    for subdir in analyzers generators setup utils tests ci core; do
+                    for subdir in analyzers generators setup utils tests ci core config; do
                         if [[ -f "$shared_dir/$subdir/${rel_path#*/}" ]] && [[ "$rel_path" == "$subdir/"* ]]; then
                             found_in_source=true
                             break
@@ -659,7 +701,7 @@ copy_files() {
             # Remove and recreate scripts directory
             rm -rf "$INSTALL_DIR/scripts"
             mkdir -p "$INSTALL_DIR/scripts"
-            for subdir in analyzers generators setup utils tests ci core; do
+            for subdir in analyzers generators setup utils tests ci core config; do
                 if [[ -d "$shared_dir/$subdir" ]]; then
                     cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir"
                 fi
@@ -708,7 +750,7 @@ copy_files() {
         # Copy scripts from shared/ subdirectories
         local shared_dir="$(dirname "$source_dir")/shared"
         mkdir -p "$INSTALL_DIR/scripts"
-        for subdir in analyzers generators setup utils tests ci core test-paths; do
+        for subdir in analyzers generators setup utils tests ci core config test-paths; do
             if [[ -d "$shared_dir/$subdir" ]]; then
                 ( cp -r "$shared_dir/$subdir" "$INSTALL_DIR/scripts/$subdir" ) &
                 spinner $! "Copying $subdir scripts"

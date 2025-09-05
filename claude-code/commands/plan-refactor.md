@@ -32,7 +32,7 @@
    **Pre-flight environment check (fail fast if imports not resolved):**
 
    ```bash
-   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/.." && pwd)"
+   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
    PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
    ```
 

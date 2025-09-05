@@ -104,3 +104,9 @@ test_codebase/.claude/
 
 # Development history
 .specstory/
+
+# cache files
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.serena/cache/

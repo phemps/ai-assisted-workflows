@@ -248,20 +248,33 @@ class TechStackDetector:
         import os
         from pathlib import Path
 
-        # Get exclusion lists
-        exclusions = self.get_simple_exclusions(
-            project_path or os.path.dirname(file_path)
-        )
+        # Get exclusion lists (based on detected stacks at project root)
+        project_root = Path(project_path or os.path.dirname(file_path)).resolve()
+        exclusions = self.get_simple_exclusions(str(project_root))
 
         # Convert to Path object for easier manipulation
-        path_obj = Path(file_path)
-        path_parts_lower = {p.lower() for p in path_obj.parts}
+        path_obj = Path(file_path).resolve()
+        # Prefer checking relative-to-root to avoid false positives from OS dirs like '/tmp'
+        try:
+            rel_parts = Path(path_obj).relative_to(project_root).parts
+            rel_parts_lower = {p.lower() for p in rel_parts}
+            rel_path_str = "/".join(rel_parts).lower()
+        except Exception:
+            # Fall back to absolute path if not under project_root
+            rel_parts_lower = {p.lower() for p in path_obj.parts}
+            rel_path_str = str(path_obj).lower()
 
-        # Check if file is in an excluded directory (dead simple - just check if name appears in path)
-        path_str = str(path_obj).lower()
-        for excluded_dir in exclusions["directories"]:
-            if excluded_dir.lower() in path_str:
-                return False
+        # Check if file is in an excluded directory
+        # - Single-segment directories must match a path part exactly
+        # - Multi-segment patterns (e.g. 'ios/Pods') match as a substring of the path
+        for d in exclusions["directories"]:
+            d_low = d.lower()
+            if "/" in d_low:
+                if d_low in rel_path_str:
+                    return False
+            else:
+                if d_low in rel_parts_lower:
+                    return False
 
         # Check excluded files by name
         if path_obj.name.lower() in {f.lower() for f in exclusions["files"]}:
@@ -273,7 +286,7 @@ class TechStackDetector:
 
         # Content-based detection for remaining files
         return not self._is_generated_or_vendor_code(
-            file_path, dev_dir_parts=path_parts_lower
+            str(path_obj), dev_dir_parts=rel_parts_lower
         )
 
     def _is_generated_or_vendor_code(

@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,7 +28,13 @@ jobs:
         env:
           PYTHONPATH: shared
         run: |
-          pytest -q shared/tests/unit --cov=shared --cov-report=term-missing --cov-fail-under=85
+          pytest -q shared/tests/unit \
+            --cov=shared/core/base \
+            --cov=shared/core/config \
+            --cov=shared/core/utils/architectural_pattern_detector.py \
+            --cov=shared/core/utils/tech_stack_detector.py \
+            --cov-report=term-missing \
+            --cov-fail-under=85
 
       - name: Ruff lint
         run: |

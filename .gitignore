@@ -110,3 +110,9 @@ test_codebase/.claude/
 .pytest_cache/
 .ruff_cache/
 .serena/cache/
+
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

@@ -62,3 +62,30 @@ def test_validate_finding_line_zero_needs_error_metadata():
     }
     # Should pass because error metadata is provided
     assert validate_finding(finding) is True
+
+
+@pytest.mark.parametrize(
+    "field,value,errmsg",
+    [
+        ("title", "", "non-empty string"),
+        ("description", " ", "non-empty string"),
+        ("recommendation", "", "non-empty string"),
+        ("file_path", " ", "non-empty string"),
+        ("line_number", -1, "non-negative"),
+        ("severity", "urgent", "Invalid severity"),
+    ],
+)
+def test_field_type_and_severity_errors(field, value, errmsg):
+    finding = {
+        "title": "t",
+        "description": "d",
+        "severity": "low",
+        "file_path": "x.py",
+        "line_number": 1,
+        "recommendation": "r",
+        "metadata": {},
+    }
+    finding[field] = value
+    with pytest.raises(ValueError) as exc:
+        validate_finding(finding)
+    assert errmsg in str(exc.value)

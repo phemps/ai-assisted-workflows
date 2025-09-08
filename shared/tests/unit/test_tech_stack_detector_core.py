@@ -4,6 +4,62 @@ from pathlib import Path
 from core.utils.tech_stack_detector import TechStackDetector
 
 
+def test_detect_node_stack_with_package_json(tmp_path: Path):
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    detector = TechStackDetector.from_config(
+        Path("shared/config/tech_stacks/tech_stacks.json").resolve()
+    )
+    detected = detector.detect_tech_stack(str(tmp_path))
+    assert "node_js" in detected
+    exclusions = detector.get_simple_exclusions(str(tmp_path))
+    assert "node_modules" in exclusions["directories"] or any(
+        "node_modules" in d for d in exclusions["directories"]
+    )
+
+
+def test_detect_multiple_stacks_and_exclusions(
+    tmp_path: Path, tech_stacks_config_path: Path
+):
+    # Create config files to trigger many stacks at once
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "app.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[tool.poetry]", encoding="utf-8")
+    (tmp_path / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (tmp_path / "build.gradle").write_text("plugins{}", encoding="utf-8")
+    (tmp_path / "proj.csproj").write_text("<Project/>", encoding="utf-8")
+    (tmp_path / "go.mod").write_text("module x", encoding="utf-8")
+    (tmp_path / "Cargo.toml").write_text("[package]", encoding="utf-8")
+    (tmp_path / "composer.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "Gemfile").write_text("source 'https://rubygems.org'", encoding="utf-8")
+    (tmp_path / "CMakeLists.txt").write_text("project(X)", encoding="utf-8")
+    (tmp_path / "Package.swift").write_text("// swift-package", encoding="utf-8")
+    (tmp_path / "build.gradle.kts").write_text("plugins{}", encoding="utf-8")
+
+    detector = TechStackDetector.from_config(tech_stacks_config_path)
+    stacks = set(detector.detect_tech_stack(str(tmp_path)))
+    for key in [
+        "node_js",
+        "react_native_expo",
+        "python",
+        "java_maven",
+        "java_gradle",
+        "dotnet",
+        "go",
+        "rust",
+        "php",
+        "ruby",
+        "cpp",
+        "swift",
+        "kotlin",
+    ]:
+        assert key in stacks
+
+    excl = detector.get_simple_exclusions(str(tmp_path))
+    assert "node_modules" in excl["directories"]
+    assert "target" in excl["directories"] or "build" in excl["directories"]
+    assert ".dll" in excl["extensions"] or ".class" in excl["extensions"]
+
+
 def test_file_exists_pattern_glob_match(tmp_path: Path, tech_stacks_config_path: Path):
     (tmp_path / "src").mkdir(parents=True, exist_ok=True)
     (tmp_path / "src" / "a.py").write_text("print('x')\n", encoding="utf-8")
@@ -49,15 +105,12 @@ def test_get_simple_exclusions_swift_kotlin_cpp(
     (tmp_path / "CMakeLists.txt").write_text("project(X)\n", encoding="utf-8")
     det = TechStackDetector.from_config(tech_stacks_config_path)
     excl = det.get_simple_exclusions(str(tmp_path))
-    # Swift
     assert any(
         d in excl["directories"] for d in [".build", "build", "DerivedData"]
     )  # swift
-    # Kotlin
     assert any(
         d in excl["directories"] for d in ["build", ".gradle", ".idea"]
     )  # kotlin
-    # C/C++
     assert any(
         d in excl["directories"]
         for d in ["cmake-build-debug", "cmake-build-release", "build"]

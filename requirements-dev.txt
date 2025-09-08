@@ -1,5 +1,7 @@
 pytest>=7.4
 pytest-cov>=4.1
+pytest-timeout>=2.3
+pytest-xdist>=3.6
 radon>=6.0
 xenon>=0.9
 ruff>=0.5

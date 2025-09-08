@@ -28,7 +28,7 @@ jobs:
         env:
           PYTHONPATH: shared
         run: |
-          pytest -q shared/tests/unit \
+          pytest -q shared/tests/unit -n auto --dist=loadfile --timeout=60 \
             --cov=core.base.analyzer_registry \
             --cov=core.base.validation_rules \
             --cov=core.config.loader \

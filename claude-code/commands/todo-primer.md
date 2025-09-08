@@ -4,7 +4,7 @@ Analyze the current project to generate a comprehensive primer with project deta
 
 ## Behavior
 
-This command performs a deep analysis of the current project to create a standardized project primer. It reads key documentation files and uses available search tools to understand the codebase structure, identify technologies, extract commands, and map the architecture.
+This command performs a deep analysis of the current project to create a standardized project primer. It reads key documentation files, reviews recent changes and uses available search tools to understand the codebase structure, identify technologies, extract commands, and map the architecture.
 
 ## Process
 
@@ -25,7 +25,14 @@ This command performs a deep analysis of the current project to create a standar
      - **Project Structure**: Identify key directories, entry points, and important files
      - **Testing**: Understand test setup, frameworks used, and how to create new tests
 
-3. **Generate Project Primer**
+3. **Review recent changes**
+
+   - Use `gh` or `git` to determine the last three commits;
+     - **Purpose & Features**: Identify what the objective of each commit was
+     - **Identify**: Files involved and changes made
+     - **Approach**: How was the objective achieved, any patterns, libraries or tools used, etc.
+
+4. **Generate Project Primer**
    - Compile findings into standardized markdown format
    - Present comprehensive project overview
 

@@ -255,6 +255,7 @@ class TechStackDetector:
 
         # Convert to Path object for easier manipulation
         path_obj = Path(file_path)
+        path_parts_lower = {p.lower() for p in path_obj.parts}
 
         # Check if file is in an excluded directory (dead simple - just check if name appears in path)
         path_str = str(path_obj).lower()
@@ -271,9 +272,13 @@ class TechStackDetector:
             return False
 
         # Content-based detection for remaining files
-        return not self._is_generated_or_vendor_code(file_path)
+        return not self._is_generated_or_vendor_code(
+            file_path, dev_dir_parts=path_parts_lower
+        )
 
-    def _is_generated_or_vendor_code(self, file_path: str) -> bool:
+    def _is_generated_or_vendor_code(
+        self, file_path: str, dev_dir_parts: Set[str] | None = None
+    ) -> bool:
         """
         Detect if file is generated or vendor code based on content analysis.
         """
@@ -330,9 +335,15 @@ class TechStackDetector:
             if any(marker in content_lower for marker in vendor_markers):
                 # Additional check: if it's in a clearly non-vendor location, keep it
                 path_lower = file_path.lower()
-                if any(
+                in_dev_dir = any(
                     dev_dir in path_lower
                     for dev_dir in ["/src/", "/app/", "/components/", "/pages/"]
+                )
+                # Also check by path parts for robustness across platforms
+                if dev_dir_parts is None:
+                    dev_dir_parts = set()
+                if in_dev_dir or (
+                    dev_dir_parts & {"src", "app", "components", "pages"}
                 ):
                     return False
                 return True

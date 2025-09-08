@@ -132,6 +132,12 @@ class TechStackDetector:
             "logs",
             "tmp",
             "temp",
+            # Universal vendor/build directories (exclude regardless of stack detection)
+            "node_modules",
+            "dist",
+            "build",
+            ".next",
+            ".nuxt",
         }
         excluded_files = {
             ".DS_Store",

@@ -29,10 +29,10 @@ jobs:
           PYTHONPATH: shared
         run: |
           pytest -q shared/tests/unit \
-            --cov=shared/core/base \
-            --cov=shared/core/config \
-            --cov=shared/core/utils/architectural_pattern_detector.py \
-            --cov=shared/core/utils/tech_stack_detector.py \
+            --cov=core.base \
+            --cov=core.config \
+            --cov=core.utils.architectural_pattern_detector \
+            --cov=core.utils.tech_stack_detector \
             --cov-report=term-missing \
             --cov-fail-under=85
 

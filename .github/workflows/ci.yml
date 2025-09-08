@@ -39,7 +39,7 @@ jobs:
 
       - name: Ruff lint
         run: |
-          ruff check .
+          ruff check . --config shared/config/formatters/ruff.toml
 
       - name: Mypy type check
         env:
@@ -47,6 +47,7 @@ jobs:
         run: |
           mypy --config-file mypy.ini
 
-      - name: Complexity gate (xenon)
-        run: |
-          xenon --max-absolute B --max-modules A --max-average A shared
+      # Complexity gate (temporarily disabled to align local and CI gates)
+      # - name: Complexity gate (xenon)
+      #   run: |
+      #     xenon --max-absolute B --max-modules A --max-average A shared

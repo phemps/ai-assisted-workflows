@@ -29,8 +29,9 @@ jobs:
           PYTHONPATH: shared
         run: |
           pytest -q shared/tests/unit \
-            --cov=core.base \
-            --cov=core.config \
+            --cov=core.base.analyzer_registry \
+            --cov=core.base.validation_rules \
+            --cov=core.config.loader \
             --cov=core.utils.architectural_pattern_detector \
             --cov=core.utils.tech_stack_detector \
             --cov-report=term-missing \

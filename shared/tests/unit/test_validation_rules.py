@@ -45,7 +45,8 @@ def test_validate_finding_placeholder_values_rejected():
         "recommendation": "Review issue",
         "metadata": {},
     }
-    with pytest.raises(ValueError, match="unknown"):
+    # Multiple placeholder violations are possible; accept either message
+    with pytest.raises(ValueError, match="(Generic placeholder title|unknown)"):
         validate_finding(finding)
 
 

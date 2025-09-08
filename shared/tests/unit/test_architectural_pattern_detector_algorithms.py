@@ -2,9 +2,11 @@
 
 import re
 from pathlib import Path
+import pytest
 from core.utils.architectural_pattern_detector import (
     ArchitecturalPatternDetector,
     PatternMatch,
+    main as arch_main,
 )
 
 
@@ -71,10 +73,77 @@ def test_confidence_scorers_and_penalties(patterns_config_dir: Path):
 def test_calculate_confidence_missing_scorer_and_clamp(patterns_config_dir: Path):
     detector = ArchitecturalPatternDetector(config_dir=patterns_config_dir)
     text = "@decorator\n/** doc */\n# comment"
-    m = re.search(r"@\w+", text)
+    m = re.search(r"(?s)@decorator.*", text)
     assert m is not None
     score = detector._calculate_confidence(m, text, "unknown_pattern")  # type: ignore[attr-defined]
     assert 0.0 <= score <= 1.0
+
+
+def test_should_exclude_match_branch(patterns_config_dir: Path):
+    detector = ArchitecturalPatternDetector(config_dir=patterns_config_dir)
+    content = "SKIP_ME"
+    lines = [content]
+    found = detector._find_pattern_matches(  # type: ignore[attr-defined]
+        content,
+        lines,
+        "singleton",
+        {
+            "indicators": [r"SKIP_ME"],
+            "exclude_patterns": [r"SKIP"],
+            "severity": "low",
+            "description": "d",
+        },
+        set(),
+        "x.py",
+    )
+    assert found == []
+
+
+def test_detector_init_bad_config_raises(tmp_path: Path):
+    # Missing required files for patterns should raise RuntimeError via ConfigError
+    with pytest.raises(RuntimeError):
+        ArchitecturalPatternDetector(config_dir=tmp_path)
+
+
+def test_get_pattern_summary_buckets():
+    det = ArchitecturalPatternDetector()
+    matches = [
+        PatternMatch("anti", "a", "low", "", 1, "", 0.5, False),  # low
+        PatternMatch("anti", "b", "medium", "", 2, "", 0.7, False),  # medium
+        PatternMatch("anti", "god_class", "high", "", 3, "", 0.9, False),  # high
+        *[
+            PatternMatch(
+                "architectural", "singleton", "low", "", i + 10, "", 0.9, False
+            )
+            for i in range(4)
+        ],
+        PatternMatch("anti", "feature_envy", "low", "", 99, "", 0.9, False),
+    ]
+    summary = det.get_pattern_summary(matches)
+    assert summary["patterns_by_confidence"]["low"] >= 1
+    assert summary["patterns_by_confidence"]["medium"] >= 1
+    assert summary["patterns_by_confidence"]["high"] >= 1
+    recs = "\n".join(summary["recommendations"])
+    assert "dependency injection" in recs or "singleton" in recs
+    assert (
+        "Move methods closer" in recs
+        or "feature envy" in recs
+        or "architectural refactoring" in recs
+    )
+
+
+def test_architectural_detector_cli_smoke(tmp_path: Path, monkeypatch):
+    # Create a tiny Python file
+    fp = tmp_path / "s.py"
+    fp.write_text("class X:\n    def a(self): pass\n", encoding="utf-8")
+    import sys
+
+    argv_bak = sys.argv[:]
+    sys.argv = ["arch", str(fp), "--language", "python"]
+    try:
+        arch_main()
+    finally:
+        sys.argv = argv_bak
 
 
 # AST-based analysis (core)

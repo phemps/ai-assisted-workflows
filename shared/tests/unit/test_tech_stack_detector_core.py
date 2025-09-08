@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import pytest
 from core.utils.tech_stack_detector import TechStackDetector
 
 
@@ -115,3 +116,41 @@ def test_get_simple_exclusions_swift_kotlin_cpp(
         d in excl["directories"]
         for d in ["cmake-build-debug", "cmake-build-release", "build"]
     )
+
+
+def test_detector_init_bad_config_raises(tmp_path: Path):
+    bad = tmp_path / "bad.json"
+    bad.write_text('{\n  "schema_version": 1\n}\n', encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        TechStackDetector.from_config(bad)
+
+
+def test_should_analyze_file_excluded_filename_and_extension(
+    tmp_path: Path, tech_stacks_config_path: Path
+):
+    det = TechStackDetector.from_config(tech_stacks_config_path)
+    envf = tmp_path / ".env"
+    envf.write_text("A=1\n", encoding="utf-8")
+    assert det.should_analyze_file(str(envf), str(tmp_path)) is False
+    logf = tmp_path / "a.log"
+    logf.write_text("x\n", encoding="utf-8")
+    assert det.should_analyze_file(str(logf), str(tmp_path)) is False
+
+
+def test_is_generated_and_minified_detection(
+    tmp_path: Path, tech_stacks_config_path: Path
+):
+    det = TechStackDetector.from_config(tech_stacks_config_path)
+    gen = tmp_path / "gen.js"
+    gen.write_text("/* This file is auto-generated */\n", encoding="utf-8")
+    assert det._is_generated_or_vendor_code(str(gen)) is True  # type: ignore[attr-defined]
+    mini = tmp_path / "min.js"
+    mini.write_text("x" * 600 + "\n", encoding="utf-8")
+    assert det._is_generated_or_vendor_code(str(mini)) is True  # type: ignore[attr-defined]
+
+
+def test_is_generated_or_vendor_code_missing_file(
+    tmp_path: Path, tech_stacks_config_path: Path
+):
+    det = TechStackDetector.from_config(tech_stacks_config_path)
+    assert det._is_generated_or_vendor_code(str(tmp_path / "nope.js")) is False  # type: ignore[attr-defined]

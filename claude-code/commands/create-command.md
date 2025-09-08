@@ -1,3 +1,7 @@
+---
+argument-hint: [user|project] <command-name> <description>
+---
+
 # Create Claude Code Command
 
 Create a new Claude Code slash command based on the task description provided in $ARGUMENTS.

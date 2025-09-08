@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Recent Changes Analyzer - Root Cause Analysis Through Git History
-================================================================
+Recent Changes Analyzer - Root Cause Analysis Through Git History.
 
 PURPOSE: Analyzes recent code changes using git history to identify potential root causes.
 Part of the shared/analyzers/root_cause suite using BaseAnalyzer infrastructure.
@@ -19,15 +18,15 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import re
-import sys
 import subprocess
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -122,7 +121,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
             },
         }
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Recent Changes Analyzer",
@@ -150,14 +149,15 @@ class RecentChangesAnalyzer(BaseAnalyzer):
             },
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze git repository for recent changes related to a specific error.
 
         Args:
             target_path: Path to git repository to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         # REQUIRED: Must have error information to investigate
@@ -314,8 +314,8 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         return None
 
     def _create_risky_commit_finding(
-        self, risk_commit: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, risk_commit: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create a finding for a risky commit."""
         commit = risk_commit["commit"]
         risks = risk_commit["risks"]
@@ -340,8 +340,8 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         }
 
     def _create_timing_issue_finding(
-        self, timing_issue: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, timing_issue: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create a finding for a suspicious timing issue."""
         commit = timing_issue["commit"]
         concern = timing_issue["timing_concern"]
@@ -378,7 +378,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
             },
         }
 
-    def _create_hotspot_finding(self, hotspot: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_hotspot_finding(self, hotspot: dict[str, Any]) -> dict[str, Any]:
         """Create a finding for a file change hotspot."""
         return {
             "title": "File Change Hotspot",
@@ -395,7 +395,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
             },
         }
 
-    def _get_risk_recommendation(self, risks: List[str]) -> str:
+    def _get_risk_recommendation(self, risks: list[str]) -> str:
         """Get recommendations for risky commits."""
         recommendations = {
             "hotfix": "Review the urgency and consider adding automated tests to prevent similar issues",
@@ -429,7 +429,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         )
 
     def run_git_command(
-        self, command: List[str], cwd: Optional[Path] = None
+        self, command: list[str], cwd: Optional[Path] = None
     ) -> Optional[str]:
         """Run a git command and return output."""
         import os
@@ -446,7 +446,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             return None
 
-    def get_recent_commits(self, repo_path: Path) -> List[Dict[str, Any]]:
+    def get_recent_commits(self, repo_path: Path) -> list[dict[str, Any]]:
         """Get recent commits with details and file changes."""
         since_date = (datetime.now() - timedelta(days=self.days_back)).strftime(
             "%Y-%m-%d"
@@ -499,7 +499,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
         return commits
 
-    def get_file_blame_info(self, file_path: Path, repo_path: Path) -> Dict[str, Any]:
+    def get_file_blame_info(self, file_path: Path, repo_path: Path) -> dict[str, Any]:
         """Get git blame information for a file."""
         relative_path = file_path.relative_to(repo_path)
 
@@ -548,8 +548,8 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         return blame_info
 
     def analyze_change_risk(
-        self, commits: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, commits: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Analyze commits for potential risk factors."""
         risk_findings = []
 
@@ -587,7 +587,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
         return risk_findings
 
-    def _calculate_risk_level(self, risks: List[str]) -> str:
+    def _calculate_risk_level(self, risks: list[str]) -> str:
         """Calculate overall risk level based on detected risks."""
         critical_risks = [
             "hotfix",
@@ -607,7 +607,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         else:
             return "low"
 
-    def get_changed_files(self, repo_path: Path) -> List[Dict[str, Any]]:
+    def get_changed_files(self, repo_path: Path) -> list[dict[str, Any]]:
         """Get files changed in recent commits."""
         since_date = (datetime.now() - timedelta(days=self.days_back)).strftime(
             "%Y-%m-%d"
@@ -645,8 +645,8 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         return dict(changed_files)
 
     def analyze_file_change_frequency(
-        self, changed_files: Dict[str, List[Dict[str, Any]]]
-    ) -> List[Dict[str, Any]]:
+        self, changed_files: dict[str, list[dict[str, Any]]]
+    ) -> list[dict[str, Any]]:
         """Analyze files that change frequently (potential hotspots)."""
         hotspots = []
 
@@ -671,8 +671,8 @@ class RecentChangesAnalyzer(BaseAnalyzer):
         return hotspots
 
     def analyze_commit_timing_patterns(
-        self, commits: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, commits: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Analyze commit timing to detect emergency patterns."""
         timing_issues = []
 
@@ -719,7 +719,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
         return timing_issues
 
-    def parse_error(self, error_info: str) -> Dict[str, Any]:
+    def parse_error(self, error_info: str) -> dict[str, Any]:
         """Parse error information to extract actionable context."""
         if not error_info:
             return {}
@@ -768,7 +768,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
     def get_recent_commits_for_file(
         self, git_root: Path, target_file: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get recent commits that modified a specific file."""
         try:
             # Git command to get commits for specific file
@@ -827,7 +827,7 @@ class RecentChangesAnalyzer(BaseAnalyzer):
 
 
 def main():
-    """Main entry point for command-line usage."""
+    """Run recent changes analyzer from the command line."""
     import argparse
     import os
 

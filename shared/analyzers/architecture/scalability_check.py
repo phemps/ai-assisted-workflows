@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Scalability Analysis Analyzer - Code Scalability Assessment
-==========================================================
+Scalability Analysis Analyzer - Code Scalability Assessment.
 
 PURPOSE: Analyzes code for potential scalability bottlenecks and architectural constraints.
 Part of the shared/analyzers/architecture suite using BaseAnalyzer infrastructure.
@@ -19,14 +18,14 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 - Uses shared timing, logging, and error handling patterns
 """
 
-import re
 import ast
+import re
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -255,7 +254,7 @@ class ScalabilityAnalyzer(BaseAnalyzer):
             },
         }
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Scalability Analysis Analyzer",
@@ -281,21 +280,22 @@ class ScalabilityAnalyzer(BaseAnalyzer):
             },
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for scalability bottlenecks.
 
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         all_findings = []
         file_path = Path(target_path)
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
@@ -352,11 +352,11 @@ class ScalabilityAnalyzer(BaseAnalyzer):
     def _check_scalability_patterns(
         self,
         content: str,
-        lines: List[str],
+        lines: list[str],
         file_path: str,
-        pattern_dict: Dict,
+        pattern_dict: dict,
         category: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check for specific scalability patterns in file content with context validation."""
         findings = []
 
@@ -402,7 +402,7 @@ class ScalabilityAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _get_lizard_metrics(self, file_path: str) -> Dict[str, Any]:
+    def _get_lizard_metrics(self, file_path: str) -> dict[str, Any]:
         """Get Lizard complexity metrics for the file."""
         try:
             result = subprocess.run(
@@ -458,10 +458,9 @@ class ScalabilityAnalyzer(BaseAnalyzer):
         return {"functions": [], "avg_ccn": 0, "max_ccn": 0, "total_functions": 0}
 
     def _should_flag_scalability_issue(
-        self, pattern_name: str, context: str, lizard_metrics: Dict, content: str
+        self, pattern_name: str, context: str, lizard_metrics: dict, content: str
     ) -> bool:
         """Determine if a scalability issue should be flagged based on context."""
-
         # Skip if in test files, specs, or configuration files
         context_lower = context.lower()
         if any(
@@ -556,7 +555,7 @@ class ScalabilityAnalyzer(BaseAnalyzer):
         )
 
     def _calculate_confidence(
-        self, pattern_name: str, context: str, lizard_metrics: Dict
+        self, pattern_name: str, context: str, lizard_metrics: dict
     ) -> str:
         """Calculate confidence level for the finding."""
         max_ccn = lizard_metrics.get("max_ccn", 0)
@@ -570,8 +569,8 @@ class ScalabilityAnalyzer(BaseAnalyzer):
             return "low"
 
     def _analyze_python_complexity(
-        self, content: str, lines: List[str], file_path: str
-    ) -> List[Dict[str, Any]]:
+        self, content: str, lines: list[str], file_path: str
+    ) -> list[dict[str, Any]]:
         """Analyze Python-specific complexity that affects scalability."""
         findings = []
 
@@ -609,32 +608,29 @@ class ScalabilityAnalyzer(BaseAnalyzer):
                         )
 
                 # Check for large list comprehensions
-                if isinstance(node, ast.ListComp):
-                    if len(node.generators) > 2:  # Multiple generators
-                        line_num = getattr(node, "lineno", 0)
-                        context = (
-                            lines[line_num - 1].strip()
-                            if line_num <= len(lines)
-                            else ""
-                        )
+                if isinstance(node, ast.ListComp) and len(node.generators) > 2:
+                    line_num = getattr(node, "lineno", 0)
+                    context = (
+                        lines[line_num - 1].strip() if line_num <= len(lines) else ""
+                    )
 
-                        findings.append(
-                            {
-                                "title": "Complex List Comprehension",
-                                "description": "Complex list comprehension with multiple generators may impact performance",
-                                "severity": "medium",
-                                "file_path": file_path,
-                                "line_number": line_num,
-                                "recommendation": "Consider breaking into simpler operations or using generator expressions",
-                                "metadata": {
-                                    "scalability_category": "performance",
-                                    "pattern_name": "complex_comprehension",
-                                    "generator_count": len(node.generators),
-                                    "context": context,
-                                    "confidence": "medium",
-                                },
-                            }
-                        )
+                    findings.append(
+                        {
+                            "title": "Complex List Comprehension",
+                            "description": "Complex list comprehension with multiple generators may impact performance",
+                            "severity": "medium",
+                            "file_path": file_path,
+                            "line_number": line_num,
+                            "recommendation": "Consider breaking into simpler operations or using generator expressions",
+                            "metadata": {
+                                "scalability_category": "performance",
+                                "pattern_name": "complex_comprehension",
+                                "generator_count": len(node.generators),
+                                "context": context,
+                                "confidence": "medium",
+                            },
+                        }
+                    )
 
         except SyntaxError:
             # Skip files with syntax errors

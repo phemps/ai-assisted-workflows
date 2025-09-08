@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-File System Utilities for Continuous Improvement Framework
+File System Utilities for Continuous Improvement Framework.
+
 Eliminates duplication of file system operation patterns.
 """
 
-import shutil
-import hashlib
-from pathlib import Path
-from typing import List, Optional, Dict, Any, Union, Callable
 import fnmatch
+import hashlib
+import shutil
 import tempfile
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Callable, Optional, Union
 
-from .error_handler import CIErrorHandler, CIErrorContext
+from .error_handler import CIErrorContext, CIErrorHandler
 from .timing_utils import timed_operation
 
 
@@ -33,7 +34,7 @@ class FileSystemUtils:
     def safe_read_text(
         file_path: Union[str, Path],
         encoding: str = "utf-8",
-        fallback_encodings: Optional[List[str]] = None,
+        fallback_encodings: Optional[list[str]] = None,
     ) -> str:
         """
         Safely read text file with fallback encodings.
@@ -43,7 +44,8 @@ class FileSystemUtils:
             encoding: Primary encoding to try
             fallback_encodings: List of fallback encodings
 
-        Returns:
+        Returns
+        -------
             File content as string
         """
         path_obj = Path(file_path)
@@ -73,6 +75,7 @@ class FileSystemUtils:
             error_code=6,  # FILE_READ_ERROR
             file_path=path_obj,
         )
+        return ""
 
     @staticmethod
     def safe_write_text(
@@ -120,7 +123,8 @@ class FileSystemUtils:
             create_parents: Create parent directories if needed
             overwrite: Overwrite existing destination
 
-        Returns:
+        Returns
+        -------
             Path to destination file
         """
         source_path = Path(source)
@@ -158,7 +162,8 @@ class FileSystemUtils:
             file_path: Path to file
             algorithm: Hash algorithm (md5, sha1, sha256)
 
-        Returns:
+        Returns
+        -------
             Hex digest of file hash
         """
         path_obj = Path(file_path)
@@ -170,22 +175,23 @@ class FileSystemUtils:
                 "algorithm", algorithm, "valid hash algorithm (md5, sha1, sha256, etc.)"
             )
 
-        with CIErrorContext("computing file hash", str(path_obj)):
-            with open(path_obj, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hasher.update(chunk)
+        with CIErrorContext("computing file hash", str(path_obj)), open(
+            path_obj, "rb"
+        ) as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hasher.update(chunk)
 
         return hasher.hexdigest()
 
     @staticmethod
     def find_files(
         root_path: Union[str, Path],
-        patterns: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
-        extensions: Optional[List[str]] = None,
+        patterns: Optional[list[str]] = None,
+        exclude_patterns: Optional[list[str]] = None,
+        extensions: Optional[list[str]] = None,
         max_depth: Optional[int] = None,
         follow_symlinks: bool = False,
-    ) -> List[Path]:
+    ) -> list[Path]:
         """
         Find files matching criteria with pattern support.
 
@@ -197,7 +203,8 @@ class FileSystemUtils:
             max_depth: Maximum directory depth to search
             follow_symlinks: Follow symbolic links
 
-        Returns:
+        Returns
+        -------
             List of matching file paths
         """
         root = Path(root_path)
@@ -225,10 +232,9 @@ class FileSystemUtils:
                 return False
 
             # Check exclude patterns
-            if any(fnmatch.fnmatch(path_str, pattern) for pattern in exclude_patterns):
-                return False
-
-            return True
+            return not any(
+                fnmatch.fnmatch(path_str, pattern) for pattern in exclude_patterns
+            )
 
         def walk_directory(dir_path: Path, current_depth: int = 0):
             if max_depth is not None and current_depth > max_depth:
@@ -256,27 +262,27 @@ class FileSystemUtils:
         Args:
             path: Directory path
 
-        Returns:
+        Returns
+        -------
             Total size in bytes
         """
         path_obj = Path(path)
         total_size = 0
 
+        from contextlib import suppress
+
         for item in FileSystemUtils.find_files(path_obj):
-            try:
+            with suppress(OSError, PermissionError):
                 total_size += item.stat().st_size
-            except (OSError, PermissionError):
-                # Skip files we can't access
-                pass
 
         return total_size
 
     @staticmethod
     def clean_directory(
         path: Union[str, Path],
-        patterns: Optional[List[str]] = None,
+        patterns: Optional[list[str]] = None,
         dry_run: bool = False,
-    ) -> List[Path]:
+    ) -> list[Path]:
         """
         Clean directory by removing files matching patterns.
 
@@ -285,7 +291,8 @@ class FileSystemUtils:
             patterns: File patterns to remove (default: temp/cache patterns)
             dry_run: Show what would be removed without actually removing
 
-        Returns:
+        Returns
+        -------
             List of files that were (or would be) removed
         """
         path_obj = Path(path)
@@ -330,7 +337,7 @@ class TemporaryDirectory:
         self.prefix = prefix
         self.cleanup = cleanup
         self.path: Optional[Path] = None
-        self._temp_dir = None
+        self._temp_dir: Optional[tempfile.TemporaryDirectory[str]] = None
 
     def __enter__(self) -> Path:
         self._temp_dir = tempfile.TemporaryDirectory(prefix=self.prefix)
@@ -354,7 +361,8 @@ def atomic_write(
         encoding: Text encoding
         backup: Create backup of existing file
 
-    Yields:
+    Yields
+    ------
         File object for writing
     """
     path_obj = Path(file_path)
@@ -398,7 +406,7 @@ class DirectoryWatcher:
 
     def __init__(self, directory: Union[str, Path]):
         self.directory = Path(directory)
-        self._file_states: Dict[Path, Dict[str, Any]] = {}
+        self._file_states: dict[Path, dict[str, Any]] = {}
         self._scan_directory()
 
     def _scan_directory(self):
@@ -416,14 +424,15 @@ class DirectoryWatcher:
             except (OSError, PermissionError):
                 pass
 
-    def get_changes(self) -> Dict[str, List[Path]]:
+    def get_changes(self) -> dict[str, list[Path]]:
         """
         Get changes since last scan.
 
-        Returns:
+        Returns
+        -------
             Dictionary with 'added', 'modified', 'deleted' file lists
         """
-        changes = {"added": [], "modified": [], "deleted": []}
+        changes: dict[str, list[Path]] = {"added": [], "modified": [], "deleted": []}
 
         current_files = set()
 
@@ -464,11 +473,11 @@ class DirectoryWatcher:
 
 @timed_operation("file_operations_batch")
 def process_files_in_batches(
-    files: List[Path],
+    files: list[Path],
     processor: Callable[[Path], Any],
     batch_size: int = 100,
     progress_callback: Optional[Callable[[int, int], None]] = None,
-) -> List[Any]:
+) -> list[Any]:
     """
     Process files in batches with progress tracking.
 
@@ -478,7 +487,8 @@ def process_files_in_batches(
         batch_size: Size of processing batches
         progress_callback: Optional callback for progress updates (current, total)
 
-    Returns:
+    Returns
+    -------
         List of processing results
     """
     results = []

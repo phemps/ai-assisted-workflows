@@ -1,5 +1,5 @@
 """
-Analysis Engine Module
+Analysis Engine Module.
 
 Provides comprehensive code analysis capabilities including:
 - Architecture analysis

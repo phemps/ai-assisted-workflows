@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Detect-Secrets Analyzer - Hardcoded Secrets Detection Using Established Tool
-============================================================================
+Detect-Secrets Analyzer - Hardcoded Secrets Detection Using Established Tool.
 
 PURPOSE: Detects hardcoded secrets and credentials using detect-secrets library.
 Replaces bespoke regex pattern matching with established entropy-based analysis.
@@ -26,10 +25,10 @@ REPLACES: detect_secrets.py with bespoke regex patterns
 import json
 import subprocess
 import sys
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -243,7 +242,7 @@ class DetectSecretsAnalyzer(BaseAnalyzer):
                 )
                 self.detect_secrets_available = False
 
-    def _run_detect_secrets_scan(self, target_path: str) -> List[Dict[str, Any]]:
+    def _run_detect_secrets_scan(self, target_path: str) -> list[dict[str, Any]]:
         """Run detect-secrets scan on target path."""
         findings = []
 
@@ -284,7 +283,7 @@ class DetectSecretsAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _should_include_secret(self, secret: Dict[str, Any], file_path: str) -> bool:
+    def _should_include_secret(self, secret: dict[str, Any], file_path: str) -> bool:
         """Apply custom filtering to reduce false positives while preserving legitimate secrets."""
         secret_type = secret.get("type", "")
 
@@ -320,8 +319,8 @@ class DetectSecretsAnalyzer(BaseAnalyzer):
         return True  # Include by default
 
     def _process_secret_finding(
-        self, secret: Dict[str, Any], file_path: str
-    ) -> Optional[Dict[str, Any]]:
+        self, secret: dict[str, Any], file_path: str
+    ) -> Optional[dict[str, Any]]:
         """Convert detect-secrets finding to our standardized format."""
         try:
             secret_type = secret.get("type", "unknown")
@@ -378,14 +377,15 @@ class DetectSecretsAnalyzer(BaseAnalyzer):
             "Remove hardcoded secrets from code. Use environment variables or secure credential management.",
         )
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze target using detect-secrets for hardcoded secrets.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of secret findings with standardized structure
         """
         # Skip analysis if detect-secrets is not available (degraded mode)
@@ -420,7 +420,7 @@ class DetectSecretsAnalyzer(BaseAnalyzer):
 
         return standardized_findings
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Detect-Secrets Analyzer",

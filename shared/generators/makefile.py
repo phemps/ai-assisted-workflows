@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Makefile generator for development monitoring.
+
 Creates Makefile with component-specific targets based on LLM analysis.
 """
 
-import sys
 import argparse
 import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 
 def generate_makefile_header(components_info):

@@ -1,7 +1,8 @@
 # update_claude_md.py v0.3
 """
-CLAUDE.md Update Script for Development Workflow Commands
-Adds or updates the Development Workflow Commands section in project CLAUDE.md
+CLAUDE.md Update Script for Development Workflow Commands.
+
+Adds or updates the Development Workflow Commands section in project CLAUDE.md.
 """
 
 import argparse
@@ -9,12 +10,11 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 
-def get_claude_md_content(components: List[Dict[str, Any]]) -> str:
+def get_claude_md_content(components: list[dict[str, Any]]) -> str:
     """Generate the Development Workflow Commands section content."""
-
     # Extract service labels from components for log documentation
     service_labels = []
     for component in components:
@@ -100,15 +100,14 @@ def find_existing_section(content: str) -> tuple:
     return start_idx, end_idx
 
 
-def update_claude_md(project_dir: str, components: List[Dict[str, Any]]) -> bool:
+def update_claude_md(project_dir: str, components: list[dict[str, Any]]) -> bool:
     """Update or create CLAUDE.md with development workflow commands."""
-
     claude_md_path = Path(project_dir) / "CLAUDE.md"
     new_section = get_claude_md_content(components)
 
     if claude_md_path.exists():
         # Read existing content
-        with open(claude_md_path, "r", encoding="utf-8") as f:
+        with open(claude_md_path, encoding="utf-8") as f:
             existing_content = f.read()
 
         # Check if our section already exists

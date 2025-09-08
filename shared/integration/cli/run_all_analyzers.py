@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
 Integration CLI: Run all analysis scripts and validate they work together.
+
 Tests the complete analyzer pipeline and generates combined reports.
 
 Note: This script is a CLI evaluator and is intentionally located under
 shared/integration/cli for direct execution outside pytest.
 """
 
-import sys
+import contextlib
 import json
-import time
 import os
-from typing import Dict, Any, List
+import sys
+import time
+from typing import Any
 
 # Registry-based orchestration (no subprocess execution)
 try:
-    from core.base import AnalyzerRegistry, create_analyzer_config
     import core.base.registry_bootstrap  # noqa: F401 - side-effect import registers analyzers
+    from core.base import AnalyzerRegistry, create_analyzer_config
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -54,7 +56,7 @@ class AnalysisRunner:
         summary_mode: bool,
         min_severity: str,
         max_files: int | None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         cfg = create_analyzer_config(
             target_path=target_path,
             max_files=max_files,
@@ -79,7 +81,7 @@ class AnalysisRunner:
         summary_mode: bool = True,
         min_severity: str = "low",
         max_files: int = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run all analysis scripts and combine results."""
         print("🚀 AI-Assisted Workflows Analysis - Running All Scripts", file=sys.stderr)
         print("=" * 60, file=sys.stderr)
@@ -109,8 +111,8 @@ class AnalysisRunner:
         return combined_report
 
     def generate_combined_report(
-        self, results: Dict[str, Any], target_path: str, total_duration: float
-    ) -> Dict[str, Any]:
+        self, results: dict[str, Any], target_path: str, total_duration: float
+    ) -> dict[str, Any]:
         """Generate a combined analysis report."""
         report = {
             "combined_analysis": {
@@ -129,7 +131,7 @@ class AnalysisRunner:
 
         return report
 
-    def generate_executive_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_executive_summary(self, results: dict[str, Any]) -> dict[str, Any]:
         """Generate executive summary of all findings."""
         summary = {
             "total_findings": 0,
@@ -195,7 +197,7 @@ class AnalysisRunner:
 
         return summary
 
-    def generate_recommendations(self, summary: Dict[str, Any]) -> List[str]:
+    def generate_recommendations(self, summary: dict[str, Any]) -> list[str]:
         """Generate high-level recommendations based on findings."""
         recommendations = []
 
@@ -316,7 +318,7 @@ class AnalysisRunner:
         return recommendations
 
     def _validate_test_result_quality(
-        self, script_name: str, result: Dict[str, Any], stderr: str
+        self, script_name: str, result: dict[str, Any], stderr: str
     ):
         """Validate that test results indicate proper tool functionality."""
         import os
@@ -362,7 +364,7 @@ class AnalysisRunner:
 
 
 def main():
-    """Main function for command-line usage."""
+    """Run command-line integration of all analyzers."""
     import argparse
     import os
 
@@ -431,14 +433,10 @@ def main():
             sys.stdout.flush()
         except BrokenPipeError:
             # Handle broken pipe gracefully (e.g., when output is piped to head)
-            try:
+            with contextlib.suppress(OSError, ValueError):
                 sys.stdout.close()
-            except (OSError, ValueError):
-                pass
-            try:
+            with contextlib.suppress(OSError, ValueError):
                 sys.stderr.close()
-            except (OSError, ValueError):
-                pass
 
 
 if __name__ == "__main__":

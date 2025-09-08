@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Analysis Result Aggregation System
-==================================
+Analysis Result Aggregation System.
 
 PURPOSE: Unified aggregation and reporting system for comprehensive analysis results,
 combining findings from multiple analysis engines (duplicate detection, pattern classification,
@@ -33,17 +32,17 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import json
-import sys
-from typing import Dict, List, Tuple, Set, Optional, Any
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from datetime import datetime
 import logging
+import sys
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from enum import Enum
-from collections import defaultdict, Counter
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 try:
@@ -100,10 +99,10 @@ class AnalysisResult:
     priority: Priority
     confidence: float
     code_snippet: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         result = asdict(self)
         result["analysis_type"] = self.analysis_type.value
@@ -112,7 +111,7 @@ class AnalysisResult:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AnalysisResult":
+    def from_dict(cls, data: dict[str, Any]) -> "AnalysisResult":
         """Create from dictionary."""
         data["analysis_type"] = AnalysisType(data["analysis_type"])
         data["priority"] = Priority(data["priority"])
@@ -132,11 +131,11 @@ class FileAnalysisSummary:
     low_issues: int
     info_issues: int
     avg_confidence: float
-    analysis_types: Set[AnalysisType]
+    analysis_types: set[AnalysisType]
     first_analyzed: datetime
     last_analyzed: datetime
 
-    def get_severity_distribution(self) -> Dict[str, int]:
+    def get_severity_distribution(self) -> dict[str, int]:
         """Get distribution of issues by severity."""
         return {
             "critical": self.critical_issues,
@@ -154,11 +153,11 @@ class ProjectAnalysisSummary:
     project_path: str
     total_files_analyzed: int
     total_issues: int
-    issues_by_priority: Dict[Priority, int]
-    issues_by_type: Dict[AnalysisType, int]
+    issues_by_priority: dict[Priority, int]
+    issues_by_type: dict[AnalysisType, int]
     files_with_issues: int
     avg_confidence: float
-    top_problematic_files: List[Tuple[str, int]]  # (file_path, issue_count)
+    top_problematic_files: list[tuple[str, int]]  # (file_path, issue_count)
     analysis_duration: float  # seconds
     created_at: datetime = field(default_factory=datetime.now)
 
@@ -168,8 +167,8 @@ class ResultConverter:
 
     @staticmethod
     def convert_duplicate_matches(
-        matches: List[DuplicateMatch],
-    ) -> List[AnalysisResult]:
+        matches: list[DuplicateMatch],
+    ) -> list[AnalysisResult]:
         """Convert duplicate detection results to unified format."""
         results = []
 
@@ -225,7 +224,7 @@ class ResultConverter:
         return results
 
     @staticmethod
-    def convert_pattern_matches(matches: List[PatternMatch]) -> List[AnalysisResult]:
+    def convert_pattern_matches(matches: list[PatternMatch]) -> list[AnalysisResult]:
         """Convert pattern classification results to unified format."""
         results = []
 
@@ -286,8 +285,8 @@ class ResultCorrelator:
         ]
 
     def correlate_results(
-        self, results: List[AnalysisResult]
-    ) -> Dict[str, List[AnalysisResult]]:
+        self, results: list[AnalysisResult]
+    ) -> dict[str, list[AnalysisResult]]:
         """Find correlated results and group them."""
         correlations = {}
 
@@ -300,8 +299,8 @@ class ResultCorrelator:
         return correlations
 
     def _correlate_duplicates_and_patterns(
-        self, results: List[AnalysisResult]
-    ) -> Dict[str, List[AnalysisResult]]:
+        self, results: list[AnalysisResult]
+    ) -> dict[str, list[AnalysisResult]]:
         """Find files that have both duplicates and patterns."""
         correlations = {}
 
@@ -312,7 +311,7 @@ class ResultCorrelator:
 
         # Find files with multiple issue types
         for file_path, file_results_list in file_results.items():
-            analysis_types = set(result.analysis_type for result in file_results_list)
+            analysis_types = {result.analysis_type for result in file_results_list}
 
             if (
                 AnalysisType.DUPLICATE_DETECTION in analysis_types
@@ -323,8 +322,8 @@ class ResultCorrelator:
         return correlations
 
     def _correlate_file_hotspots(
-        self, results: List[AnalysisResult]
-    ) -> Dict[str, List[AnalysisResult]]:
+        self, results: list[AnalysisResult]
+    ) -> dict[str, list[AnalysisResult]]:
         """Identify files with many issues (hotspots)."""
         correlations = {}
 
@@ -340,8 +339,8 @@ class ResultCorrelator:
         return correlations
 
     def _correlate_similar_issues(
-        self, results: List[AnalysisResult]
-    ) -> Dict[str, List[AnalysisResult]]:
+        self, results: list[AnalysisResult]
+    ) -> dict[str, list[AnalysisResult]]:
         """Find similar issues across different files."""
         correlations = {}
 
@@ -353,7 +352,7 @@ class ResultCorrelator:
         # Find recurring issues (same issue in multiple files)
         for title, title_results in title_groups.items():
             if len(title_results) >= 3:  # Same issue in 3+ files
-                files = set(result.file_path for result in title_results)
+                files = {result.file_path for result in title_results}
                 if len(files) >= 2:  # Ensure it's across different files
                     correlations[f"recurring_issue:{title}"] = title_results
 
@@ -422,16 +421,17 @@ class AnalysisAggregator(BaseAnalyzer):
         # Initialize aggregation-specific components
         self.converter = ResultConverter()
         self.correlator = ResultCorrelator()
-        self.results: List[AnalysisResult] = []
+        self.results: list[AnalysisResult] = []
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement result aggregation analysis logic for target path.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of aggregation findings with summary statistics
         """
         target = Path(target_path)
@@ -446,11 +446,12 @@ class AnalysisAggregator(BaseAnalyzer):
 
         return []
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """
         Get result aggregator-specific metadata.
 
-        Returns:
+        Returns
+        -------
             Dictionary with analyzer-specific metadata
         """
         return {
@@ -506,10 +507,10 @@ class AnalysisAggregator(BaseAnalyzer):
 
     def _analyze_file_aggregation(
         self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Analyze aggregation capabilities and generate summary for a single file."""
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             if not content.strip():
@@ -564,24 +565,24 @@ class AnalysisAggregator(BaseAnalyzer):
                 }
             ]
 
-    def add_duplicate_analysis(self, matches: List[DuplicateMatch]) -> None:
+    def add_duplicate_analysis(self, matches: list[DuplicateMatch]) -> None:
         """Add duplicate detection results."""
         converted = self.converter.convert_duplicate_matches(matches)
         self.results.extend(converted)
         logger.info(f"Added {len(converted)} duplicate analysis results")
 
-    def add_pattern_analysis(self, matches: List[PatternMatch]) -> None:
+    def add_pattern_analysis(self, matches: list[PatternMatch]) -> None:
         """Add pattern classification results."""
         converted = self.converter.convert_pattern_matches(matches)
         self.results.extend(converted)
         logger.info(f"Added {len(converted)} pattern analysis results")
 
-    def add_custom_analysis(self, results: List[AnalysisResult]) -> None:
+    def add_custom_analysis(self, results: list[AnalysisResult]) -> None:
         """Add custom analysis results."""
         self.results.extend(results)
         logger.info(f"Added {len(results)} custom analysis results")
 
-    def generate_file_summaries(self) -> Dict[str, FileAnalysisSummary]:
+    def generate_file_summaries(self) -> dict[str, FileAnalysisSummary]:
         """Generate summaries for each file."""
         file_summaries = {}
 
@@ -599,7 +600,7 @@ class AnalysisAggregator(BaseAnalyzer):
             confidences = [result.confidence for result in file_results]
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
 
-            analysis_types = set(result.analysis_type for result in file_results)
+            analysis_types = {result.analysis_type for result in file_results}
             timestamps = [result.created_at for result in file_results]
 
             summary = FileAnalysisSummary(
@@ -640,7 +641,7 @@ class AnalysisAggregator(BaseAnalyzer):
         type_counts = Counter(result.analysis_type for result in self.results)
 
         # Calculate statistics
-        unique_files = set(result.file_path for result in self.results)
+        unique_files = {result.file_path for result in self.results}
         confidences = [result.confidence for result in self.results]
         avg_confidence = sum(confidences) / len(confidences)
 
@@ -649,11 +650,7 @@ class AnalysisAggregator(BaseAnalyzer):
         top_files = file_issue_counts.most_common(10)
 
         # Determine project path
-        if unique_files:
-            # Find common prefix
-            project_path = str(Path.cwd())
-        else:
-            project_path = ""
+        project_path = str(Path.cwd()) if unique_files else ""
 
         return ProjectAnalysisSummary(
             project_path=project_path,
@@ -673,7 +670,7 @@ class AnalysisAggregator(BaseAnalyzer):
         analysis_type: Optional[AnalysisType] = None,
         file_path: Optional[str] = None,
         min_confidence: Optional[float] = None,
-    ) -> List[AnalysisResult]:
+    ) -> list[AnalysisResult]:
         """Get filtered analysis results."""
         filtered = self.results
 
@@ -691,7 +688,7 @@ class AnalysisAggregator(BaseAnalyzer):
 
         return filtered
 
-    def get_top_issues(self, limit: int = 10) -> List[AnalysisResult]:
+    def get_top_issues(self, limit: int = 10) -> list[AnalysisResult]:
         """Get top issues sorted by priority and confidence."""
         priority_order = {p: i for i, p in enumerate(Priority)}
 
@@ -702,7 +699,7 @@ class AnalysisAggregator(BaseAnalyzer):
         return sorted_results[:limit]
 
     def export_results(
-        self, format: str = "json", output_path: Optional[str] = None
+        self, output_format: str = "json", output_path: Optional[str] = None
     ) -> str:
         """Export results in specified format."""
         if format.lower() == "json":
@@ -935,8 +932,8 @@ Based on the analysis results, here's a recommended action plan:
 def aggregate_analysis_results(
     target_path: str,
     output_format: str = "json",
-    analysis_results: Optional[List[AnalysisResult]] = None,
-) -> Dict[str, Any]:
+    analysis_results: Optional[list[AnalysisResult]] = None,
+) -> dict[str, Any]:
     """
     Legacy function wrapper for backward compatibility.
 
@@ -945,7 +942,8 @@ def aggregate_analysis_results(
         output_format: Output format (json, console, summary)
         analysis_results: Optional list of pre-computed analysis results
 
-    Returns:
+    Returns
+    -------
         Analysis results
     """
     try:

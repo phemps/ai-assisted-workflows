@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
+
 import pytest
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import AnalyzerRegistry, register_analyzer
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
 
 
 @register_analyzer("test:dummy")
@@ -11,10 +12,10 @@ class DummyAnalyzer(BaseAnalyzer):
     def __init__(self, config: Optional[AnalyzerConfig] = None):
         super().__init__("test", config or AnalyzerConfig())
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         return []
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         return {"name": "Dummy"}
 
 
@@ -51,13 +52,13 @@ class _DummyAnalyzerB(BaseAnalyzer):
 def test_registry_duplicate_and_missing_handling():
     AnalyzerRegistry.register("test:dummy-a", _DummyAnalyzerA)
     AnalyzerRegistry.register("test:dummy-a", _DummyAnalyzerA)  # idempotent
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Analyzer already registered"):
         AnalyzerRegistry.register("test:dummy-a", _DummyAnalyzerB)
     with pytest.raises(KeyError):
         AnalyzerRegistry.get("test:does-not-exist")
     inst = AnalyzerRegistry.create("test:dummy-a")
     assert isinstance(inst, _DummyAnalyzerA)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="non-empty string"):
         AnalyzerRegistry.register("", _DummyAnalyzerA)
 
 

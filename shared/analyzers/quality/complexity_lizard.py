@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Code Complexity Analyzer using Lizard - Multi-language Complexity Analysis
-=========================================================================
+Code Complexity Analyzer using Lizard - Multi-language Complexity Analysis.
 
 PURPOSE: Specialized code complexity analyzer using Lizard library.
 Part of the shared/analyzers/quality suite using BaseAnalyzer infrastructure.
@@ -20,14 +19,14 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 Supports: C/C++/C#, Java, JavaScript, Python, Ruby, PHP, Swift, Go, Rust, TypeScript, etc.
 """
 
-import sys
-import subprocess
 import re
+import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -143,14 +142,15 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
 
         self.lizard_available = True
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement complexity analysis logic for target path.
 
         Args:
             target_path: Path to analyze (single file or batch from BaseAnalyzer)
 
-        Returns:
+        Returns
+        -------
             List of complexity findings
         """
         # Skip analysis if Lizard is not available (degraded mode)
@@ -172,11 +172,12 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """
         Get complexity analyzer-specific metadata.
 
-        Returns:
+        Returns
+        -------
             Dictionary with analyzer-specific metadata
         """
         return {
@@ -230,7 +231,7 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
         except Exception:
             return ""
 
-    def _parse_lizard_output(self, output: str, file_path: str) -> List[Dict[str, Any]]:
+    def _parse_lizard_output(self, output: str, file_path: str) -> list[dict[str, Any]]:
         """Parse Lizard output and convert to findings."""
         findings = []
         if not output:
@@ -342,6 +343,7 @@ class LizardComplexityAnalyzer(BaseAnalyzer):
     def analyze_with_lizard(self, target_path: str) -> Any:
         """
         Run full Lizard analysis on directory (legacy method for backward compatibility).
+
         This processes all files at once rather than using BaseAnalyzer's batch processing.
         """
         self.start_analysis()
@@ -403,7 +405,8 @@ def analyze_complexity(target_path: str = ".") -> Any:
     Args:
         target_path: Path to analyze
 
-    Returns:
+    Returns
+    -------
         AnalysisResult from LizardComplexityAnalyzer
     """
     analyzer = LizardComplexityAnalyzer()

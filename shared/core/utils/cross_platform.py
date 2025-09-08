@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Cross-platform utilities for AI-Assisted Workflows scriptable workflows.
+
 Provides platform detection, path handling, and command execution.
 """
 
-import sys
 import platform
 import subprocess
+import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
 
 class PlatformDetector:
@@ -18,14 +19,11 @@ class PlatformDetector:
     def get_platform() -> str:
         """Get standardized platform identifier."""
         system = platform.system().lower()
-        if system == "darwin":
-            return "macos"
-        elif system == "windows":
-            return "windows"
-        elif system == "linux":
-            return "linux"
-        else:
-            return "unknown"
+        return {
+            "darwin": "macos",
+            "windows": "windows",
+            "linux": "linux",
+        }.get(system, "unknown")
 
     @staticmethod
     def get_shell_command() -> str:
@@ -61,8 +59,8 @@ class CommandExecutor:
 
     @staticmethod
     def run_command(
-        command: List[str], cwd: Optional[str] = None, timeout: Optional[int] = None
-    ) -> Tuple[int, str, str]:
+        command: list[str], cwd: Optional[str] = None, timeout: Optional[int] = None
+    ) -> tuple[int, str, str]:
         """
         Execute command and return (return_code, stdout, stderr).
 
@@ -71,7 +69,8 @@ class CommandExecutor:
             cwd: Working directory (optional)
             timeout: Command timeout in seconds (optional, no timeout if None)
 
-        Returns:
+        Returns
+        -------
             Tuple of (return_code, stdout, stderr)
         """
         try:
@@ -88,8 +87,8 @@ class CommandExecutor:
 
     @staticmethod
     def run_python_script(
-        script_path: str, args: List[str] = None, cwd: Optional[str] = None
-    ) -> Tuple[int, str, str]:
+        script_path: str, args: list[str] = None, cwd: Optional[str] = None
+    ) -> tuple[int, str, str]:
         """
         Execute Python script with cross-platform compatibility.
 
@@ -98,7 +97,8 @@ class CommandExecutor:
             args: Script arguments (optional)
             cwd: Working directory (optional)
 
-        Returns:
+        Returns
+        -------
             Tuple of (return_code, stdout, stderr)
         """
         python_cmd = PlatformDetector.get_python_command()
@@ -120,7 +120,8 @@ class PathUtils:
         Args:
             start_path: Starting directory for search
 
-        Returns:
+        Returns
+        -------
             Path to project root or None if not found
         """
         current = Path(start_path).resolve()
@@ -174,7 +175,7 @@ class DependencyChecker:
             return False
 
     @staticmethod
-    def get_missing_dependencies(required_packages: List[str]) -> List[str]:
+    def get_missing_dependencies(required_packages: list[str]) -> list[str]:
         """Get list of missing required packages."""
         missing = []
         for package in required_packages:

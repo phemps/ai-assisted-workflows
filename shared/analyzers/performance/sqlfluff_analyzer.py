@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-SQLFluff Database Analyzer - Advanced SQL Performance Analysis
-==============================================================
+SQLFluff Database Analyzer - Advanced SQL Performance Analysis.
 
 PURPOSE: Comprehensive SQL performance analysis using SQLFluff's established rules.
 Replaces bespoke regex pattern matching with established SQL analysis.
@@ -23,15 +22,16 @@ REPLACES: profile_database.py with bespoke regex patterns
 - Better false positive filtering
 """
 
+import contextlib
 import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -212,7 +212,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
 
     def _run_sqlfluff_analysis(
         self, target_path: str, sql_content: str = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Run SQLFluff analysis with performance-focused rules."""
         findings = []
 
@@ -285,8 +285,8 @@ class SQLFluffAnalyzer(BaseAnalyzer):
         return findings
 
     def _process_sqlfluff_finding(
-        self, violation: Dict[str, Any], file_path: str
-    ) -> Optional[Dict[str, Any]]:
+        self, violation: dict[str, Any], file_path: str
+    ) -> Optional[dict[str, Any]]:
         """Convert SQLFluff finding to our standardized format."""
         try:
             # Extract key information from SQLFluff violation
@@ -411,7 +411,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
 
     def _extract_sql_from_code(
         self, content: str, file_path: str
-    ) -> List[tuple[str, int]]:
+    ) -> list[tuple[str, int]]:
         """Extract SQL queries from code files with improved accuracy."""
         # Quick exit if no SQL indicators
         if not self._has_sql_indicators(content, str(file_path)):
@@ -491,9 +491,10 @@ class SQLFluffAnalyzer(BaseAnalyzer):
 
         return True
 
-    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+    def _process_batch(self, batch: list[Path]) -> list[dict[str, Any]]:
         """
         Override BaseAnalyzer batch processing to run SQLFluff once per batch.
+
         This dramatically improves performance vs per-query SQLFluff calls.
         """
         # Skip analysis if SQLFluff is not available
@@ -508,7 +509,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
 
         for file_path in batch:
             try:
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                with open(file_path, encoding="utf-8", errors="ignore") as f:
                     content = f.read()
 
                 # Extract SQL queries from this file
@@ -523,7 +524,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
                     sql_queries = self._extract_sql_from_code(content, str(file_path))
                     if sql_queries:
                         file_to_queries[str(file_path)] = sql_queries
-                        for query, line_number in sql_queries:
+                        for query, _line_number in sql_queries:
                             all_sql_queries.append((query, str(file_path)))
 
             except Exception as e:
@@ -560,7 +561,7 @@ class SQLFluffAnalyzer(BaseAnalyzer):
         )
         return batch_findings
 
-    def _run_batch_sqlfluff_analysis(self, sql_queries: List[tuple]) -> None:
+    def _run_batch_sqlfluff_analysis(self, sql_queries: list[tuple]) -> None:
         """Run SQLFluff on a batch of SQL queries and cache results."""
         if not sql_queries:
             return
@@ -643,20 +644,19 @@ exclude_rules = L003,L010
 """
 
         try:
-            config_file = tempfile.NamedTemporaryFile(
+            with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".cfg", delete=False
-            )
-            config_file.write(config_content)
-            config_file.close()
-            self._sqlfluff_config_path = config_file.name
+            ) as config_file:
+                config_file.write(config_content)
+                self._sqlfluff_config_path = config_file.name
         except Exception as e:
             print(f"Failed to create SQLFluff config: {e}", file=sys.stderr)
 
     def _map_batch_results_to_files(
         self,
-        sqlfluff_output: List[Dict],
-        query_positions: List[Dict],
-        sql_queries: List[tuple],
+        sqlfluff_output: list[dict],
+        query_positions: list[dict],
+        sql_queries: list[tuple],
     ) -> None:
         """Map batch SQLFluff results back to original files."""
         for file_result in sqlfluff_output:
@@ -686,7 +686,7 @@ exclude_rules = L003,L010
 
                 self._sqlfluff_results_cache[file_path].append(violation)
 
-    def _get_cached_findings(self, file_path: str) -> List[Dict[str, Any]]:
+    def _get_cached_findings(self, file_path: str) -> list[dict[str, Any]]:
         """Get SQLFluff findings from cache and convert to standardized format."""
         findings = []
         cached_violations = self._sqlfluff_results_cache.get(file_path, [])
@@ -713,16 +713,18 @@ exclude_rules = L003,L010
 
         return findings
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze target using SQLFluff for SQL performance analysis.
+
         Note: Heavy lifting is done in _process_batch() for performance.
         This method handles fallback for single-file analysis.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of SQL performance findings with standardized structure
         """
         # When called via batch processing, findings are already in cache
@@ -738,12 +740,12 @@ exclude_rules = L003,L010
         # For single file analysis, use legacy method
         return self._analyze_single_file(target_path)
 
-    def _analyze_single_file(self, target_path: str) -> List[Dict[str, Any]]:
+    def _analyze_single_file(self, target_path: str) -> list[dict[str, Any]]:
         """Analyze a single file (fallback when not using batch processing)."""
         file_path = Path(target_path)
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             # Extract SQL queries
@@ -760,7 +762,7 @@ exclude_rules = L003,L010
 
             # Run SQLFluff on each query (legacy single-file mode)
             all_findings = []
-            for sql_query, line_number in sql_queries:
+            for sql_query, _line_number in sql_queries:
                 findings = self._run_sqlfluff_analysis(target_path, sql_query)
                 for finding in findings:
                     # Convert to standardized format with title field
@@ -789,12 +791,10 @@ exclude_rules = L003,L010
     def __del__(self):
         """Clean up temporary SQLFluff config file."""
         if self._sqlfluff_config_path:
-            try:
+            with contextlib.suppress(Exception):
                 Path(self._sqlfluff_config_path).unlink(missing_ok=True)
-            except Exception:
-                pass
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "SQLFluff Database Analyzer",

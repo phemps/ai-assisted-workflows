@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Performance Baseline Analyzer - Performance Benchmarking and Baseline Establishment
-====================================================================================
+Performance Baseline Analyzer - Performance Benchmarking and Baseline Establishment.
 
 PURPOSE: Establishes performance benchmarks before refactoring for comparison validation.
 Part of the shared/analyzers/performance suite using BaseAnalyzer infrastructure.
@@ -23,10 +22,10 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -110,7 +109,7 @@ class PerformanceBaseliner(BaseAnalyzer):
             "dependency_count",
         ]
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Performance Baseline Analyzer",
@@ -132,14 +131,15 @@ class PerformanceBaseliner(BaseAnalyzer):
             "baseline_metrics": self.baseline_metrics,
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for performance baseline characteristics.
 
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         all_findings = []
@@ -171,7 +171,7 @@ class PerformanceBaseliner(BaseAnalyzer):
 
         return all_findings
 
-    def _analyze_file_for_baseline(self, file_path: Path) -> List[Dict[str, Any]]:
+    def _analyze_file_for_baseline(self, file_path: Path) -> list[dict[str, Any]]:
         """Analyze a single file for baseline characteristics."""
         findings = []
 

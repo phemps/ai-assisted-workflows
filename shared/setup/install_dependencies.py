@@ -1,17 +1,17 @@
 """
 Dependency installer for ai-assisted-workflows scriptable workflows.
+
 Handles cross-platform installation of required Python packages.
 """
 
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 # Import cross-platform utilities (package root must be on PYTHONPATH)
 from core.utils.cross_platform import (
-    PlatformDetector,
     CommandExecutor,
     DependencyChecker,
+    PlatformDetector,
 )
 
 
@@ -49,14 +49,15 @@ class DependencyInstaller:
             print(f"❌ Error checking pip: {e}")
             return False
 
-    def install_package(self, package: str) -> Tuple[bool, str]:
+    def install_package(self, package: str) -> tuple[bool, str]:
         """
         Install a single package.
 
         Args:
             package: Package specification (e.g., "requests>=2.25.0")
 
-        Returns:
+        Returns
+        -------
             Tuple of (success, message)
         """
         print(f"📦 Installing {package}...")
@@ -73,11 +74,12 @@ class DependencyInstaller:
             print(f"❌ Failed to install {package}: {error_msg}")
             return False, error_msg
 
-    def install_from_requirements(self) -> Tuple[bool, List[str]]:
+    def install_from_requirements(self) -> tuple[bool, list[str]]:
         """
         Install all packages from requirements.txt.
 
-        Returns:
+        Returns
+        -------
             Tuple of (all_success, failed_packages)
         """
         if not self.requirements_file.exists():
@@ -121,11 +123,12 @@ class DependencyInstaller:
             print(f"⚠️ Pip upgrade failed (continuing anyway): {stderr}")
             return False
 
-    def verify_installation(self) -> Tuple[bool, List[str]]:
+    def verify_installation(self) -> tuple[bool, list[str]]:
         """
         Verify that critical packages are installed and working.
 
-        Returns:
+        Returns
+        -------
             Tuple of (all_verified, missing_packages)
         """
         print("\n🔍 Verifying installations...")
@@ -151,7 +154,8 @@ class DependencyInstaller:
         """
         Complete installation process.
 
-        Returns:
+        Returns
+        -------
             True if installation successful, False otherwise
         """
         print("🚀 AI Assisted Workflows - Dependency Installation")
@@ -215,7 +219,7 @@ class DependencyInstaller:
 
 
 def main():
-    """Main installation function."""
+    """Run installation process."""
     installer = DependencyInstaller()
 
     # Print platform info

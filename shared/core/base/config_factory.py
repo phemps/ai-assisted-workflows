@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Configuration Factory for Continuous Improvement Framework
+Configuration Factory for Continuous Improvement Framework.
+
 Eliminates duplication of configuration dataclass patterns.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Type, TypeVar
 from pathlib import Path
+from typing import Any, Optional, TypeVar
 
 from .error_handler import CIErrorHandler
 
@@ -43,16 +44,16 @@ class ConfigBase:
         if value is None:
             CIErrorHandler.validation_error(name, value, "non-null value")
 
-    def validate_list_not_empty(self, name: str, value: List[Any]):
+    def validate_list_not_empty(self, name: str, value: list[Any]):
         """Validate list is not empty."""
         if not value:
             CIErrorHandler.validation_error(name, value, "non-empty list")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary."""
         from dataclasses import asdict
 
-        return asdict(self)
+        return asdict(self)  # type: ignore[call-overload]
 
 
 @dataclass
@@ -63,8 +64,8 @@ class EmbeddingConfig(ConfigBase):
     cache_embeddings: bool = True
     batch_size: int = 32
     max_sequence_length: int = 512
-    include_symbol_types: Optional[List[str]] = None
-    exclude_files: Optional[List[str]] = None
+    include_symbol_types: Optional[list[str]] = None
+    exclude_files: Optional[list[str]] = None
     similarity_threshold: float = 0.85
 
     def _set_defaults(self):
@@ -169,9 +170,9 @@ class DetectionConfig(ConfigBase):
     min_line_length: int = 5
     ignore_test_files: bool = True
     ignore_generated_files: bool = True
-    file_extensions: Optional[List[str]] = None
-    exclude_patterns: Optional[List[str]] = None
-    include_patterns: Optional[List[str]] = None
+    file_extensions: Optional[list[str]] = None
+    exclude_patterns: Optional[list[str]] = None
+    include_patterns: Optional[list[str]] = None
 
     def _set_defaults(self):
         if self.file_extensions is None:
@@ -223,8 +224,8 @@ class QualityGateConfig(ConfigBase):
     parallel_execution: bool = True
     capture_output: bool = True
     truncate_output_lines: int = 1000
-    prototype_mode_gates: Optional[List[str]] = None
-    production_mode_gates: Optional[List[str]] = None
+    prototype_mode_gates: Optional[list[str]] = None
+    production_mode_gates: Optional[list[str]] = None
 
     def _set_defaults(self):
         if self.prototype_mode_gates is None:
@@ -265,8 +266,8 @@ class MetricsConfig(ConfigBase):
     enable_metrics: bool = True
     retention_days: int = 90
     aggregation_interval_hours: int = 1
-    export_formats: Optional[List[str]] = None
-    alert_thresholds: Optional[Dict[str, float]] = None
+    export_formats: Optional[list[str]] = None
+    alert_thresholds: Optional[dict[str, float]] = None
 
     def _set_defaults(self):
         if self.database_path is None:
@@ -319,7 +320,8 @@ class ConfigFactory:
             config_type: Type of configuration to create
             **kwargs: Configuration parameters
 
-        Returns:
+        Returns
+        -------
             Configuration object instance
         """
         if config_type not in cls._config_classes:
@@ -333,7 +335,7 @@ class ConfigFactory:
 
     @classmethod
     def create_from_dict(
-        cls, config_type: str, config_dict: Dict[str, Any]
+        cls, config_type: str, config_dict: dict[str, Any]
     ) -> ConfigBase:
         """Create configuration from dictionary."""
         return cls.create(config_type, **config_dict)
@@ -344,7 +346,7 @@ class ConfigFactory:
         import json
 
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config_dict = json.load(f)
             return cls.create_from_dict(config_type, config_dict)
         except FileNotFoundError:
@@ -361,6 +363,8 @@ class ConfigFactory:
             CIErrorHandler.config_error(
                 f"Error loading configuration: {e}", config_path
             )
+        # Unreachable due to fatal_error, but satisfies type checker
+        return cls.create(config_type)
 
     @classmethod
     def save_to_file(cls, config: ConfigBase, config_path: Path) -> None:
@@ -377,12 +381,12 @@ class ConfigFactory:
             CIErrorHandler.config_error(f"Error saving configuration: {e}", config_path)
 
     @classmethod
-    def get_available_types(cls) -> List[str]:
+    def get_available_types(cls) -> list[str]:
         """Get list of available configuration types."""
         return list(cls._config_classes.keys())
 
     @classmethod
-    def register_config_type(cls, name: str, config_class: Type[ConfigBase]) -> None:
+    def register_config_type(cls, name: str, config_class: type[ConfigBase]) -> None:
         """Register a new configuration type."""
         if not issubclass(config_class, ConfigBase):
             CIErrorHandler.validation_error(

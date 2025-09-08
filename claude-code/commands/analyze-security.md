@@ -1,3 +1,7 @@
+---
+argument-hint: [target-path] [--verbose]
+---
+
 # analyze-security v0.3
 
 **Mindset**: "What could go wrong?" - Combine automated scanning with contextual threat assessment.

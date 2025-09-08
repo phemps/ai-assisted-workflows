@@ -7,15 +7,15 @@ Purpose: Allow orchestration to construct analyzers by name without tight coupli
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Callable, Any
+from typing import Any, Callable
 
-from .analyzer_base import BaseAnalyzer, AnalyzerConfig
+from .analyzer_base import AnalyzerConfig, BaseAnalyzer
 
 
 class AnalyzerRegistry:
     """In-memory registry of analyzer classes keyed by a unique name."""
 
-    _registry: Dict[str, type] = {}
+    _registry: dict[str, type] = {}
 
     @classmethod
     def register(cls, name: str, analyzer_cls: type) -> None:
@@ -37,11 +37,11 @@ class AnalyzerRegistry:
         try:
             return cls._registry[name]
         except KeyError:
-            raise KeyError(f"Analyzer not registered: {name}")
+            raise KeyError(f"Analyzer not registered: {name}") from None
 
     @classmethod
     def create(
-        cls, name: str, config: Optional[AnalyzerConfig] = None, **kwargs: Any
+        cls, name: str, config: AnalyzerConfig | None = None, **kwargs: Any
     ) -> BaseAnalyzer:
         analyzer_cls = cls.get(name)
         # Analyzer classes in this project accept (config: Optional[AnalyzerConfig]) and may take extra kwargs

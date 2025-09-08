@@ -1,14 +1,15 @@
 # generate_procfile.py v0.3
 """
 Procfile generator for development monitoring.
+
 Creates Procfile with component-specific service definitions based on LLM analysis.
 """
 
-import sys
 import argparse
 import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 
 def generate_procfile_header(components_info):
@@ -34,10 +35,7 @@ def generate_service_definition(component):
     port = component.get("port")
 
     # Build the command with proper logging format
-    if cwd != ".":
-        command = f"cd {cwd} && "
-    else:
-        command = ""
+    command = f"cd {cwd} && " if cwd != "." else ""
 
     # Add port configuration if specified
     if port:

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Code Duplication Analyzer - Traditional Quality Analysis Tool
-=============================================================
+Code Duplication Analyzer - Traditional Quality Analysis Tool.
 
 PURPOSE: Lightweight code duplication analysis for quality assessment and reporting.
 Part of the analyzers/quality suite for general code quality metrics.
@@ -36,17 +35,17 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import ast
-import hashlib
-import re
 import difflib
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field
+import hashlib
 import logging
+import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 # Configure logging
@@ -78,14 +77,14 @@ class DuplicateMatch:
     block2: CodeBlock
     match_type: str  # 'exact', 'structural', 'semantic'
     confidence: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class DuplicationDetector(ABC):
     """Abstract base class for duplicate detection algorithms."""
 
     @abstractmethod
-    def detect_duplicates(self, code_blocks: List[CodeBlock]) -> List[DuplicateMatch]:
+    def detect_duplicates(self, code_blocks: list[CodeBlock]) -> list[DuplicateMatch]:
         """Detect duplicates in the given code blocks."""
         pass
 
@@ -102,10 +101,10 @@ class ExactDuplicateDetector(DuplicationDetector):
         self.min_lines = min_lines
         self.similarity_threshold = similarity_threshold
 
-    def detect_duplicates(self, code_blocks: List[CodeBlock]) -> List[DuplicateMatch]:
+    def detect_duplicates(self, code_blocks: list[CodeBlock]) -> list[DuplicateMatch]:
         """Detect exact duplicates using content hash comparison."""
         duplicates = []
-        content_hash_map: Dict[str, List[CodeBlock]] = {}
+        content_hash_map: dict[str, list[CodeBlock]] = {}
 
         # Group blocks by content hash
         for block in code_blocks:
@@ -166,7 +165,7 @@ class StructuralDuplicateDetector(DuplicationDetector):
         self.similarity_threshold = similarity_threshold
         self.min_nodes = min_nodes
 
-    def detect_duplicates(self, code_blocks: List[CodeBlock]) -> List[DuplicateMatch]:
+    def detect_duplicates(self, code_blocks: list[CodeBlock]) -> list[DuplicateMatch]:
         """Detect structural duplicates using AST similarity."""
         duplicates = []
         ast_structures = []
@@ -212,7 +211,7 @@ class StructuralDuplicateDetector(DuplicationDetector):
     def get_similarity_threshold(self) -> float:
         return self.similarity_threshold
 
-    def _extract_ast_structure(self, tree: ast.AST) -> List[str]:
+    def _extract_ast_structure(self, tree: ast.AST) -> list[str]:
         """Extract structural signature from AST."""
         structure = []
 
@@ -239,7 +238,7 @@ class StructuralDuplicateDetector(DuplicationDetector):
         return structure
 
     def _calculate_structural_similarity(
-        self, structure1: List[str], structure2: List[str]
+        self, structure1: list[str], structure2: list[str]
     ) -> float:
         """Calculate similarity between two AST structures."""
         if not structure1 or not structure2:
@@ -263,7 +262,7 @@ class SemanticDuplicateDetector(DuplicationDetector):
         self.similarity_threshold = similarity_threshold
         self.min_tokens = min_tokens
 
-    def detect_duplicates(self, code_blocks: List[CodeBlock]) -> List[DuplicateMatch]:
+    def detect_duplicates(self, code_blocks: list[CodeBlock]) -> list[DuplicateMatch]:
         """Detect semantic duplicates using token similarity."""
         duplicates = []
         token_vectors = []
@@ -297,7 +296,7 @@ class SemanticDuplicateDetector(DuplicationDetector):
     def get_similarity_threshold(self) -> float:
         return self.similarity_threshold
 
-    def _extract_semantic_tokens(self, content: str) -> List[str]:
+    def _extract_semantic_tokens(self, content: str) -> list[str]:
         """Extract semantic tokens from code content."""
         # Remove comments and strings, focus on identifiers and keywords
         tokens = []
@@ -332,7 +331,7 @@ class SemanticDuplicateDetector(DuplicationDetector):
         return tokens
 
     def _calculate_token_similarity(
-        self, tokens1: List[str], tokens2: List[str]
+        self, tokens1: list[str], tokens2: list[str]
     ) -> float:
         """Calculate similarity based on shared tokens."""
         if not tokens1 or not tokens2:
@@ -380,8 +379,8 @@ class CompositeDuplicateDetector:
             ]
 
     def detect_all_duplicates(
-        self, code_blocks: List[CodeBlock]
-    ) -> List[DuplicateMatch]:
+        self, code_blocks: list[CodeBlock]
+    ) -> list[DuplicateMatch]:
         """Run all detection strategies and combine results."""
         all_duplicates = []
 
@@ -400,8 +399,8 @@ class CompositeDuplicateDetector:
         return sorted(unique_duplicates, key=lambda x: x.similarity_score, reverse=True)
 
     def _deduplicate_matches(
-        self, matches: List[DuplicateMatch]
-    ) -> List[DuplicateMatch]:
+        self, matches: list[DuplicateMatch]
+    ) -> list[DuplicateMatch]:
         """Remove duplicate matches based on file paths and line numbers."""
         seen_pairs = set()
         unique_matches = []
@@ -434,11 +433,11 @@ class CompositeDuplicateDetector:
 class DuplicateAnalysisReport:
     """Generates comprehensive reports of duplicate detection results."""
 
-    def __init__(self, matches: List[DuplicateMatch]):
+    def __init__(self, matches: list[DuplicateMatch]):
         self.matches = matches
         self.stats = self._calculate_statistics()
 
-    def _calculate_statistics(self) -> Dict[str, Any]:
+    def _calculate_statistics(self) -> dict[str, Any]:
         """Calculate analysis statistics."""
         if not self.matches:
             return {"total_matches": 0}
@@ -588,14 +587,15 @@ class CodeDuplicationAnalyzer(BaseAnalyzer):
             semantic_detector=self.semantic_detector,
         )
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement duplication analysis logic for target path.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of duplication findings
         """
         target = Path(target_path)
@@ -610,11 +610,12 @@ class CodeDuplicationAnalyzer(BaseAnalyzer):
 
         return []
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """
         Get duplication analyzer-specific metadata.
 
-        Returns:
+        Returns
+        -------
             Dictionary with analyzer-specific metadata
         """
         return {
@@ -661,10 +662,10 @@ class CodeDuplicationAnalyzer(BaseAnalyzer):
 
     def _analyze_file_duplicates(
         self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Analyze a single file for duplicate patterns."""
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             if not content.strip():
@@ -711,7 +712,7 @@ class CodeDuplicationAnalyzer(BaseAnalyzer):
 # Legacy function for backward compatibility
 def analyze_code_duplication(
     target_path: str, output_format: str = "json"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Legacy function wrapper for backward compatibility.
 
@@ -719,7 +720,8 @@ def analyze_code_duplication(
         target_path: Path to analyze
         output_format: Output format (json, console, summary)
 
-    Returns:
+    Returns
+    -------
         Analysis results
     """
     try:

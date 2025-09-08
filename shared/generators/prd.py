@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-PRD Template Generator
+PRD Template Generator.
+
 Generates comprehensive Product Requirements Documents from JSON input data.
 """
 
+import argparse
 import json
 import sys
-import argparse
-from typing import Dict, List, Any
+from typing import Any
 
 
-def generate_prd_content(data: Dict[str, Any]) -> str:
+def generate_prd_content(data: dict[str, Any]) -> str:
     """Generate PRD markdown content from structured data."""
 
-    def format_features(features: List[Dict[str, str, str]], category: str) -> str:
+    def format_features(features: list[dict[str, str, str]], category: str) -> str:
         """Format features for a specific MoSCoW category."""
         if not features:
             return f"_No {category.lower()} features defined_\n"
@@ -25,7 +26,7 @@ def generate_prd_content(data: Dict[str, Any]) -> str:
             )
         return content
 
-    def format_personas(personas: List[Dict[str, Any]]) -> str:
+    def format_personas(personas: list[dict[str, Any]]) -> str:
         """Format user personas."""
         if not personas:
             return "_No personas defined_\n"
@@ -55,7 +56,7 @@ def generate_prd_content(data: Dict[str, Any]) -> str:
 
         return content
 
-    def format_screens(screens: List[Dict[str, str]], category: str) -> str:
+    def format_screens(screens: list[dict[str, str]], category: str) -> str:
         """Format screen inventory."""
         if not screens:
             return f"_No {category.lower()} screens defined_\n"
@@ -65,7 +66,7 @@ def generate_prd_content(data: Dict[str, Any]) -> str:
             content += f"- **{screen['name']}:** {screen['description']}\n"
         return content
 
-    def format_design_principles(principles: Dict[str, Any]) -> str:
+    def format_design_principles(principles: dict[str, Any]) -> str:
         """Format design principles section."""
         content = "### Core Design Principles\n\n"
 
@@ -251,7 +252,7 @@ def main():
 
     try:
         # Read JSON data
-        with open(args.json_file, "r") as f:
+        with open(args.json_file) as f:
             data = json.load(f)
 
         # Generate PRD content

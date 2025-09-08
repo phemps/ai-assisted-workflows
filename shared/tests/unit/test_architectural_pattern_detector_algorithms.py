@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+
 import pytest
 from core.utils.architectural_pattern_detector import (
     ArchitecturalPatternDetector,
@@ -57,7 +58,8 @@ def test_find_pattern_matches_anti_classification(patterns_config_dir: Path):
         set(),
         "x.py",
     )
-    assert found and found[0].pattern_type == "anti"
+    assert found
+    assert found[0].pattern_type == "anti"
 
 
 # Confidence scoring and clamping (core)

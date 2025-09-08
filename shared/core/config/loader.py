@@ -8,21 +8,22 @@ Purpose: Centralize loading/validation of JSON configs for patterns and detector
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Any, Iterable
+from typing import Any
 
 
 class ConfigError(Exception):
     """Raised when configuration files are invalid."""
 
 
-def _require_keys(obj: Dict[str, Any], keys: Iterable[str], ctx: str) -> None:
+def _require_keys(obj: dict[str, Any], keys: Iterable[str], ctx: str) -> None:
     missing = [k for k in keys if k not in obj]
     if missing:
         raise ConfigError(f"Missing keys in {ctx}: {missing}")
 
 
-def load_json_config(path: Path, required_top_keys: Iterable[str]) -> Dict[str, Any]:
+def load_json_config(path: Path, required_top_keys: Iterable[str]) -> dict[str, Any]:
     """Load a JSON config and validate basic schema fields.
 
     Required top-level keys must exist. A `schema_version` field is also required.
@@ -32,13 +33,13 @@ def load_json_config(path: Path, required_top_keys: Iterable[str]) -> Dict[str, 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
-        raise ConfigError(f"Invalid JSON in {path}: {e}")
+        raise ConfigError(f"Invalid JSON in {path}: {e}") from e
 
     _require_keys(data, ["schema_version", *required_top_keys], f"{path}")
     return data
 
 
-def load_architectural_pattern_sets(config_dir: Path) -> Dict[str, Any]:
+def load_architectural_pattern_sets(config_dir: Path) -> dict[str, Any]:
     """Load architectural patterns, antipatterns and language features from config directory.
 
     Expected files:
@@ -49,12 +50,16 @@ def load_architectural_pattern_sets(config_dir: Path) -> Dict[str, Any]:
     required_item_keys = {"indicators", "severity", "description"}
     required_feature_keys = {"patterns", "languages", "description"}
 
-    arch = load_json_config(config_dir / "architectural_patterns.json", ["patterns"])  # type: ignore
-    anti = load_json_config(config_dir / "antipatterns.json", ["patterns"])  # type: ignore
-    lang = load_json_config(config_dir / "language_features.json", ["features"])  # type: ignore
+    arch = load_json_config(
+        config_dir / "architectural_patterns.json", ["patterns"]
+    )  # type: ignore[assignment]
+    anti = load_json_config(config_dir / "antipatterns.json", ["patterns"])  # type: ignore[assignment]
+    lang = load_json_config(
+        config_dir / "language_features.json", ["features"]
+    )  # type: ignore[assignment]
 
     # Validate item shapes (strict, no fallbacks)
-    def _validate_map(map_obj: Dict[str, Any], required: set, label: str) -> None:
+    def _validate_map(map_obj: dict[str, Any], required: set, label: str) -> None:
         for name, spec in map_obj.items():
             if not isinstance(spec, dict):
                 raise ConfigError(f"{label} '{name}' must be an object")
@@ -73,7 +78,7 @@ def load_architectural_pattern_sets(config_dir: Path) -> Dict[str, Any]:
     }
 
 
-def load_tech_stacks(config_path: Path) -> Dict[str, Any]:
+def load_tech_stacks(config_path: Path) -> dict[str, Any]:
     """Load tech stack definitions from a single JSON file.
 
     Expected shape:
@@ -84,7 +89,7 @@ def load_tech_stacks(config_path: Path) -> Dict[str, Any]:
       }
     }
     """
-    data = load_json_config(config_path, ["stacks"])  # type: ignore
+    data = load_json_config(config_path, ["stacks"])  # type: ignore[assignment]
     stacks = data["stacks"]
     if not isinstance(stacks, dict):
         raise ConfigError("'stacks' must be an object map")

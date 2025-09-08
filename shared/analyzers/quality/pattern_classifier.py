@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Pattern Classification Engine
-============================
+Pattern Classification Engine.
 
 PURPOSE: Sophisticated pattern classification for comprehensive code analysis,
 identifying anti-patterns, design patterns, code smells, security issues, and best practices.
@@ -28,16 +27,16 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import ast
-import re
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field
 import logging
+import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 # Configure logging
@@ -80,19 +79,19 @@ class PatternMatch:
     description: str
     recommendation: str
     code_snippet: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class PatternDetector(ABC):
     """Abstract base class for pattern detectors."""
 
     @abstractmethod
-    def detect_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
+    def detect_patterns(self, code: str, file_path: str) -> list[PatternMatch]:
         """Detect patterns in the given code."""
         pass
 
     @abstractmethod
-    def get_pattern_types(self) -> List[PatternType]:
+    def get_pattern_types(self) -> list[PatternType]:
         """Get the types of patterns this detector can find."""
         pass
 
@@ -111,7 +110,7 @@ class AntiPatternDetector(PatternDetector):
             "refused_bequest": self._detect_refused_bequest,
         }
 
-    def detect_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
+    def detect_patterns(self, code: str, file_path: str) -> list[PatternMatch]:
         """Detect anti-patterns in code."""
         matches = []
 
@@ -130,12 +129,12 @@ class AntiPatternDetector(PatternDetector):
 
         return matches
 
-    def get_pattern_types(self) -> List[PatternType]:
+    def get_pattern_types(self) -> list[PatternType]:
         return [PatternType.ANTI_PATTERN]
 
     def _detect_god_class(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect god class anti-pattern (classes with too many responsibilities)."""
         matches = []
 
@@ -197,7 +196,7 @@ class AntiPatternDetector(PatternDetector):
 
     def _detect_long_method(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect long method anti-pattern."""
         matches = []
 
@@ -235,7 +234,7 @@ class AntiPatternDetector(PatternDetector):
 
     def _detect_feature_envy(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect feature envy anti-pattern (method uses another class more than its own)."""
         matches = []
 
@@ -260,12 +259,13 @@ class AntiPatternDetector(PatternDetector):
                     self_accesses = 0
 
                     for child in ast.walk(node):
-                        if isinstance(child, ast.Attribute):
-                            if isinstance(child.value, ast.Name):
-                                if child.value.id == "self":
-                                    self_accesses += 1
-                                else:
-                                    external_accesses.append(child.value.id)
+                        if isinstance(child, ast.Attribute) and isinstance(
+                            child.value, ast.Name
+                        ):
+                            if child.value.id == "self":
+                                self_accesses += 1
+                            else:
+                                external_accesses.append(child.value.id)
 
                     # Feature envy heuristic
                     if external_accesses and len(external_accesses) > self_accesses * 2:
@@ -303,7 +303,7 @@ class AntiPatternDetector(PatternDetector):
 
     def _detect_data_clumps(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect data clumps (same set of parameters appearing together frequently)."""
         matches = []
 
@@ -358,7 +358,7 @@ class AntiPatternDetector(PatternDetector):
 
     def _detect_primitive_obsession(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect primitive obsession (overuse of primitive types instead of small objects)."""
         matches = []
         # This is a complex pattern that would require more sophisticated analysis
@@ -367,7 +367,7 @@ class AntiPatternDetector(PatternDetector):
 
     def _detect_shotgun_surgery(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect shotgun surgery (making a change requires modifications in many places)."""
         matches = []
         # This requires cross-file analysis, which would be implemented at a higher level
@@ -375,7 +375,7 @@ class AntiPatternDetector(PatternDetector):
 
     def _detect_refused_bequest(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect refused bequest (subclass doesn't use inherited functionality)."""
         matches = []
         # This requires inheritance analysis across multiple files
@@ -396,7 +396,7 @@ class CodeSmellDetector(PatternDetector):
             "inappropriate_intimacy": self._detect_inappropriate_intimacy,
         }
 
-    def detect_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
+    def detect_patterns(self, code: str, file_path: str) -> list[PatternMatch]:
         """Detect code smells in code."""
         matches = []
 
@@ -415,12 +415,12 @@ class CodeSmellDetector(PatternDetector):
 
         return matches
 
-    def get_pattern_types(self) -> List[PatternType]:
+    def get_pattern_types(self) -> list[PatternType]:
         return [PatternType.CODE_SMELL]
 
     def _detect_dead_code(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect potentially dead/unreachable code."""
         matches = []
 
@@ -428,7 +428,7 @@ class CodeSmellDetector(PatternDetector):
             def visit_FunctionDef(self, node):
                 # Look for unreachable code after return statements
                 found_return = False
-                for i, stmt in enumerate(node.body):
+                for _i, stmt in enumerate(node.body):
                     if isinstance(stmt, ast.Return):
                         found_return = True
                     elif found_return and not isinstance(stmt, ast.Pass):
@@ -457,14 +457,14 @@ class CodeSmellDetector(PatternDetector):
 
     def _detect_duplicate_code(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect duplicate code blocks within the same file."""
         # This would integrate with the duplicate detection system
         return []
 
     def _detect_large_class(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect excessively large classes."""
         # Similar to god class but focused on size metrics
         matches = []
@@ -498,7 +498,7 @@ class CodeSmellDetector(PatternDetector):
 
     def _detect_long_parameter_list(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect functions with too many parameters."""
         matches = []
 
@@ -531,7 +531,7 @@ class CodeSmellDetector(PatternDetector):
 
     def _detect_switch_statements(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect complex switch-like statements that could benefit from polymorphism."""
         matches = []
 
@@ -573,14 +573,14 @@ class CodeSmellDetector(PatternDetector):
 
     def _detect_temporary_field(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect temporary fields (instance variables set only in certain circumstances)."""
         # This requires more sophisticated analysis
         return []
 
     def _detect_inappropriate_intimacy(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect classes that know too much about each other's internal details."""
         # This requires cross-class analysis
         return []
@@ -598,7 +598,7 @@ class SecurityPatternDetector(PatternDetector):
             "eval_usage": self._detect_eval_usage,
         }
 
-    def detect_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
+    def detect_patterns(self, code: str, file_path: str) -> list[PatternMatch]:
         """Detect security patterns in code."""
         matches = []
 
@@ -620,12 +620,12 @@ class SecurityPatternDetector(PatternDetector):
 
         return matches
 
-    def get_pattern_types(self) -> List[PatternType]:
+    def get_pattern_types(self) -> list[PatternType]:
         return [PatternType.SECURITY_ISSUE]
 
     def _detect_sql_injection(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect potential SQL injection vulnerabilities."""
         matches = []
 
@@ -663,7 +663,7 @@ class SecurityPatternDetector(PatternDetector):
 
     def _detect_hardcoded_secrets(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect hardcoded passwords, API keys, etc."""
         matches = []
 
@@ -698,7 +698,7 @@ class SecurityPatternDetector(PatternDetector):
 
     def _detect_insecure_random(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect use of insecure random number generation."""
         matches = []
 
@@ -733,7 +733,7 @@ class SecurityPatternDetector(PatternDetector):
 
     def _detect_path_traversal(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect potential path traversal vulnerabilities."""
         matches = []
 
@@ -772,7 +772,7 @@ class SecurityPatternDetector(PatternDetector):
 
     def _detect_eval_usage(
         self, tree: ast.AST, code: str, file_path: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Detect dangerous use of eval() and exec()."""
         matches = []
 
@@ -801,7 +801,7 @@ class SecurityPatternDetector(PatternDetector):
         visitor.visit(tree)
         return matches
 
-    def _detect_string_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
+    def _detect_string_patterns(self, code: str, file_path: str) -> list[PatternMatch]:
         """Detect security issues through string pattern matching."""
         matches = []
 
@@ -841,7 +841,7 @@ class CompositePatternClassifier(BaseAnalyzer):
     def __init__(
         self,
         config: Optional[AnalyzerConfig] = None,
-        detectors: Optional[List[PatternDetector]] = None,
+        detectors: Optional[list[PatternDetector]] = None,
     ):
         # Create pattern classification-specific configuration
         pattern_config = config or AnalyzerConfig(
@@ -905,14 +905,15 @@ class CompositePatternClassifier(BaseAnalyzer):
                 SecurityPatternDetector(),
             ]
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement pattern classification analysis logic for target path.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of pattern classification findings
         """
         target = Path(target_path)
@@ -927,11 +928,12 @@ class CompositePatternClassifier(BaseAnalyzer):
 
         return []
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """
         Get pattern classifier-specific metadata.
 
-        Returns:
+        Returns
+        -------
             Dictionary with analyzer-specific metadata
         """
         return {
@@ -972,10 +974,10 @@ class CompositePatternClassifier(BaseAnalyzer):
 
     def _analyze_file_patterns(
         self, file_path: str, relative_path: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Analyze a single file for pattern classification."""
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             if not content.strip():
@@ -1071,7 +1073,7 @@ class CompositePatternClassifier(BaseAnalyzer):
                 }
             ]
 
-    def classify_patterns(self, code: str, file_path: str) -> List[PatternMatch]:
+    def classify_patterns(self, code: str, file_path: str) -> list[PatternMatch]:
         """Run all pattern detectors and combine results."""
         all_matches = []
 
@@ -1087,7 +1089,7 @@ class CompositePatternClassifier(BaseAnalyzer):
         unique_matches = self._deduplicate_matches(all_matches)
         return self._sort_matches(unique_matches)
 
-    def _deduplicate_matches(self, matches: List[PatternMatch]) -> List[PatternMatch]:
+    def _deduplicate_matches(self, matches: list[PatternMatch]) -> list[PatternMatch]:
         """Remove duplicate pattern matches."""
         seen_matches = set()
         unique_matches = []
@@ -1105,7 +1107,7 @@ class CompositePatternClassifier(BaseAnalyzer):
 
         return unique_matches
 
-    def _sort_matches(self, matches: List[PatternMatch]) -> List[PatternMatch]:
+    def _sort_matches(self, matches: list[PatternMatch]) -> list[PatternMatch]:
         """Sort matches by severity and confidence."""
         severity_order = {
             PatternSeverity.CRITICAL: 0,
@@ -1123,11 +1125,11 @@ class CompositePatternClassifier(BaseAnalyzer):
 class PatternAnalysisReport:
     """Generates comprehensive reports of pattern classification results."""
 
-    def __init__(self, matches: List[PatternMatch]):
+    def __init__(self, matches: list[PatternMatch]):
         self.matches = matches
         self.stats = self._calculate_statistics()
 
-    def _calculate_statistics(self) -> Dict[str, Any]:
+    def _calculate_statistics(self) -> dict[str, Any]:
         """Calculate analysis statistics."""
         if not self.matches:
             return {"total_matches": 0}
@@ -1218,8 +1220,8 @@ Patterns by Type:
 def classify_code_patterns(
     target_path: str,
     output_format: str = "json",
-    detectors: Optional[List[PatternDetector]] = None,
-) -> Dict[str, Any]:
+    detectors: Optional[list[PatternDetector]] = None,
+) -> dict[str, Any]:
     """
     Legacy function wrapper for backward compatibility.
 
@@ -1228,7 +1230,8 @@ def classify_code_patterns(
         output_format: Output format (json, console, summary)
         detectors: Optional list of specific pattern detectors to use
 
-    Returns:
+    Returns
+    -------
         Analysis results
     """
     try:

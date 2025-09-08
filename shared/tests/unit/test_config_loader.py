@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
 import json
+from pathlib import Path
+
 import pytest
 from core.config.loader import (
-    load_architectural_pattern_sets,
-    load_tech_stacks,
-    load_json_config,
     ConfigError,
+    load_architectural_pattern_sets,
+    load_json_config,
+    load_tech_stacks,
 )
 
 

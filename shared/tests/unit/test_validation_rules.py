@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from core.base.analyzer_base import validate_finding
 import pytest
+from core.base.analyzer_base import validate_finding
 
 
 def test_validate_finding_success():
@@ -31,9 +31,8 @@ def test_validate_finding_missing_required_field(missing_field):
         "recommendation": "C",
     }
     finding.pop(missing_field)
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="Missing required field"):
         validate_finding(finding)
-    assert "Missing required field" in str(exc.value)
 
 
 def test_validate_finding_placeholder_values_rejected():
@@ -46,7 +45,7 @@ def test_validate_finding_placeholder_values_rejected():
         "recommendation": "Review issue",
         "metadata": {},
     }
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown"):
         validate_finding(finding)
 
 
@@ -65,7 +64,7 @@ def test_validate_finding_line_zero_needs_error_metadata():
 
 
 @pytest.mark.parametrize(
-    "field,value,errmsg",
+    ("field", "value", "errmsg"),
     [
         ("title", "", "non-empty string"),
         ("description", " ", "non-empty string"),
@@ -86,6 +85,5 @@ def test_field_type_and_severity_errors(field, value, errmsg):
         "metadata": {},
     }
     finding[field] = value
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match=errmsg):
         validate_finding(finding)
-    assert errmsg in str(exc.value)

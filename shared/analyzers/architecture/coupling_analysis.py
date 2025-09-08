@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Coupling Analysis Analyzer - Architecture Coupling and Dependency Analysis
-==========================================================================
+Coupling Analysis Analyzer - Architecture Coupling and Dependency Analysis.
 
 PURPOSE: Analyzes code coupling patterns, dependency relationships, and architectural issues.
 Part of the shared/analyzers/architecture suite using BaseAnalyzer infrastructure.
@@ -21,12 +20,12 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 """
 
 import re
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from collections import defaultdict
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -206,7 +205,7 @@ class CouplingAnalyzer(BaseAnalyzer):
                 pattern_info["pattern"], re.MULTILINE
             )
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Coupling Analysis Analyzer",
@@ -228,7 +227,7 @@ class CouplingAnalyzer(BaseAnalyzer):
             "coupling_patterns": len(self.coupling_patterns),
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for coupling patterns.
 
@@ -238,7 +237,8 @@ class CouplingAnalyzer(BaseAnalyzer):
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         all_findings = []
@@ -344,7 +344,7 @@ class CouplingAnalyzer(BaseAnalyzer):
                 return False
         return True
 
-    def _extract_dependencies(self, file_path: Path) -> List[str]:
+    def _extract_dependencies(self, file_path: Path) -> list[str]:
         """Extract dependencies from a file."""
         dependencies = []
         suffix = file_path.suffix.lower()
@@ -354,7 +354,7 @@ class CouplingAnalyzer(BaseAnalyzer):
             return dependencies
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 pattern_info = self.import_patterns[language]
@@ -437,7 +437,7 @@ class CouplingAnalyzer(BaseAnalyzer):
             # Fallback to stem if relative path calculation fails
             return str(file_path.stem)
 
-    def _analyze_coupling_patterns(self) -> List[Dict[str, Any]]:
+    def _analyze_coupling_patterns(self) -> list[dict[str, Any]]:
         """Analyze coupling metrics and find issues."""
         findings = []
 
@@ -501,7 +501,7 @@ class CouplingAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _find_circular_dependencies(self) -> List[List[str]]:
+    def _find_circular_dependencies(self) -> list[list[str]]:
         """Find circular dependencies using DFS."""
         visited = set()
         rec_stack = set()
@@ -533,7 +533,7 @@ class CouplingAnalyzer(BaseAnalyzer):
 
         return cycles
 
-    def _deduplicate_cycles(self, cycles: List[List[str]]) -> List[List[str]]:
+    def _deduplicate_cycles(self, cycles: list[list[str]]) -> list[list[str]]:
         """Deduplicate circular dependencies by normalizing representations."""
         unique_cycles = []
         seen_cycles = set()

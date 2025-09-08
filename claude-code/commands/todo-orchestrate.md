@@ -1,5 +1,6 @@
 ---
 description: "Todo orchestration with automated multi-agent coordination from implementation plan to delivery"
+argument-hint: <implementation-plan-path> [--prototype] [--parallel] [--max-retries=N]
 allowed-tools:
   ["Task", "Read", "Write", "Edit", "TodoWrite", "Bash", "Grep", "Glob", "LS"]
 ---

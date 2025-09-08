@@ -1,14 +1,14 @@
 """
-install_monitoring_dependencies.py v0.1
+install_monitoring_dependencies.py v0.1.
 
 Simplified cross-platform installer for monitoring dependencies: make, watchexec, and foreman.
 Checks for tool presence, asks user consent, and installs using platform-specific package managers.
 """
 
 import os
-import sys
-import subprocess
 import platform
+import subprocess
+import sys
 
 
 def run_command(cmd, shell=False):
@@ -158,7 +158,7 @@ def install_foreman_from_github(platform_name):
 
 
 def main():
-    """Main function to check and install monitoring dependencies."""
+    """Check and install monitoring dependencies."""
     print("Checking monitoring dependencies...")
     print("Required tools: make, watchexec, foreman")
 

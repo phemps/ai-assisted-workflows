@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
 """
-Minimal Security Analysis Evaluator (CLI)
-=========================================
+Minimal Security Analysis Evaluator (CLI).
 
 Lightweight evaluator that runs security analyzers end-to-end and produces
 JSON and console reports. This script is designed for direct execution and
 now lives under shared/integration/cli rather than pytest's test tree.
 """
 
+import argparse
 import json
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
-import argparse
+from typing import Any
 
 # Setup import paths and import utilities
 try:
-    from utils.path_resolver import get_test_codebase_dir
-    from core.base import AnalyzerRegistry, create_analyzer_config
     import core.base.registry_bootstrap  # noqa: F401
+    from core.base import AnalyzerRegistry, create_analyzer_config
+    from utils.path_resolver import get_test_codebase_dir
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -32,7 +31,7 @@ print("🔧 Starting minimal evaluator...")
 # ----------------------------
 
 
-def parse_args(argv: List[str] = None) -> argparse.Namespace:
+def parse_args(argv: list[str] = None) -> argparse.Namespace:
     """Parse CLI arguments for the evaluator."""
     parser = argparse.ArgumentParser(description="Minimal Security Analysis Evaluator")
     parser.add_argument("--analyzer", default="detect_secrets", help="Analyzer to run")
@@ -54,7 +53,7 @@ def parse_args(argv: List[str] = None) -> argparse.Namespace:
 
 
 def count_expected_vulnerabilities(
-    app_name: str, expected_data: Dict, analyzer: str = None
+    app_name: str, expected_data: dict, analyzer: str = None
 ) -> int:
     """Count expected vulnerabilities for an application, optionally filtered by analyzer capabilities."""
     app_data = expected_data.get("applications", {}).get(app_name, {})
@@ -114,8 +113,8 @@ def count_expected_vulnerabilities(
 
 
 def calculate_simplified_metrics(
-    results: Dict, expected_data: Dict, analyzer_name: str
-) -> List[Dict]:
+    results: dict, expected_data: dict, analyzer_name: str
+) -> list[dict]:
     """Calculate simplified coverage metrics by application, filtered by analyzer capabilities."""
     simplified = []
 
@@ -151,7 +150,7 @@ def calculate_simplified_metrics(
 
 def run_analyzer_direct(
     analyzer_key: str, app_path: Path, app_name: str, max_files: int = 50
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     print(f"  🔍 Running {analyzer_key} on {app_name}...")
     start_time = time.time()
     try:
@@ -175,10 +174,9 @@ def run_analyzer_direct(
 
 
 def calculate_metrics(
-    app_name: str, analyzer_name: str, findings: List[Dict], expected_findings: Dict
-) -> Dict[str, Any]:
+    app_name: str, analyzer_name: str, findings: list[dict], expected_findings: dict
+) -> dict[str, Any]:
     """Calculate evaluation metrics."""
-
     # Get expected vulnerabilities for this app
     app_config = expected_findings.get("applications", {}).get(app_name, {})
     expected_vulns = app_config.get("expected_vulnerabilities", {})
@@ -225,12 +223,12 @@ def calculate_metrics(
     }
 
 
-def load_expected_findings(config_path: Path) -> Dict[str, Any]:
+def load_expected_findings(config_path: Path) -> dict[str, Any]:
     """Load expected findings configuration from JSON file."""
     if not config_path.exists():
         print(f"❌ Config file not found: {config_path}")
         sys.exit(1)
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         return json.load(f)
 
 
@@ -248,8 +246,8 @@ def resolve_analyzer_key(analyzer: str) -> str:
 
 
 def select_applications(
-    expected_findings: Dict[str, Any], requested: List[str]
-) -> List[str]:
+    expected_findings: dict[str, Any], requested: list[str]
+) -> list[str]:
     """Select applications to evaluate based on args and config."""
     all_apps = list(expected_findings.get("applications", {}).keys())
     if requested:
@@ -261,7 +259,7 @@ def select_applications(
     return all_apps
 
 
-def compute_summary(results: List[Dict[str, Any]]) -> Tuple[int, int]:
+def compute_summary(results: list[dict[str, Any]]) -> tuple[int, int]:
     """Compute numbers of successful and failed runs."""
     successful = len([r for r in results if r.get("success")])
     failed = len(results) - successful
@@ -272,7 +270,7 @@ def print_summary(
     app_count: int,
     total_findings: int,
     total_time: float,
-    avg_metrics: Dict[str, float],
+    avg_metrics: dict[str, float],
     successful: int,
     failed: int,
 ) -> None:
@@ -291,7 +289,7 @@ def print_summary(
 
 
 def print_simplified_metrics(
-    evaluation_results: Dict[str, Any], expected_findings: Dict[str, Any], analyzer: str
+    evaluation_results: dict[str, Any], expected_findings: dict[str, Any], analyzer: str
 ) -> None:
     """Print simplified coverage metrics table."""
     print("\n📊 Simplified Coverage Metrics:")
@@ -318,19 +316,19 @@ def print_simplified_metrics(
 
 
 def build_evaluation_report(
-    applications: List[str],
+    applications: list[str],
     analyzer: str,
-    results: List[Dict[str, Any]],
-    expected_findings: Dict[str, Any],
+    results: list[dict[str, Any]],
+    expected_findings: dict[str, Any],
     total_findings: int,
     total_time: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Assemble the structured evaluation report dictionary."""
     successful_runs, failed_runs = compute_summary(results)
     valid_metrics = [
         r["metrics"] for r in results if r.get("success") and "metrics" in r
     ]
-    avg_metrics: Dict[str, float] = {}
+    avg_metrics: dict[str, float] = {}
     if valid_metrics:
         avg_metrics = {
             "precision": sum(m["precision"] for m in valid_metrics)
@@ -386,7 +384,7 @@ def build_evaluation_report(
     return report
 
 
-def resolve_app_path(app_name: str, expected_findings: Dict[str, Any]) -> Path:
+def resolve_app_path(app_name: str, expected_findings: dict[str, Any]) -> Path:
     """Determine the filesystem path to a vulnerable app from config data."""
     app_config = expected_findings.get("applications", {}).get(app_name, {})
     app_source = app_config.get("source", f"vulnerable-apps/{app_name}")
@@ -399,17 +397,17 @@ def resolve_app_path(app_name: str, expected_findings: Dict[str, Any]) -> Path:
 
 
 def evaluate_applications(
-    applications: List[str],
+    applications: list[str],
     analyzer_key: str,
     analyzer_name: str,
-    expected_findings: Dict[str, Any],
+    expected_findings: dict[str, Any],
     max_files: int,
     verbose: bool,
-) -> Tuple[List[Dict[str, Any]], int, float]:
+) -> tuple[list[dict[str, Any]], int, float]:
     """Run the selected analyzer against each application and compute metrics."""
     count_expected_vulnerabilities._verbose_mode = verbose
     run_analyzer_direct._verbose_mode = verbose
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     total_findings = 0
     start_time = time.time()
     for app_name in applications:
@@ -431,7 +429,7 @@ def evaluate_applications(
     return results, total_findings, total_time
 
 
-def main(argv: List[str] = None):
+def main(argv: list[str] = None):
     args = parse_args(argv)
     if args.verbose:
         print("📊 Configuration:")

@@ -1,3 +1,7 @@
+---
+argument-hint: <bug-description-or-location>
+---
+
 # fix-bug v0.2
 
 **Mindset**: "Fix it right, keep it working" - Preserve existing functionality while eliminating defects.
@@ -82,15 +86,5 @@ PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.root_cause.error_patterns . --out
 - Minimal, targeted fix addressing fundamental cause
 - Comprehensive test suite including reproduction test
 - Bug analysis documentation with lessons learned
-
-## Symbol Legend
-
-- 🐛 Bug identification & analysis
-- 🔍 Root cause investigation needed
-- 🧪 Testing strategy required
-- ⚠ Regression risk assessment
-- 🎯 Fix validation criteria
-- 🚨 Critical bug requiring immediate attention
-- ✅ Bug fix validation passed
 
 $ARGUMENTS

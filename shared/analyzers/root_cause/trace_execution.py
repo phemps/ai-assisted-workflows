@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Root Cause Execution Tracer - High-level execution path and dependency analysis
-================================================================================
+Root Cause Execution Tracer - High-level execution path and dependency analysis.
 
 PURPOSE: Analyzes codebase structure to provide investigation pointers for debugging.
 Part of the shared/analyzers/root_cause suite using BaseAnalyzer infrastructure.
@@ -22,10 +21,10 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -96,7 +95,7 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
             "api_routes": [r"@app\.route", r"app\.(get|post|put|delete)"],
         }
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Execution Trace Analyzer",
@@ -115,14 +114,15 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
             "supported_formats": list(self.config.code_extensions),
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for execution patterns related to a specific error.
 
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         # REQUIRED: Must have error information to investigate
@@ -161,7 +161,7 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
                 return []  # Skip unrelated files
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             # Skip very large files
@@ -217,7 +217,7 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
 
         return all_findings
 
-    def _analyze_file_structure(self, content: str, file_path: str) -> Dict[str, Any]:
+    def _analyze_file_structure(self, content: str, file_path: str) -> dict[str, Any]:
         """Analyze single file structure for patterns."""
         lines = content.split("\n")
         file_info = {
@@ -246,8 +246,8 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
         return file_info
 
     def _generate_investigation_pointers(
-        self, file_info: Dict[str, Any], file_path: str
-    ) -> List[Dict[str, Any]]:
+        self, file_info: dict[str, Any], file_path: str
+    ) -> list[dict[str, Any]]:
         """Generate investigation pointers based on file analysis."""
         pointers = []
 
@@ -307,24 +307,27 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
             )
 
         # Check for low test coverage indicators
-        if file_info.get("classes", 0) > 0 and file_info.get("functions", 0) > 5:
-            if "test" not in file_path.lower() and try_blocks < 2:
-                pointers.append(
-                    {
-                        "type": "potential_testing_gap",
-                        "severity": "medium",
-                        "description": "Complex file with multiple classes/functions but minimal error handling",
-                        "investigation_focus": "Consider adding comprehensive testing and error handling",
-                        "evidence": {
-                            "classes": file_info.get("classes", 0),
-                            "functions": file_info.get("functions", 0),
-                        },
-                    }
-                )
+        if (
+            file_info.get("classes", 0) > 0
+            and file_info.get("functions", 0) > 5
+            and ("test" not in file_path.lower() and try_blocks < 2)
+        ):
+            pointers.append(
+                {
+                    "type": "potential_testing_gap",
+                    "severity": "medium",
+                    "description": "Complex file with multiple classes/functions but minimal error handling",
+                    "investigation_focus": "Consider adding comprehensive testing and error handling",
+                    "evidence": {
+                        "classes": file_info.get("classes", 0),
+                        "functions": file_info.get("functions", 0),
+                    },
+                }
+            )
 
         return pointers
 
-    def parse_error(self, error_info: str) -> Dict[str, Any]:
+    def parse_error(self, error_info: str) -> dict[str, Any]:
         """Parse error information to extract actionable context."""
         if not error_info:
             return {}
@@ -372,8 +375,8 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
         return error_context
 
     def _generate_targeted_investigation_pointers(
-        self, file_info: Dict, file_path: str, error_context: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, file_info: dict, file_path: str, error_context: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Generate investigation pointers focused on the specific error."""
         pointers = []
 
@@ -443,7 +446,7 @@ class ExecutionTraceAnalyzer(BaseAnalyzer):
 
 
 def main():
-    """Main entry point for command-line usage."""
+    """Run trace execution analyzer from the command line."""
     import argparse
 
     # Parse arguments first to get error info

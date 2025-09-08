@@ -33,6 +33,7 @@ This command performs a deep analysis of the current project to create a standar
      - **Approach**: How was the objective achieved, any patterns, libraries or tools used, etc.
 
 4. **Generate Project Primer**
+
    - Compile findings into standardized markdown format
    - Present comprehensive project overview
 

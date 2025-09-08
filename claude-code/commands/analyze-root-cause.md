@@ -1,3 +1,7 @@
+---
+argument-hint: [issue-description]
+---
+
 # analyze-root-cause v0.2
 
 **Mindset**: "Find the real problem" - Systematic root cause analysis using evidence-based investigation methodology.

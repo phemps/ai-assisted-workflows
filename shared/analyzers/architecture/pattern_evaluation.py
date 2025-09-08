@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Architecture Pattern Evaluation Analyzer - Design Pattern Analysis and Evaluation
-===============================================================================
+Architecture Pattern Evaluation Analyzer - Design Pattern Analysis and Evaluation.
 
 PURPOSE: Analyzes design patterns and architectural decisions in codebases.
 Part of the shared/analyzers/architecture suite using BaseAnalyzer infrastructure.
@@ -23,10 +22,10 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 import re
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -90,7 +89,7 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         self._init_language_patterns()
         self._init_config_file_patterns()
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Pattern Evaluation Analyzer",
@@ -117,14 +116,15 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
 
     # analyze method removed - using BaseAnalyzer default implementation
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for design patterns.
 
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         # Debug logging removed
@@ -137,7 +137,7 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
             if self._should_skip_file(file_path):
                 return all_findings
 
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
@@ -343,12 +343,12 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
     def _check_patterns(
         self,
         content: str,
-        lines: List[str],
+        lines: list[str],
         file_path: str,
-        pattern_dict: Dict,
+        pattern_dict: dict,
         pattern_type: str,
         language: str = "unknown",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check for specific patterns in file content."""
         import signal
 
@@ -430,7 +430,7 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _get_lizard_metrics(self, file_path: str) -> Dict[str, Any]:
+    def _get_lizard_metrics(self, file_path: str) -> dict[str, Any]:
         """Get Lizard complexity metrics for the file."""
         try:
             result = subprocess.run(
@@ -524,8 +524,8 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         return {"functions": [], "avg_ccn": 0, "max_ccn": 0, "total_functions": 0}
 
     def _check_complexity_patterns(
-        self, content: str, lines: List[str], file_path: str, language: str = "unknown"
-    ) -> List[Dict[str, Any]]:
+        self, content: str, lines: list[str], file_path: str, language: str = "unknown"
+    ) -> list[dict[str, Any]]:
         """Check for complexity-based pattern violations using Lizard metrics."""
         findings = []
 
@@ -665,8 +665,8 @@ class PatternEvaluationAnalyzer(BaseAnalyzer):
         return any(pattern in filename for pattern in self.config_file_patterns)
 
     def _deduplicate_findings(
-        self, findings: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, findings: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Remove duplicate findings based on key characteristics."""
         seen = set()
         unique_findings = []

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Performance Timing Utilities for Continuous Improvement Framework
+Performance Timing Utilities for Continuous Improvement Framework.
+
 Eliminates duplication of timing and performance measurement patterns.
 """
 
-import time
 import functools
+import threading
+import time
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Callable, Union
-import threading
-from collections import defaultdict
+from typing import Any, Callable, Optional, Union
 
 
 @dataclass
@@ -21,14 +22,14 @@ class TimingResult:
     duration_seconds: float
     start_time: float
     end_time: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def duration_ms(self) -> float:
         """Duration in milliseconds."""
         return self.duration_seconds * 1000
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "operation": self.operation,
@@ -44,9 +45,9 @@ class PerformanceTracker:
     """Thread-safe performance tracking for operations."""
 
     def __init__(self):
-        self._timings: Dict[str, List[TimingResult]] = defaultdict(list)
+        self._timings: dict[str, list[TimingResult]] = defaultdict(list)
         self._lock = threading.Lock()
-        self._active_operations: Dict[str, float] = {}
+        self._active_operations: dict[str, float] = {}
 
     def record_timing(self, result: TimingResult) -> None:
         """Record a timing result."""
@@ -55,14 +56,14 @@ class PerformanceTracker:
 
     def get_timings(
         self, operation: Optional[str] = None
-    ) -> Dict[str, List[TimingResult]]:
+    ) -> dict[str, list[TimingResult]]:
         """Get recorded timings."""
         with self._lock:
             if operation:
                 return {operation: self._timings.get(operation, [])}
             return dict(self._timings)
 
-    def get_statistics(self, operation: str) -> Dict[str, float]:
+    def get_statistics(self, operation: str) -> dict[str, float]:
         """Get timing statistics for an operation."""
         with self._lock:
             timings = self._timings.get(operation, [])
@@ -81,7 +82,7 @@ class PerformanceTracker:
                 "latest": durations[-1] if durations else 0.0,
             }
 
-    def get_summary(self) -> Dict[str, Dict[str, float]]:
+    def get_summary(self) -> dict[str, dict[str, float]]:
         """Get summary statistics for all operations."""
         with self._lock:
             summary = {}
@@ -109,11 +110,11 @@ def get_performance_tracker() -> PerformanceTracker:
 
 def timed_operation(
     operation_name: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
     tracker: Optional[PerformanceTracker] = None,
 ):
     """
-    Decorator to time function execution.
+    Decorate a function to time its execution.
 
     Args:
         operation_name: Name of the operation (defaults to function name)
@@ -151,7 +152,7 @@ def timed_operation(
 @contextmanager
 def time_operation(
     operation_name: str,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
     tracker: Optional[PerformanceTracker] = None,
 ):
     """
@@ -162,7 +163,8 @@ def time_operation(
         metadata: Additional metadata to record with timing
         tracker: Performance tracker to use (defaults to global tracker)
 
-    Yields:
+    Yields
+    ------
         TimingResult that will be populated with timing data
     """
     op_tracker = tracker or _global_tracker
@@ -192,7 +194,7 @@ class OperationTimer:
     def __init__(
         self,
         operation_name: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         tracker: Optional[PerformanceTracker] = None,
     ):
         self.operation_name = operation_name
@@ -285,11 +287,11 @@ class BatchTimer:
     ):
         self.operation_name = operation_name
         self.tracker = tracker or _global_tracker
-        self.batch_timings: List[float] = []
+        self.batch_timings: list[float] = []
         self.current_timer: Optional[OperationTimer] = None
 
     def start_item(
-        self, item_metadata: Optional[Dict[str, Any]] = None
+        self, item_metadata: Optional[dict[str, Any]] = None
     ) -> "BatchTimer":
         """Start timing an individual item in the batch."""
         if self.current_timer is not None:
@@ -322,10 +324,7 @@ class BatchTimer:
             # Auto-complete any active item
             self.end_item()
 
-        if not self.batch_timings:
-            total_duration = 0.0
-        else:
-            total_duration = sum(self.batch_timings)
+        total_duration = 0.0 if not self.batch_timings else sum(self.batch_timings)
 
         metadata = {
             "batch_size": len(self.batch_timings),
@@ -351,7 +350,7 @@ class BatchTimer:
 
 def create_performance_report(
     tracker: Optional[PerformanceTracker] = None, format_type: str = "summary"
-) -> Union[str, Dict[str, Any]]:
+) -> Union[str, dict[str, Any]]:
     """
     Create a performance report from recorded timings.
 
@@ -359,7 +358,8 @@ def create_performance_report(
         tracker: Performance tracker to use (defaults to global tracker)
         format_type: Report format ('summary', 'detailed', 'json')
 
-    Returns:
+    Returns
+    -------
         Performance report in requested format
     """
     op_tracker = tracker or _global_tracker
@@ -373,7 +373,7 @@ def create_performance_report(
         return _format_summary_report(summary)
 
 
-def _format_summary_report(summary: Dict[str, Dict[str, float]]) -> str:
+def _format_summary_report(summary: dict[str, dict[str, float]]) -> str:
     """Format summary performance report."""
     lines = ["Performance Summary:", "=" * 50]
 
@@ -389,7 +389,7 @@ def _format_summary_report(summary: Dict[str, Dict[str, float]]) -> str:
 
 
 def _format_detailed_report(
-    tracker: PerformanceTracker, summary: Dict[str, Dict[str, float]]
+    tracker: PerformanceTracker, summary: dict[str, dict[str, float]]
 ) -> str:
     """Format detailed performance report."""
     lines = ["Detailed Performance Report:", "=" * 50]

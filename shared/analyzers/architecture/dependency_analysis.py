@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Dependency Analysis Analyzer - Architecture Dependency Analysis and Visualization
-================================================================================
+Dependency Analysis Analyzer - Architecture Dependency Analysis and Visualization.
 
 PURPOSE: Analyzes project dependencies, version conflicts, and security vulnerabilities.
 Part of the shared/analyzers/architecture suite using BaseAnalyzer infrastructure.
@@ -23,12 +22,12 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import json
 import re
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from collections import defaultdict
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -210,7 +209,7 @@ class DependencyAnalyzer(BaseAnalyzer):
             "^": "compatible_caret",
         }
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Dependency Analysis Analyzer",
@@ -233,14 +232,15 @@ class DependencyAnalyzer(BaseAnalyzer):
             "vulnerability_db_size": len(self.vulnerability_patterns),
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file or directory for dependency issues.
 
         Args:
             target_path: Path to file or directory to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         all_findings = []
@@ -262,13 +262,13 @@ class DependencyAnalyzer(BaseAnalyzer):
 
         return all_findings
 
-    def _analyze_project_dependencies(self, project_root: Path) -> List[Dict[str, Any]]:
+    def _analyze_project_dependencies(self, project_root: Path) -> list[dict[str, Any]]:
         """Analyze all dependency files in a project."""
         all_findings = []
 
         # Find all dependency files
         dependency_files_found = []
-        for pattern_name in self.dependency_files.keys():
+        for pattern_name in self.dependency_files:
             for dep_file in project_root.rglob(pattern_name):
                 if self._should_analyze_file(dep_file):
                     dependency_files_found.append(dep_file)
@@ -285,7 +285,7 @@ class DependencyAnalyzer(BaseAnalyzer):
 
         return all_findings
 
-    def _analyze_dependency_file(self, file_path: Path) -> List[Dict[str, Any]]:
+    def _analyze_dependency_file(self, file_path: Path) -> list[dict[str, Any]]:
         """Analyze a specific dependency file."""
         findings = []
         file_config = self.dependency_files.get(file_path.name, {})
@@ -337,12 +337,12 @@ class DependencyAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _parse_requirements_txt(self, file_path: Path) -> Dict[str, str]:
+    def _parse_requirements_txt(self, file_path: Path) -> dict[str, str]:
         """Parse Python requirements.txt file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                for line_num, line in enumerate(f, 1):
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                for _line_num, line in enumerate(f, 1):
                     line = line.strip()
                     if line and not line.startswith("#"):
                         # Parse package==version or package>=version
@@ -357,11 +357,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_package_json(self, file_path: Path) -> Dict[str, str]:
+    def _parse_package_json(self, file_path: Path) -> dict[str, str]:
         """Parse Node.js package.json file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 data = json.load(f)
 
                 # Combine dependencies and devDependencies
@@ -372,12 +372,12 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_pyproject_toml(self, file_path: Path) -> Dict[str, str]:
+    def _parse_pyproject_toml(self, file_path: Path) -> dict[str, str]:
         """Parse Python pyproject.toml file."""
         dependencies = {}
         try:
             # Simple TOML parsing for dependencies section
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 # Look for dependencies array
@@ -401,12 +401,12 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_pipfile(self, file_path: Path) -> Dict[str, str]:
+    def _parse_pipfile(self, file_path: Path) -> dict[str, str]:
         """Parse Python Pipfile."""
         dependencies = {}
         try:
             # Simple TOML-like parsing for Pipfile
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 # Look for [packages] and [dev-packages] sections
@@ -427,12 +427,12 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_conda_yml(self, file_path: Path) -> Dict[str, str]:
+    def _parse_conda_yml(self, file_path: Path) -> dict[str, str]:
         """Parse conda environment.yml file."""
         dependencies = {}
         try:
             # Simple YAML parsing for dependencies
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 in_deps = False
                 for line in f:
                     line = line.strip()
@@ -455,11 +455,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_pom_xml(self, file_path: Path) -> Dict[str, str]:
+    def _parse_pom_xml(self, file_path: Path) -> dict[str, str]:
         """Parse Java pom.xml file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 # Find dependency blocks
@@ -474,11 +474,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_gradle(self, file_path: Path) -> Dict[str, str]:
+    def _parse_gradle(self, file_path: Path) -> dict[str, str]:
         """Parse Java build.gradle file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 # Find implementation/compile dependencies
@@ -498,11 +498,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_cargo_toml(self, file_path: Path) -> Dict[str, str]:
+    def _parse_cargo_toml(self, file_path: Path) -> dict[str, str]:
         """Parse Rust Cargo.toml file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 # Look for [dependencies] section
@@ -522,11 +522,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_go_mod(self, file_path: Path) -> Dict[str, str]:
+    def _parse_go_mod(self, file_path: Path) -> dict[str, str]:
         """Parse Go go.mod file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     line = line.strip()
                     if line.startswith("require "):
@@ -549,11 +549,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_gemfile(self, file_path: Path) -> Dict[str, str]:
+    def _parse_gemfile(self, file_path: Path) -> dict[str, str]:
         """Parse Ruby Gemfile."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     line = line.strip()
                     # Match gem "name", "version"
@@ -568,11 +568,11 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _parse_composer_json(self, file_path: Path) -> Dict[str, str]:
+    def _parse_composer_json(self, file_path: Path) -> dict[str, str]:
         """Parse PHP composer.json file."""
         dependencies = {}
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 data = json.load(f)
 
                 # Combine require and require-dev
@@ -583,12 +583,12 @@ class DependencyAnalyzer(BaseAnalyzer):
             pass
         return dependencies
 
-    def _analyze_dependency_usage(self, file_path: Path) -> List[Dict[str, Any]]:
+    def _analyze_dependency_usage(self, file_path: Path) -> list[dict[str, Any]]:
         """Analyze dependency usage in source files."""
         findings = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
                 # Look for import statements
@@ -610,7 +610,7 @@ class DependencyAnalyzer(BaseAnalyzer):
 
     def _check_vulnerability(
         self, package: str, version: str, file_path: Path
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Check if package version has known vulnerabilities."""
         if package in self.vulnerability_patterns:
             vuln_info = self.vulnerability_patterns[package]
@@ -635,7 +635,7 @@ class DependencyAnalyzer(BaseAnalyzer):
 
     def _check_outdated_version(
         self, package: str, version: str, file_path: Path
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Check if package version is outdated."""
         # Simplified outdated check - look for very old patterns
         outdated_indicators = [
@@ -662,7 +662,7 @@ class DependencyAnalyzer(BaseAnalyzer):
                 }
         return None
 
-    def _analyze_version_conflicts(self) -> List[Dict[str, Any]]:
+    def _analyze_version_conflicts(self) -> list[dict[str, Any]]:
         """Analyze for version conflicts across dependency files."""
         findings = []
         package_versions = defaultdict(list)  # {package: [(file, version)]}
@@ -676,7 +676,7 @@ class DependencyAnalyzer(BaseAnalyzer):
         # Check for conflicts
         for package, versions in package_versions.items():
             if len(versions) > 1:
-                unique_versions = set(v[1] for v in versions)
+                unique_versions = {v[1] for v in versions}
                 if len(unique_versions) > 1:
                     # Version conflict detected
                     conflict_desc = (

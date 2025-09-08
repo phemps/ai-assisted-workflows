@@ -1,3 +1,7 @@
+---
+argument-hint: <technology>
+---
+
 # Create Technology Implementation Rules
 
 Create concise, focused implementation rule files for specific technologies, frameworks, or patterns. These rule files provide guard rails for automated code generation by defining required patterns and anti-patterns.

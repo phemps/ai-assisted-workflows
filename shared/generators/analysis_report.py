@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Analysis Report Generator - Planning Script
+Analysis Report Generator - Planning Script.
+
 Part of the AI-Assisted Workflows system.
 
 Placeholder implementation for generating comprehensive analysis reports.
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Import output formatter (package root must be on PYTHONPATH)
-from core.utils.output_formatter import ResultFormatter, AnalysisResult
+from core.utils.output_formatter import AnalysisResult, ResultFormatter
 
 
 def generate_comprehensive_report(
@@ -25,7 +26,8 @@ def generate_comprehensive_report(
         target_path: Path to analyze and collect results from
         output_file: Output file path for the report
 
-    Returns:
+    Returns
+    -------
         AnalysisResult containing report generation status
     """
     result = ResultFormatter.create_analysis_result(
@@ -160,7 +162,7 @@ def generate_comprehensive_report(
 
 
 def main():
-    """Main function for command-line usage."""
+    """Generate an analysis report from the command line."""
     import argparse
 
     parser = argparse.ArgumentParser(

@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
 Output formatting utilities for AI-Assisted Workflows scriptable workflows.
+
 Provides standardized JSON output format for all analysis scripts.
 """
 
 import json
 import time
-from datetime import datetime
-from typing import Dict, List, Any, Optional
-from enum import Enum
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, Optional
 
 
 class Severity(Enum):
@@ -44,7 +45,7 @@ class Finding:
         file_path: Optional[str] = None,
         line_number: Optional[int] = None,
         recommendation: Optional[str] = None,
-        evidence: Optional[Dict[str, Any]] = None,
+        evidence: Optional[dict[str, Any]] = None,
     ):
         self.finding_id = finding_id
         self.title = title
@@ -55,7 +56,7 @@ class Finding:
         self.recommendation = recommendation
         self.evidence = evidence or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert finding to dictionary."""
         return {
             "id": self.finding_id,
@@ -77,8 +78,8 @@ class AnalysisResult:
         analysis_type: AnalysisType,
         script_name: str,
         target_path: str,
-        findings: List[Finding] = None,
-        metadata: Dict[str, Any] = None,
+        findings: list[Finding] = None,
+        metadata: dict[str, Any] = None,
     ):
         self.analysis_type = analysis_type
         self.script_name = script_name
@@ -103,7 +104,7 @@ class AnalysisResult:
         """Set execution time based on start time."""
         self.execution_time = time.time() - start_time
 
-    def get_summary(self) -> Dict[str, int]:
+    def get_summary(self) -> dict[str, int]:
         """Get summary of findings by severity."""
         summary = {severity.value: 0 for severity in Severity}
         for finding in self.findings:
@@ -112,7 +113,7 @@ class AnalysisResult:
 
     def to_dict(
         self, summary_mode: bool = False, min_severity: str = "low"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Convert result to dictionary.
 
@@ -191,6 +192,8 @@ class ResultFormatter:
 
     @dataclass
     class FindingInput:
+        """Input data for creating a Finding instance."""
+
         finding_id: str
         title: str
         description: str
@@ -198,7 +201,7 @@ class ResultFormatter:
         file_path: Optional[str] = None
         line_number: Optional[int] = None
         recommendation: Optional[str] = None
-        evidence: Optional[Dict[str, Any]] = None
+        evidence: Optional[dict[str, Any]] = None
 
     @staticmethod
     def create_security_result(script_name: str, target_path: str) -> AnalysisResult:
@@ -245,7 +248,7 @@ class ResultFormatter:
         )
 
     @staticmethod
-    def merge_results(results: List[AnalysisResult]) -> Dict[str, Any]:
+    def merge_results(results: list[AnalysisResult]) -> dict[str, Any]:
         """Merge multiple analysis results into a combined report."""
         if not results:
             return {"error": "No results to merge"}

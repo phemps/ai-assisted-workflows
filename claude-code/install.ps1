@@ -11,7 +11,6 @@ param(
 
     [switch]$Help,
     [switch]$DryRun,
-    [switch]$SkipMcp,
     [switch]$SkipPython
 )
 
@@ -73,7 +72,7 @@ function Show-Usage {
     Write-Output "    -Help           Show this help message"
     Write-Output "    -Verbose        Enable verbose output (PowerShell built-in parameter)"
     Write-Output "    -DryRun         Show what would be done without making changes"
-    Write-Output "    -SkipMcp        Skip MCP tools installation"
+    Write-Output ""
     Write-Output "    -SkipPython     Skip Python dependencies installation"
     Write-Output ""
     Write-Output "EXAMPLES:"
@@ -89,13 +88,9 @@ function Show-Usage {
     Write-Output "    # Dry run to see what would happen"
     Write-Output "    .\install.ps1 -DryRun"
     Write-Output ""
-    Write-Output "    # Install without MCP tools"
-    Write-Output "    .\install.ps1 -SkipMcp"
-    Write-Output ""
     Write-Output "REQUIREMENTS:"
     Write-Output "    - Python 3.7+"
-    Write-Output "    - Node.js (for MCP tools)"
-    Write-Output "    - Claude CLI (for MCP tools)"
+    Write-Output "    - Node.js (for frontend analysis)"
     Write-Output "    - Internet connection for dependencies"
 }
 
@@ -156,54 +151,28 @@ function Test-Prerequisites {
         $errors++
     }
 
-    # Check Node.js (only if MCP tools not skipped)
-    if (-not $SkipMcp) {
-        try {
-            $nodeVersion = & node --version 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $versionNumber = $nodeVersion -replace '^v', ''
-                $major = [int]($versionNumber.Split('.')[0])
-                if ($major -ge 14) {
-                    Write-ColorOutput "[OK] Node.js $nodeVersion found" -Color $Colors.Green
-                    Write-Log "Node.js check passed: $nodeVersion"
-                } else {
-                    Write-ColorOutput "[ERROR] Node.js $nodeVersion found, but 14+ required for MCP tools" -Color $Colors.Red
-                    Write-Output "  Install: https://nodejs.org/"
-                    Write-Output "  Or use -SkipMcp to skip MCP tools installation"
-                    Write-Log "Node.js version too old: $nodeVersion" -Level "ERROR"
-                    $errors++
-                }
+    # Check Node.js for frontend analysis
+    try {
+        $nodeVersion = & node --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $versionNumber = $nodeVersion -replace '^v', ''
+            $major = [int]($versionNumber.Split('.')[0])
+            if ($major -ge 14) {
+                Write-ColorOutput "[OK] Node.js $nodeVersion found" -Color $Colors.Green
+                Write-Log "Node.js check passed: $nodeVersion"
             } else {
-                throw "Node.js not found"
+                Write-ColorOutput "[ERROR] Node.js $nodeVersion found, but 14+ required for frontend analysis" -Color $Colors.Red
+                Write-Output "  Install: https://nodejs.org/"
+                Write-Log "Node.js version too old: $nodeVersion" -Level "ERROR"
+                $errors++
             }
-        } catch {
-            Write-ColorOutput "[WARNING] Node.js not found - MCP tools will be skipped" -Color $Colors.Yellow
-            Write-Output "  To enable MCP tools, install Node.js: https://nodejs.org/"
-            Write-Log "Node.js not found, will skip MCP tools: $($_.Exception.Message)" -Level "WARNING"
-            $SkipMcp = $true
+        } else {
+            throw "Node.js not found"
         }
-
-        # Check Claude CLI (only if MCP tools not skipped)
-        if (-not $SkipMcp) {
-            try {
-                $claudeVersion = & claude --version 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                    Write-ColorOutput "[OK] Claude CLI found" -Color $Colors.Green
-                    Write-Log "Claude CLI check passed: $claudeVersion"
-                } else {
-                    throw "Claude CLI not found"
-                }
-            } catch {
-                Write-ColorOutput "[WARNING] Claude CLI not found - MCP tools will be skipped" -Color $Colors.Yellow
-                Write-Output "  To enable MCP tools, install Claude CLI"
-                Write-Output "  Or use -SkipMcp to skip MCP tools installation"
-                Write-Log "Claude CLI not found, will skip MCP tools: $($_.Exception.Message)" -Level "WARNING"
-                $SkipMcp = $true
-            }
-        }
-    } else {
-        Write-ColorOutput "[INFO] MCP tools installation skipped" -Color $Colors.Yellow
-        Write-Log "MCP tools installation skipped by user"
+    } catch {
+        Write-ColorOutput "[WARNING] Node.js not found - frontend analysis will be limited" -Color $Colors.Yellow
+        Write-Output "  To enable full frontend analysis, install Node.js: https://nodejs.org/"
+        Write-Log "Node.js not found: $($_.Exception.Message)" -Level "WARNING"
     }
 
     if ($errors -gt 0) {
@@ -380,77 +349,6 @@ function Install-PythonDependencies {
     }
 }
 
-function Install-McpTools {
-    param([string]$ClaudePath)
-
-    if ($SkipMcp) {
-        Write-ColorOutput "[INFO] MCP tools installation skipped" -Color $Colors.Yellow
-        Write-Log "MCP tools installation skipped"
-        return
-    }
-
-    Write-Output ""
-    Write-ColorOutput "Installing MCP tools..." -Color $Colors.Yellow
-    Write-Log "Starting MCP tools installation"
-
-    if ($DryRun) {
-        Write-ColorOutput "[DRY RUN] Would install MCP tools via Claude CLI" -Color $Colors.Blue
-        return
-    }
-
-    try {
-        # Install sequential-thinking MCP server
-        Write-Output "Installing sequential-thinking MCP server..."
-        Start-Sleep -Seconds 1  # Small delay to ensure claude mcp list is ready
-        $mcpListOutput = & claude mcp list 2>&1
-        if ($mcpListOutput -match "^sequential-thinking:") {
-            Write-ColorOutput "[INFO] sequential-thinking already installed, skipping" -Color $Colors.Yellow
-            Write-Log "sequential-thinking already installed, skipping"
-        } else {
-            # Try to install, capturing the actual output
-            $installOutput = & claude mcp add sequential-thinking -s user -- npx -y "@modelcontextprotocol/server-sequential-thinking" 2>&1
-            $installExitCode = $LASTEXITCODE
-
-            if ($installExitCode -eq 0) {
-                Write-ColorOutput "[OK] sequential-thinking MCP server installed" -Color $Colors.Green
-                Write-Log "sequential-thinking MCP server installed successfully"
-            } elseif ($installOutput -match "already exists") {
-                Write-ColorOutput "[INFO] sequential-thinking already exists, marking as successful" -Color $Colors.Yellow
-                Write-Log "sequential-thinking already exists (detected during install)"
-            } else {
-                Write-ColorOutput "[WARNING] Failed to install sequential-thinking MCP server: $installOutput" -Color $Colors.Yellow
-                Write-Log "Failed to install sequential-thinking MCP server: $installOutput" -Level "WARNING"
-            }
-        }
-
-        # Install grep MCP server
-        Write-Output "Installing grep MCP server..."
-        $mcpListOutput = & claude mcp list 2>&1
-        if ($mcpListOutput -match "^grep:") {
-            Write-ColorOutput "[INFO] grep already installed, skipping" -Color $Colors.Yellow
-            Write-Log "grep already installed, skipping"
-        } else {
-            # Try to install, capturing the actual output
-            $installOutput = & claude mcp add --transport http grep https://mcp.grep.app 2>&1
-            $installExitCode = $LASTEXITCODE
-
-            if ($installExitCode -eq 0) {
-                Write-ColorOutput "[OK] grep MCP server installed" -Color $Colors.Green
-                Write-Log "grep MCP server installed successfully"
-            } elseif ($installOutput -match "already exists") {
-                Write-ColorOutput "[INFO] grep already exists, marking as successful" -Color $Colors.Yellow
-                Write-Log "grep already exists (detected during install)"
-            } else {
-                Write-ColorOutput "[WARNING] Failed to install grep MCP server: $installOutput" -Color $Colors.Yellow
-                Write-Log "Failed to install grep MCP server: $installOutput" -Level "WARNING"
-            }
-        }
-
-    } catch {
-        Write-ColorOutput "[WARNING] Error installing MCP tools: $($_.Exception.Message)" -Color $Colors.Yellow
-        Write-Log "Error installing MCP tools: $($_.Exception.Message)" -Level "WARNING"
-    }
-}
 
 function Copy-WorkflowFiles {
     param(
@@ -713,7 +611,7 @@ function Copy-WorkflowFiles {
         # Create installation log
         $installLog = Join-Path $ClaudePath "installation-log.txt"
         $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        $mcpStatus = if ($SkipMcp) { "Skipped" } else { "Installed" }
+        $mcpStatus = "Not Installed"
         $pythonStatus = if ($SkipPython) { "Skipped" } else { "Installed" }
         @"
 AI-Assisted Workflows Installation Log
@@ -889,13 +787,6 @@ function Show-CompletionMessage {
     Write-Output "  2. Try a command: claude /analyze-security"
     Write-Output "  3. Use build flags: --prototype or --tdd"
     Write-Output ""
-
-    if (-not $SkipMcp) {
-        Write-ColorOutput "MCP Tools configured:" -Color $Colors.Yellow
-        Write-Output "  • sequential-thinking - Complex analysis workflows"
-        Write-Output "  • grep - GitHub repository code search"
-        Write-Output ""
-    }
 
     Write-ColorOutput "Enable Codebase-Expert Agent (AI-powered code search):" -Color $Colors.Yellow
     Write-Output "  1. /setup-ci-monitoring    (index codebase for semantic search)"
@@ -1087,41 +978,11 @@ function Test-PrerequisitesParallel {
         }
     }
 
-    $claudeCheck = {
-        if ($using:SkipMcp) {
-            return @{
-                Tool = "Claude CLI"
-                Found = $true
-                Skipped = $true
-                ExitCode = 0
-            }
-        }
-
-        try {
-            $version = & claude --version 2>&1
-            return @{
-                Tool = "Claude CLI"
-                Version = $version
-                Found = $true
-                ExitCode = 0
-            }
-        }
-        catch {
-            return @{
-                Tool = "Claude CLI"
-                Found = $false
-                Error = $_.Exception.Message
-                ExitCode = 1
-            }
-        }
-    }
-
     # Start parallel jobs
     Write-ColorOutput "Running dependency checks in parallel..." -Color $Colors.Cyan
     $jobs = @()
     $jobs += Start-Job -ScriptBlock $pythonCheck
     $jobs += Start-Job -ScriptBlock $nodeCheck
-    $jobs += Start-Job -ScriptBlock $claudeCheck
 
     # Wait for completion with timeout
     $timeout = 30 # seconds
@@ -1347,7 +1208,7 @@ try {
     Write-Output ""
 
     # Phase 1: System Requirements
-    Show-Phase -PhaseNumber 1 -TotalPhases 8 -Description "Checking system requirements"
+    Show-Phase -PhaseNumber 1 -TotalPhases 7 -Description "Checking system requirements"
 
     # Resolve target path
     $resolvedTargetPath = Resolve-TargetPath $TargetPath
@@ -1363,7 +1224,7 @@ try {
     Test-PrerequisitesParallel
 
     # Phase 2: Directory Setup
-    Show-Phase -PhaseNumber 2 -TotalPhases 8 -Description "Setting up directories"
+    Show-Phase -PhaseNumber 2 -TotalPhases 7 -Description "Setting up directories"
 
     # Handle existing installation and get install mode
     $installResult = Handle-ExistingInstallation $claudePath
@@ -1377,39 +1238,31 @@ try {
     }
 
     # Phase 3: File Copying
-    Show-Phase -PhaseNumber 3 -TotalPhases 8 -Description "Copying workflow files"
+    Show-Phase -PhaseNumber 3 -TotalPhases 7 -Description "Copying workflow files"
     Copy-WorkflowFiles $claudePath $installMode
 
     # Phase 4: Installation Tracking
-    Show-Phase -PhaseNumber 4 -TotalPhases 8 -Description "Creating installation tracking"
+    Show-Phase -PhaseNumber 4 -TotalPhases 7 -Description "Creating installation tracking"
     # Installation log is created within Copy-WorkflowFiles
 
     # Phase 5: Dependencies
-    Show-Phase -PhaseNumber 5 -TotalPhases 8 -Description "Installing dependencies"
+    Show-Phase -PhaseNumber 5 -TotalPhases 7 -Description "Installing dependencies"
     if (-not $SkipPython) {
         Install-PythonDependencies
     } else {
         Write-ColorOutput "Skipping Python dependencies installation" -Color $Colors.Yellow
     }
 
-    # Phase 6: MCP Tools
-    Show-Phase -PhaseNumber 6 -TotalPhases 8 -Description "Installing MCP tools"
-    if (-not $SkipMcp) {
-        Install-McpTools $claudePath
-    } else {
-        Write-ColorOutput "Skipping MCP tools installation" -Color $Colors.Yellow
-    }
-
-    # Phase 7: Verification
-    Show-Phase -PhaseNumber 7 -TotalPhases 8 -Description "Verifying installation"
+    # Phase 6: Verification
+    Show-Phase -PhaseNumber 6 -TotalPhases 7 -Description "Verifying installation"
     if (-not (Test-Installation $claudePath)) {
         Write-ColorOutput "[ERROR] Installation verification failed" -Color $Colors.Red
         Write-Log "Installation verification failed" -Level "ERROR"
         exit 1
     }
 
-    # Phase 8: Completion
-    Show-Phase -PhaseNumber 8 -TotalPhases 8 -Description "Finalizing installation"
+    # Phase 7: Completion
+    Show-Phase -PhaseNumber 7 -TotalPhases 7 -Description "Finalizing installation"
     Show-CompletionMessage $claudePath $backupPath
     Write-Log "Installation completed successfully"
 
@@ -1424,8 +1277,7 @@ try {
     Write-Output "  1. Ensure Python 3.7+ is installed and in PATH"
     Write-Output "  2. Check internet connectivity for package downloads"
     Write-Output "  3. Run PowerShell as Administrator if permission issues occur"
-    Write-Output "  4. Use -SkipMcp if Claude CLI is causing issues"
-    Write-Output "  5. Use -SkipPython if Python dependencies are causing issues"
+    Write-Output "  4. Use -SkipPython if Python dependencies are causing issues"
     Write-Output ""
     Write-Output "Log file: $LOG_FILE"
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Frontend Performance Analyzer - Web Performance and Optimization Analysis
-=========================================================================
+Frontend Performance Analyzer - Web Performance and Optimization Analysis.
 
 PURPOSE: Analyzes frontend code for performance issues, bundle size, and optimization opportunities.
 Part of the shared/analyzers/performance suite using BaseAnalyzer infrastructure.
@@ -21,15 +20,16 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 - Uses shared timing, logging, and error handling patterns
 """
 
-import re
-import sys
-import subprocess
+import contextlib
 import json
+import re
+import subprocess
+import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -423,7 +423,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
                     for pattern in config["indicators"]
                 ]
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Frontend Performance Analyzer",
@@ -445,12 +445,12 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
             "patterns_checked": len(self._compiled_patterns),
         }
 
-    def _scan_file_for_issues(self, file_path: Path) -> List[Dict[str, Any]]:
+    def _scan_file_for_issues(self, file_path: Path) -> list[dict[str, Any]]:
         """Scan a single file for frontend performance issues."""
         findings = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
@@ -530,9 +530,10 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+    def _process_batch(self, batch: list[Path]) -> list[dict[str, Any]]:
         """
         Override BaseAnalyzer batch processing to run ESLint once per batch.
+
         This dramatically improves performance vs per-file ESLint calls.
         """
         # First run ESLint on all JS/TS files in the batch at once
@@ -573,7 +574,7 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
 
         return batch_findings
 
-    def _run_batch_eslint_analysis(self, js_files: List[Path]) -> None:
+    def _run_batch_eslint_analysis(self, js_files: list[Path]) -> None:
         """Run ESLint on a batch of JS/TS files and cache results."""
         if not js_files:
             return
@@ -642,16 +643,15 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
         try:
             import tempfile
 
-            config_file = tempfile.NamedTemporaryFile(
+            with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False
-            )
-            json.dump(eslint_config, config_file, indent=2)
-            config_file.close()
-            self._eslint_config_path = config_file.name
+            ) as config_file:
+                json.dump(eslint_config, config_file, indent=2)
+                self._eslint_config_path = config_file.name
         except Exception as e:
             print(f"Failed to create ESLint config: {e}", file=sys.stderr)
 
-    def _run_eslint_analysis(self, file_path: str) -> List[Dict[str, Any]]:
+    def _run_eslint_analysis(self, file_path: str) -> list[dict[str, Any]]:
         """Get ESLint analysis results from cache (populated by batch processing)."""
         findings = []
 
@@ -871,31 +871,29 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
 
         # Skip common library method chains that are not performance issues
         safe_patterns = ["console.", "Math.", "Date.", "Array.", "Object.", "String."]
-        if any(pattern in line_content for pattern in safe_patterns):
-            # Only flag if it's in a loop context
-            if not any(
-                loop in line_lower
-                for loop in ["for ", "while ", "foreach", ".map(", ".filter("]
-            ):
-                return True
-
-        # Skip TypeScript/JavaScript type definitions and interfaces
-        if any(
-            ts_pattern in line_lower
-            for ts_pattern in ["interface ", "type ", "declare "]
+        if any(pattern in line_content for pattern in safe_patterns) and not any(
+            loop in line_lower
+            for loop in ["for ", "while ", "foreach", ".map(", ".filter("]
         ):
             return True
 
-        return False
+        # Skip TypeScript/JavaScript type definitions and interfaces
+        return bool(
+            any(
+                ts_pattern in line_lower
+                for ts_pattern in ["interface ", "type ", "declare "]
+            )
+        )
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for frontend performance issues.
 
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         all_findings = []
@@ -938,10 +936,8 @@ class FrontendPerformanceAnalyzer(BaseAnalyzer):
     def __del__(self):
         """Clean up temporary ESLint config file."""
         if self._eslint_config_path:
-            try:
+            with contextlib.suppress(Exception):
                 Path(self._eslint_config_path).unlink(missing_ok=True)
-            except Exception:
-                pass
 
 
 if __name__ == "__main__":

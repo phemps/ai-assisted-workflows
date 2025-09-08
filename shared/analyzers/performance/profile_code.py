@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Code Performance Profiler - General Code Performance Analysis
-=============================================================
+Code Performance Profiler - General Code Performance Analysis.
 
 PURPOSE: General-purpose code performance profiler with extensible architecture.
 Part of the shared/analyzers/performance suite using BaseProfiler infrastructure.
@@ -27,7 +26,7 @@ FUTURE INTEGRATIONS:
 
 import re
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base profiler (package root must be on PYTHONPATH)
 from core.base.profiler_base import BaseProfiler, ProfilerConfig
@@ -152,14 +151,15 @@ class CodeProfiler(BaseProfiler):
             ".scala": "scala",
         }
 
-    def profile_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def profile_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement code performance profiling logic.
 
         Args:
             target_path: Path to analyze (single file - BaseProfiler handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of code performance findings
         """
         target = Path(target_path)
@@ -169,14 +169,15 @@ class CodeProfiler(BaseProfiler):
 
         return []
 
-    def _analyze_file_performance(self, file_path: Path) -> List[Dict[str, Any]]:
+    def _analyze_file_performance(self, file_path: Path) -> list[dict[str, Any]]:
         """
         Analyze a single file for performance issues.
 
         Args:
             file_path: Path to the file to analyze
 
-        Returns:
+        Returns
+        -------
             List of performance findings
         """
         findings = []
@@ -185,7 +186,7 @@ class CodeProfiler(BaseProfiler):
             # Determine file language
             language = self.language_patterns.get(file_path.suffix.lower(), "unknown")
 
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
@@ -217,12 +218,12 @@ class CodeProfiler(BaseProfiler):
     def _find_performance_issues(
         self,
         content: str,
-        lines: List[str],
+        lines: list[str],
         file_path: Path,
         pattern_name: str,
-        pattern_info: Dict[str, Any],
+        pattern_info: dict[str, Any],
         language: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Find performance issues matching a specific pattern."""
         findings = []
 
@@ -272,8 +273,8 @@ class CodeProfiler(BaseProfiler):
         return findings
 
     def _analyze_file_metrics(
-        self, file_path: Path, content: str, lines: List[str], language: str
-    ) -> List[Dict[str, Any]]:
+        self, file_path: Path, content: str, lines: list[str], language: str
+    ) -> list[dict[str, Any]]:
         """Analyze general file-level performance metrics."""
         findings = []
 
@@ -398,11 +399,12 @@ class CodeProfiler(BaseProfiler):
         }
         return impact_map.get(pattern_name, "general")
 
-    def get_profiler_metadata(self) -> Dict[str, Any]:
+    def get_profiler_metadata(self) -> dict[str, Any]:
         """
         Get code profiler-specific metadata.
 
-        Returns:
+        Returns
+        -------
             Dictionary with profiler-specific metadata
         """
         return {
@@ -437,7 +439,8 @@ def profile_code_performance(target_path: str = ".") -> Any:
     Args:
         target_path: Path to analyze
 
-    Returns:
+    Returns
+    -------
         AnalysisResult from CodeProfiler
     """
     profiler = CodeProfiler()

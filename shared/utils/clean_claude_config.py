@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import json
 import argparse
+import json
 
 
 def clean_claude_config(clear_all_history=False):
     print("Reading large config file...")
     # Read the original file
-    with open("/Users/adamjackson/.claude.json", "r") as f:
+    with open("/Users/adamjackson/.claude.json") as f:
         data = json.load(f)
 
     # Clear history arrays in each project to reduce file size

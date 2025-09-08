@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+
 import pytest
 from core.utils.tech_stack_detector import TechStackDetector
 

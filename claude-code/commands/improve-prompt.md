@@ -1,3 +1,7 @@
+---
+argument-hint: <prompt-text>
+---
+
 # Improve Prompt
 
 ## 1. Understanding the Codebase

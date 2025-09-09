@@ -15,6 +15,7 @@ import argparse
 import contextlib
 import sys
 
+# Python version check
 import core.base.registry_bootstrap  # noqa: F401 - registers analyzers via side effects
 from core.base import AnalyzerRegistry, create_analyzer_config
 from core.utils.output_formatter import ResultFormatter

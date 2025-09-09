@@ -45,7 +45,7 @@ EXAMPLES:
     ./install.sh --dry-run
 
 REQUIREMENTS:
-    - Python 3.7+
+    - Python 3.11+
     - Node.js (for frontend analysis)
     - Internet connection for dependencies
 
@@ -222,7 +222,7 @@ check_python() {
 
     if ! command -v python3 &> /dev/null; then
         log_error "Python 3 is required but not installed"
-        echo "Please install Python 3.7+ and try again"
+        echo "Please install Python 3.11+ and try again"
         exit 1
     fi
 
@@ -230,8 +230,9 @@ check_python() {
     python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
     log_verbose "Found Python $python_version"
 
-    if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)"; then
-        log_error "Python 3.7+ is required, found Python $python_version"
+    if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"; then
+        log_error "Python 3.11+ is required, found Python $python_version"
+        echo "Please upgrade to Python 3.11 or later: https://www.python.org/downloads/"
         exit 1
     fi
 

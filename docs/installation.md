@@ -65,7 +65,7 @@ The installer automatically handles all dependencies:
 **Python Dependencies:**
 - Runs `shared/setup/install_dependencies.py` to install packages from `shared/setup/requirements.txt`
 - Optionally installs CI framework dependencies from `shared/setup/ci/requirements.txt`
-- Validates Python 3.7+ compatibility
+- Validates Python 3.11+ compatibility
 
 **Node.js Dependencies:**
 - Automatically installs ESLint and plugins via npm if not present

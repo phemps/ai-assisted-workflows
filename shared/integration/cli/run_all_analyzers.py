@@ -15,7 +15,7 @@ import sys
 import time
 from typing import Any
 
-# Registry-based orchestration (no subprocess execution)
+# Python version check
 try:
     import core.base.registry_bootstrap  # noqa: F401 - side-effect import registers analyzers
     from core.base import AnalyzerRegistry, create_analyzer_config

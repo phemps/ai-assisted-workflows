@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Script configuration
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.2.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="/tmp/ai-workflows-install.log"
 
@@ -76,19 +76,30 @@ spinner() {
     local pid=$1
     local desc=$2
     local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    local charwidth=3
     local i=0
     local start_time=$(date +%s)
 
+    # Hide cursor; ensure it's restored on exit
+    tput civis
+    trap 'tput cnorm' EXIT
+
     while kill -0 $pid 2>/dev/null; do
         local elapsed=$(($(date +%s) - start_time))
-        printf "\r%s %s [%02d:%02d]" "${spin:i%10*charwidth:charwidth}" "$desc" $((elapsed/60)) $((elapsed%60))
-        i=$((i+charwidth))
+        # The \r at the beginning returns cursor to line start
+        printf "\r %s %s [%02d:%02d]" "${spin:$((i++ % ${#spin})):1}" "$desc" $((elapsed/60)) $((elapsed%60))
         sleep 0.1
     done
+    
     wait $pid
     local exit_code=$?
-    printf "\r%-60s\r" " "  # Clear line
+    
+    # Clear the entire line and move cursor to the beginning
+    printf "\r\033[2K"
+    
+    # Restore cursor
+    tput cnorm
+    trap - EXIT
+    
     return $exit_code
 }
 
@@ -893,62 +904,63 @@ install_python_deps() {
         return 0
     fi
 
-    log "Installing Python dependencies..."
+    log "Setting up Python virtual environment and installing dependencies..."
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log "Would run Python dependency installation"
+        log "Would create virtual environment and install Python dependencies"
         return 0
     fi
 
-    local setup_script="$INSTALL_DIR/scripts/setup/install_dependencies.py"
-
-    if [[ ! -f "$setup_script" ]]; then
-        log_error "Setup script not found: $setup_script"
-        exit 1
-    fi
-
-    # Get list of packages that will be installed
+    local venv_dir="$INSTALL_DIR/venv"
     local requirements_file="$INSTALL_DIR/scripts/setup/requirements.txt"
-    local packages_to_check=()
 
-    if [[ -f "$requirements_file" ]]; then
-        while IFS= read -r line; do
-            # Skip empty lines and comments
-            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-            # Extract package name (everything before ==, >=, etc.)
-            local pkg=$(echo "$line" | sed 's/[>=<].*//' | tr -d ' ')
-            [[ -n "$pkg" ]] && packages_to_check+=("$pkg")
-        done < "$requirements_file"
-    fi
-
-    log_verbose "Running installation script..."
-    cd "$INSTALL_DIR"
-
-    # Run Python dependency installation with automatic 'yes' response
-    ( echo "y" | PYTHONPATH="$INSTALL_DIR/scripts" python3 "$setup_script" > /tmp/pip_install.log 2>&1 ) &
-    if spinner $! "Installing Python packages"; then
-        log "Python dependencies installed successfully"
-
-        # Check which packages are now installed and update log for newly installed ones
-        for pkg in "${packages_to_check[@]}"; do
-            if python3 -m pip show "$pkg" &>/dev/null; then
-                # Check if this package was pre-existing by reading the installation log
-                local log_file="$INSTALL_DIR/installation-log.txt"
-                if [[ -f "$log_file" ]]; then
-                    # Check if package is NOT in the pre-existing list
-                    if ! grep -A 100 "^\[PRE_EXISTING_PYTHON_PACKAGES\]" "$log_file" | grep -q "^$pkg$"; then
-                        update_installation_log "python" "$pkg"
-                    fi
-                else
-                    # No log file, assume it's newly installed
-                    update_installation_log "python" "$pkg"
-                fi
-            fi
-        done
-    else
-        log_error "Python dependencies installation failed"
+    if [[ ! -f "$requirements_file" ]]; then
+        log_error "requirements.txt not found at: $requirements_file"
         exit 1
     fi
+
+    # 1. Create Python virtual environment
+    log_verbose "Creating Python virtual environment at: $venv_dir"
+    ( python3 -m venv "$venv_dir" > /tmp/venv_create.log 2>&1 ) &
+    if spinner $! "Creating Python virtual environment"; then
+        log "Virtual environment created successfully."
+    else
+        log_error "Failed to create Python virtual environment. Check log: /tmp/venv_create.log"
+        exit 1
+    fi
+
+    # 2. Activate environment and install dependencies
+    log_verbose "Activating virtual environment and installing dependencies..."
+    
+    # Run installation in a subshell to keep activation temporary
+    (
+        # Activate the virtual environment
+        source "$venv_dir/bin/activate"
+
+        # Install dependencies
+        python -m pip install --upgrade pip > /tmp/pip_install.log 2>&1
+        python -m pip install -r "$requirements_file" >> /tmp/pip_install.log 2>&1
+    ) &
+    if spinner $! "Installing Python dependencies"; then
+        log "Python dependencies installed successfully in the virtual environment."
+        
+        # Since we are in a venv, all packages are "newly installed" relative to the venv.
+        # We can log them all.
+        local packages_to_log=()
+        while IFS= read -r line; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            local pkg=$(echo "$line" | sed 's/[>=<].*//' | tr -d ' ')
+            [[ -n "$pkg" ]] && update_installation_log "python" "$pkg"
+        done < "$requirements_file"
+
+    else
+        log_error "Python dependencies installation failed. Check log: /tmp/pip_install.log"
+        exit 1
+    fi
+
+    # Deactivation is not strictly necessary as the activation was in a subshell,
+    # but it's good practice to mention it. The subshell approach is cleaner.
+    log_verbose "Dependency installation complete. Environment was handled in a subshell."
 }
 
 # MCP tools installation
@@ -1065,12 +1077,13 @@ verify_installation() {
 
     if [[ "$DRY_RUN" != "true" ]]; then
         local test_script="$INSTALL_DIR/scripts/setup/test_install.py"
+        local venv_dir="$INSTALL_DIR/venv"
 
         # Test Python dependencies
         if [[ "$SKIP_PYTHON" != "true" ]] && [[ -f "$test_script" ]]; then
             log_verbose "Testing Python dependencies..."
             cd "$INSTALL_DIR"
-            if PYTHONPATH="$INSTALL_DIR/scripts" python3 "$test_script" >> "$LOG_FILE" 2>&1; then
+            if PYTHONPATH="$INSTALL_DIR/scripts" "$venv_dir/bin/python3" "$test_script" >> "$LOG_FILE" 2>&1; then
                 log_verbose "Python dependencies verification passed"
             else
                 log_error "Python dependencies verification failed"

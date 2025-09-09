@@ -1,46 +1,40 @@
 #!/usr/bin/env python3
 """
 Test installation script - non-interactive version for validation.
+This script checks for the presence of critical packages directly.
 """
 
 import sys
-
-# Import from same directory
-try:
-    from install_dependencies import DependencyInstaller
-except ImportError as e:
-    print(f"Error importing install dependencies: {e}", file=sys.stderr)
-    sys.exit(1)
-
+import importlib
 
 def test_installation():
-    """Test installation process without user interaction."""
+    """Test that critical packages can be imported."""
     print("🧪 Testing AI Assisted Workflows dependency installation...")
 
-    installer = DependencyInstaller()
+    critical_packages = [
+        "bandit",      # Security analysis
+        "psutil",      # System utilities
+        "flake8",      # Code quality
+        "requests",    # HTTP requests
+    ]
+    
+    missing_packages = []
 
-    # Test platform detection
-    installer.print_platform_info()
+    print("\n🔍 Verifying critical packages...")
+    for package_name in critical_packages:
+        try:
+            importlib.import_module(package_name)
+            print(f"✅ {package_name} - OK")
+        except ImportError:
+            print(f"❌ {package_name} - MISSING")
+            missing_packages.append(package_name)
 
-    # Test prerequisites
-    print("\n🔍 Testing prerequisites...")
-    python_ok = installer.check_python_version()
-    pip_ok = installer.check_pip_available()
-
-    if not python_ok or not pip_ok:
-        print("❌ Prerequisites not met")
+    if missing_packages:
+        print(f"\n❌ Verification failed. Missing packages: {', '.join(missing_packages)}")
         return False
-
-    # Test package verification (without installing)
-    print("\n🔍 Testing package verification...")
-    verified, missing = installer.verify_installation()
-
-    print("✅ Installation test completed")
-    print(f"Prerequisites: {'✅' if python_ok and pip_ok else '❌'}")
-    print(f"Current packages verified: {'✅' if verified else f'❌ Missing: {missing}'}")
-
+    
+    print("\n✅ All critical packages are installed.")
     return True
-
 
 if __name__ == "__main__":
     success = test_installation()

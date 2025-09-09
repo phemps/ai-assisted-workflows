@@ -1,3 +1,7 @@
+---
+argument-hint: [target-path]
+---
+
 # analyze-code-quality v0.4
 
 **Mindset**: "Quality first" - Systematic code quality assessment with measurable metrics and improvement recommendations.

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Flake8 Performance Analyzer - Advanced Code Performance Analysis
-================================================================
+Flake8 Performance Analyzer - Advanced Code Performance Analysis.
 
 PURPOSE: Comprehensive code performance analysis using Flake8's established rules.
 Replaces bespoke regex pattern matching with established performance analysis.
@@ -23,16 +22,16 @@ REPLACES: check_bottlenecks.py with bespoke regex patterns
 - Better context-aware analysis
 """
 
+import ast
+import json
 import subprocess
 import sys
 import tempfile
-import ast
-import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -68,7 +67,6 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
                 "*.bundle.js",
                 ".tox",
                 "site-packages",
-                "__pycache__",
                 "*.egg-info",
             },
         )
@@ -228,7 +226,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
             ]
         )
 
-    def _run_flake8_analysis(self, target_path: str) -> List[Dict[str, Any]]:
+    def _run_flake8_analysis(self, target_path: str) -> list[dict[str, Any]]:
         """Run Flake8 analysis with performance-focused plugins."""
         findings = []
 
@@ -278,7 +276,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def _run_perflint_analysis(self, target_path: str) -> List[Dict[str, Any]]:
+    def _run_perflint_analysis(self, target_path: str) -> list[dict[str, Any]]:
         """Run perflint analysis for PERF rules."""
         findings = []
 
@@ -336,8 +334,8 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
         return findings
 
     def _parse_perflint_issue(
-        self, issue: Dict[str, Any], file_path: str
-    ) -> Optional[Dict[str, Any]]:
+        self, issue: dict[str, Any], file_path: str
+    ) -> Optional[dict[str, Any]]:
         """Parse a perflint JSON issue."""
         try:
             message_id = issue.get("message-id", "")
@@ -379,7 +377,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
     def _parse_perflint_line(
         self, line: str, file_path: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Parse perflint text output line."""
         # Simple text parsing as fallback
         try:
@@ -411,9 +409,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
         # Map based on pylint conventions
         if message_id.startswith("C"):  # Convention
             return "medium"
-        elif message_id.startswith("R"):  # Refactor
-            return "high"
-        elif message_id.startswith("W"):  # Warning
+        elif message_id.startswith("R") or message_id.startswith("W"):  # Refactor
             return "high"
         else:
             return "medium"
@@ -428,7 +424,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
         else:
             return f"Address performance issue: {message}"
 
-    def _parse_flake8_line(self, line: str, file_path: str) -> Optional[Dict[str, Any]]:
+    def _parse_flake8_line(self, line: str, file_path: str) -> Optional[dict[str, Any]]:
         """Parse a single Flake8 output line."""
         try:
             # Format: path:row:col: code message
@@ -515,7 +511,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
     def _analyze_ast_performance(
         self, content: str, file_path: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Analyze Python AST for performance patterns not caught by Flake8."""
         findings = []
 
@@ -567,14 +563,15 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze target using Flake8, perflint, and AST for performance analysis.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of performance findings with standardized structure
         """
         all_findings = []
@@ -590,7 +587,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
         # Run additional AST analysis for Python files
         if target_path.endswith(".py"):
             try:
-                with open(target_path, "r", encoding="utf-8", errors="ignore") as f:
+                with open(target_path, encoding="utf-8", errors="ignore") as f:
                     content = f.read()
                 ast_findings = self._analyze_ast_performance(content, target_path)
                 all_findings.extend(ast_findings)
@@ -619,7 +616,7 @@ class Flake8PerformanceAnalyzer(BaseAnalyzer):
 
         return standardized_findings
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Flake8 Performance Analyzer",

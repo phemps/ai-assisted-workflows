@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Semgrep Security Analyzer - Semantic Static Analysis Security Scanner
-=====================================================================
+Semgrep Security Analyzer - Semantic Static Analysis Security Scanner.
 
 PURPOSE: Comprehensive security analysis using Semgrep's semantic analysis engine.
 Replaces bespoke regex pattern matching with established semantic analysis.
@@ -27,10 +26,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -206,8 +205,8 @@ class SemgrepAnalyzer(BaseAnalyzer):
                 self.semgrep_available = False
 
     def _run_semgrep_batch_analysis(
-        self, file_paths: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, file_paths: list[str]
+    ) -> list[dict[str, Any]]:
         """
         Run Semgrep analysis on multiple files efficiently with combined rulesets.
 
@@ -289,8 +288,8 @@ class SemgrepAnalyzer(BaseAnalyzer):
         return findings
 
     def _fallback_individual_analysis(
-        self, file_paths: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, file_paths: list[str]
+    ) -> list[dict[str, Any]]:
         """Fallback to analyze files individually if batch processing fails."""
         self.logger.info("Falling back to individual file analysis")
 
@@ -301,8 +300,8 @@ class SemgrepAnalyzer(BaseAnalyzer):
         return findings
 
     def _run_semgrep_analysis(
-        self, target_path: str, rulesets: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, target_path: str, rulesets: list[str]
+    ) -> list[dict[str, Any]]:
         """Run Semgrep analysis with specified rulesets (legacy method for fallback)."""
         findings = []
 
@@ -353,8 +352,8 @@ class SemgrepAnalyzer(BaseAnalyzer):
         return findings
 
     def _process_semgrep_finding(
-        self, finding: Dict[str, Any], ruleset: str
-    ) -> Optional[Dict[str, Any]]:
+        self, finding: dict[str, Any], ruleset: str
+    ) -> Optional[dict[str, Any]]:
         """Convert Semgrep finding to our standardized format."""
         try:
             # Extract key information from Semgrep finding
@@ -418,7 +417,7 @@ class SemgrepAnalyzer(BaseAnalyzer):
             "Review this security finding and apply appropriate security controls",
         )
 
-    def _run_semgrep_on_directory(self, directory_path: str) -> List[Dict[str, Any]]:
+    def _run_semgrep_on_directory(self, directory_path: str) -> list[dict[str, Any]]:
         """
         Run Semgrep on entire directory, letting it handle exclusions.
 
@@ -566,7 +565,7 @@ class SemgrepAnalyzer(BaseAnalyzer):
 
         return self.complete_analysis(result)
 
-    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+    def _process_batch(self, batch: list[Path]) -> list[dict[str, Any]]:
         """
         Override batch processing to analyze multiple files efficiently with semgrep.
 
@@ -614,14 +613,15 @@ class SemgrepAnalyzer(BaseAnalyzer):
 
         return standardized_findings
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze target using Semgrep semantic analysis.
 
         Args:
             target_path: Path to analyze (single file - BaseAnalyzer handles directory iteration)
 
-        Returns:
+        Returns
+        -------
             List of security findings with standardized structure
         """
         # Skip analysis if Semgrep is not available (degraded mode)
@@ -673,7 +673,7 @@ class SemgrepAnalyzer(BaseAnalyzer):
 
         return standardized_findings
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Semgrep Security Analyzer",

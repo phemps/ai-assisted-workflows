@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Base Module Class for Continuous Improvement Framework
+Base Module Class for Continuous Improvement Framework.
+
 Eliminates duplication of import setup and path management patterns.
 """
 
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Optional
 
 from .error_handler import CIErrorHandler
 
@@ -17,14 +18,15 @@ class CIModuleBase:
     def __init__(self, module_name: str, project_root: Optional[str] = None):
         self.module_name = module_name
         self.project_root = Path(project_root) if project_root else Path.cwd()
-        self.logger = None
+        # Initialize logger early to satisfy type checkers
+        self.logger: logging.Logger = logging.getLogger(f"ci.{module_name}")
 
         # Setup common logging and common utilities
         self._setup_logging()
         self._import_common_utilities()
 
     def _setup_logging(self) -> None:
-        """Setup module-specific logging."""
+        """Set up module-specific logging."""
         self.logger = logging.getLogger(f"ci.{self.module_name}")
         if not self.logger.handlers:
             handler = logging.StreamHandler()
@@ -39,9 +41,9 @@ class CIModuleBase:
         """Import commonly used utilities with error handling."""
         # Setup import paths and import utilities
         try:
-            from core.utils.output_formatter import ResultFormatter, AnalysisResult
-            from core.utils.tech_stack_detector import TechStackDetector
             from core.utils.cross_platform import PlatformDetector
+            from core.utils.output_formatter import AnalysisResult, ResultFormatter
+            from core.utils.tech_stack_detector import TechStackDetector
 
             # Extract classes/functions (all are always present)
             self.ResultFormatter = ResultFormatter
@@ -100,7 +102,7 @@ class CIModuleBase:
                 name, value, f"number between {min_val} and {max_val}"
             )
 
-    def validate_config(self, config: Dict[str, Any], required_keys: list) -> None:
+    def validate_config(self, config: dict[str, Any], required_keys: list) -> None:
         """Validate configuration dictionary has required keys."""
         missing_keys = [key for key in required_keys if key not in config]
         if missing_keys:
@@ -121,6 +123,8 @@ class CIModuleBase:
                 error_code=4,  # CIErrorCode.FILE_NOT_FOUND
                 file_path=file_path,
             )
+        # Unreachable due to fatal_error, but satisfies type checker
+        return ""
 
     def safe_file_write(
         self, file_path: Path, content: str, encoding: str = "utf-8"
@@ -133,7 +137,7 @@ class CIModuleBase:
             CIErrorHandler.permission_error("write file", file_path, e)
 
     def log_operation(
-        self, operation: str, details: Optional[Dict[str, Any]] = None
+        self, operation: str, details: Optional[dict[str, Any]] = None
     ) -> None:
         """Log operation with consistent format."""
         message = f"{operation}"
@@ -148,7 +152,7 @@ class CIAnalysisModule(CIModuleBase):
 
     def __init__(self, module_name: str, project_root: Optional[str] = None):
         super().__init__(module_name, project_root)
-        self.analysis_start_time = None
+        self.analysis_start_time: float | None = None
 
     def start_analysis(self) -> None:
         """Start timing analysis operation."""
@@ -175,11 +179,11 @@ class CIConfigModule(CIModuleBase):
 
     def __init__(self, module_name: str, project_root: Optional[str] = None):
         super().__init__(module_name, project_root)
-        self.config_cache = {}
+        self.config_cache: dict[str, Any] = {}
 
     def load_config(
         self, config_name: str, required_keys: Optional[list] = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Load and cache configuration with validation."""
         if config_name in self.config_cache:
             return self.config_cache[config_name]
@@ -205,8 +209,10 @@ class CIConfigModule(CIModuleBase):
             CIErrorHandler.config_error(
                 f"Invalid JSON in configuration file: {e}", config_path
             )
+        # Unreachable due to fatal_error above, but satisfies type checker
+        return {}
 
-    def save_config(self, config_name: str, config: Dict[str, Any]) -> None:
+    def save_config(self, config_name: str, config: dict[str, Any]) -> None:
         """Save configuration and update cache."""
         import json
 

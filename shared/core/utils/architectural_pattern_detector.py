@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Pattern Detection Utility
+Pattern Detection Utility.
+
 Distinguishes between language syntax and actual architectural patterns.
 """
 
-import re
 import ast
-from pathlib import Path
-from typing import Dict, List, Any, Set, Callable
+import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable
 
-from core.config.loader import load_architectural_pattern_sets, ConfigError
+from core.config.loader import ConfigError, load_architectural_pattern_sets
 
 
 @dataclass
@@ -65,7 +66,7 @@ def _score_god_class(text: str) -> float:
     return min(0.4, method_count * 0.02) if method_count > 10 else 0.0
 
 
-_PATTERN_SCORERS: Dict[str, Callable[[str], float]] = {
+_PATTERN_SCORERS: dict[str, Callable[[str], float]] = {
     "singleton": _score_singleton,
     "factory": _score_factory,
     "observer": _score_observer,
@@ -85,7 +86,7 @@ class ArchitecturalPatternDetector:
         try:
             config = load_architectural_pattern_sets(config_dir)
         except ConfigError as e:
-            raise RuntimeError(f"Architectural pattern config error: {e}")
+            raise RuntimeError(f"Architectural pattern config error: {e}") from e
 
         self.architectural_patterns = config["architectural_patterns"]
         self.antipatterns = config["antipatterns"]
@@ -93,7 +94,7 @@ class ArchitecturalPatternDetector:
 
     def detect_patterns(
         self, content: str, file_path: str, language: str
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """
         Detect architectural patterns while filtering out language features.
 
@@ -102,7 +103,8 @@ class ArchitecturalPatternDetector:
             file_path: Path to the file being analyzed
             language: Programming language of the file
 
-        Returns:
+        Returns
+        -------
             List of detected pattern matches
         """
         matches = []
@@ -126,16 +128,16 @@ class ArchitecturalPatternDetector:
 
         return matches
 
-    def _identify_language_features(self, content: str, language: str) -> Set[int]:
+    def _identify_language_features(self, content: str, language: str) -> set[int]:
         """Identify line numbers that contain language features, not patterns.
 
         Process input line-by-line to avoid cross-line regex matches creating false positives.
         """
-        feature_lines: Set[int] = set()
+        feature_lines: set[int] = set()
         lines = content.split("\n")
 
         for idx, line in enumerate(lines, start=1):
-            for feature_name, feature_info in self.language_features.items():
+            for _feature_name, feature_info in self.language_features.items():
                 if language not in feature_info["languages"]:
                     continue
                 for pattern in feature_info["patterns"]:
@@ -148,12 +150,12 @@ class ArchitecturalPatternDetector:
     def _find_pattern_matches(
         self,
         content: str,
-        lines: List[str],
+        lines: list[str],
         pattern_name: str,
-        pattern_info: Dict,
-        feature_lines: Set[int],
+        pattern_info: dict,
+        feature_lines: set[int],
         file_path: str,
-    ) -> List[PatternMatch]:
+    ) -> list[PatternMatch]:
         """Find matches for a specific pattern."""
         matches = []
 
@@ -200,7 +202,7 @@ class ArchitecturalPatternDetector:
         return matches
 
     def _should_exclude_match(
-        self, match_text: str, exclude_patterns: List[str]
+        self, match_text: str, exclude_patterns: list[str]
     ) -> bool:
         """Check if match should be excluded based on exclude patterns."""
         for exclude_pattern in exclude_patterns:
@@ -226,7 +228,7 @@ class ArchitecturalPatternDetector:
             base -= 0.1
         return max(0.0, min(1.0, base))
 
-    def analyze_python_ast(self, content: str, file_path: str) -> List[PatternMatch]:
+    def analyze_python_ast(self, content: str, file_path: str) -> list[PatternMatch]:
         """Use AST analysis for more accurate Python pattern detection."""
         matches = []
 
@@ -276,12 +278,12 @@ class ArchitecturalPatternDetector:
 
         return matches
 
-    def get_pattern_summary(self, matches: List[PatternMatch]) -> Dict[str, Any]:
+    def get_pattern_summary(self, matches: list[PatternMatch]) -> dict[str, Any]:
         """Generate summary statistics for detected patterns."""
         total_matches = len(matches)
 
-        by_type: Dict[str, int] = {}
-        by_severity: Dict[str, int] = {}
+        by_type: dict[str, int] = {}
+        by_severity: dict[str, int] = {}
         by_confidence = {"high": 0, "medium": 0, "low": 0}
 
         for match in matches:
@@ -308,11 +310,11 @@ class ArchitecturalPatternDetector:
             "recommendations": self._generate_recommendations(matches),
         }
 
-    def _generate_recommendations(self, matches: List[PatternMatch]) -> List[str]:
+    def _generate_recommendations(self, matches: list[PatternMatch]) -> list[str]:
         """Generate actionable recommendations based on detected patterns."""
         recommendations = []
 
-        pattern_counts: Dict[str, int] = {}
+        pattern_counts: dict[str, int] = {}
         for match in matches:
             pattern_counts[match.pattern_name] = (
                 pattern_counts.get(match.pattern_name, 0) + 1
@@ -360,7 +362,7 @@ def main():
     detector = ArchitecturalPatternDetector()
 
     try:
-        with open(args.file_path, "r", encoding="utf-8") as f:
+        with open(args.file_path, encoding="utf-8") as f:
             content = f.read()
 
         matches = detector.detect_patterns(content, args.file_path, args.language)

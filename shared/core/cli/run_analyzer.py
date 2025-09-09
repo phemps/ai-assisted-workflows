@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Registry-Driven Analyzer Runner (CLI)
+Registry-Driven Analyzer Runner (CLI).
 
 Single entrypoint to run any registered analyzer by registry key.
 
@@ -12,15 +12,16 @@ Usage examples (ensure PYTHONPATH points to the scripts root):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
-from typing import Optional
 
-from core.base import AnalyzerRegistry, create_analyzer_config
+# Python version check
 import core.base.registry_bootstrap  # noqa: F401 - registers analyzers via side effects
+from core.base import AnalyzerRegistry, create_analyzer_config
 from core.utils.output_formatter import ResultFormatter
 
 
-def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a registered analyzer by key")
     parser.add_argument(
         "--analyzer",
@@ -62,7 +63,7 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
     try:
@@ -78,10 +79,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         # Some analyzers may honor a verbose attribute
         if hasattr(analyzer, "verbose"):
-            try:
-                setattr(analyzer, "verbose", bool(args.verbose))
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                analyzer.verbose = bool(args.verbose)
 
         result = analyzer.analyze(args.target)
 

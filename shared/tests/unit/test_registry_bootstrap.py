@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from core.base import AnalyzerRegistry
 import core.base.registry_bootstrap  # noqa: F401 - side-effect imports register analyzers
+from core.base import AnalyzerRegistry
 
 
 def test_bootstrap_registers_some_analyzers():

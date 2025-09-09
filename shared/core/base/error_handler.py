@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Centralized Error Handler for Continuous Improvement Framework
+Centralized Error Handler for Continuous Improvement Framework.
+
 Eliminates duplication of error handling patterns across modules.
 """
 
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 
 class CIErrorCode:
@@ -135,7 +136,7 @@ class CIErrorHandler:
         )
 
     @staticmethod
-    def validation_error(field: str, value: any, expected: str) -> None:
+    def validation_error(field: str, value: Any, expected: str) -> None:
         """Handle validation errors with standard messaging."""
         CIErrorHandler.fatal_error(
             f"Validation failed for {field}: got {value}, expected {expected}",
@@ -170,11 +171,11 @@ class CIErrorContext:
         if exc_type is None:
             return
 
-        if exc_type == PermissionError:
+        if exc_type is PermissionError:
             CIErrorHandler.permission_error(
                 self.operation, getattr(exc_val, "filename", "unknown"), exc_val
             )
-        elif exc_type == FileNotFoundError:
+        elif exc_type is FileNotFoundError:
             CIErrorHandler.fatal_error(
                 f"File not found during {self.operation}",
                 error_code=CIErrorCode.FILE_NOT_FOUND,
@@ -182,7 +183,7 @@ class CIErrorContext:
                 exception=exc_val,
                 context=self.context,
             )
-        elif exc_type == ImportError:
+        elif exc_type is ImportError:
             CIErrorHandler.import_error(getattr(exc_val, "name", "unknown"), exc_val)
         else:
             CIErrorHandler.fatal_error(

@@ -1,3 +1,7 @@
+---
+argument-hint: <project-name> [technologies...] | <project-name> --from-todos <todos-file-path>
+---
+
 # Create Project (`create-project`)
 
 **Purpose**: Setup new project using better-t-stack CLI with specified technologies or todos.md analysis

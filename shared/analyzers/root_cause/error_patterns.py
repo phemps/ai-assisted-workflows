@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Error Pattern Analyzer - Root Cause Analysis Through Pattern Detection
-=====================================================================
+Error Pattern Analyzer - Root Cause Analysis Through Pattern Detection.
 
 PURPOSE: Analyzes code for known error patterns and failure modes to assist with root cause analysis.
 Part of the shared/analyzers/root_cause suite using BaseAnalyzer infrastructure.
@@ -20,12 +19,12 @@ EXTENDS: BaseAnalyzer for common analyzer infrastructure
 
 import re
 import sys
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from collections import defaultdict
+from pathlib import Path
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -245,7 +244,7 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
             },
         }
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Return metadata about this analyzer."""
         return {
             "name": "Error Pattern Analyzer",
@@ -274,14 +273,15 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
             },
         }
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for error patterns related to a specific error.
 
         Args:
             target_path: Path to file to analyze
 
-        Returns:
+        Returns
+        -------
             List of findings with standardized structure
         """
         # REQUIRED: Must have error information to investigate
@@ -320,7 +320,7 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         all_findings = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
@@ -369,11 +369,11 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
     def _check_targeted_error_patterns(
         self,
         content: str,
-        lines: List[str],
+        lines: list[str],
         file_path: str,
-        relevant_patterns: List[str],
-        error_context: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        relevant_patterns: list[str],
+        error_context: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Check only patterns relevant to the error being investigated."""
         findings = []
 
@@ -439,8 +439,8 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         return findings
 
     def _check_error_keywords_targeted(
-        self, lines: List[str], file_path: str, error_line: int
-    ) -> List[Dict[str, Any]]:
+        self, lines: list[str], file_path: str, error_line: int
+    ) -> list[dict[str, Any]]:
         """Check for error keywords near the specific error line."""
         findings = []
 
@@ -456,30 +456,30 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
             line_lower = line.lower()
 
             for keyword in self.error_keywords:
-                if keyword in line_lower:
-                    # Skip if keyword is part of a longer word
-                    if re.search(rf"\b{re.escape(keyword)}\b", line_lower):
-                        findings.append(
-                            {
-                                "title": f"Error Keyword Found: {keyword.upper()}",
-                                "description": f"Found error-related keyword '{keyword}' near error location",
-                                "severity": "medium",
-                                "file_path": file_path,
-                                "line_number": line_num,
-                                "recommendation": f"Review context around '{keyword}' for debugging clues",
-                                "metadata": {
-                                    "keyword": keyword,
-                                    "context": line.strip(),
-                                    "distance_from_error": abs(line_num - error_line),
-                                    "confidence": "high",
-                                },
-                            }
-                        )
+                if keyword in line_lower and re.search(
+                    rf"\b{re.escape(keyword)}\b", line_lower
+                ):
+                    findings.append(
+                        {
+                            "title": f"Error Keyword Found: {keyword.upper()}",
+                            "description": f"Found error-related keyword '{keyword}' near error location",
+                            "severity": "medium",
+                            "file_path": file_path,
+                            "line_number": line_num,
+                            "recommendation": f"Review context around '{keyword}' for debugging clues",
+                            "metadata": {
+                                "keyword": keyword,
+                                "context": line.strip(),
+                                "distance_from_error": abs(line_num - error_line),
+                                "confidence": "high",
+                            },
+                        }
+                    )
 
         return findings
 
     def _get_targeted_recommendation(
-        self, pattern_name: str, error_context: Dict[str, Any]
+        self, pattern_name: str, error_context: dict[str, Any]
     ) -> str:
         """Get targeted recommendation based on pattern and error context."""
         base_recommendations = {
@@ -507,8 +507,8 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         return base_rec
 
     def _check_error_patterns(
-        self, content: str, lines: List[str], file_path: str
-    ) -> List[Dict[str, Any]]:
+        self, content: str, lines: list[str], file_path: str
+    ) -> list[dict[str, Any]]:
         """Check for general error patterns."""
         findings = []
 
@@ -545,8 +545,8 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         return findings
 
     def _check_language_patterns(
-        self, content: str, lines: List[str], file_path: str
-    ) -> List[Dict[str, Any]]:
+        self, content: str, lines: list[str], file_path: str
+    ) -> list[dict[str, Any]]:
         """Check for language-specific patterns."""
         findings = []
 
@@ -586,8 +586,8 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         return findings
 
     def _check_error_keywords(
-        self, lines: List[str], file_path: str
-    ) -> List[Dict[str, Any]]:
+        self, lines: list[str], file_path: str
+    ) -> list[dict[str, Any]]:
         """Check for error-related keywords in comments."""
         findings = []
         comment_patterns = [
@@ -669,8 +669,8 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
         return f"Follow {file_ext} best practices and avoid this anti-pattern"
 
     def analyze_error_clusters(
-        self, all_findings: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, all_findings: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Analyze clusters of errors that might indicate systemic issues."""
         clusters = []
 
@@ -707,7 +707,7 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
 
         return clusters
 
-    def parse_error(self, error_info: str) -> Dict[str, Any]:
+    def parse_error(self, error_info: str) -> dict[str, Any]:
         """Parse error information to extract actionable context."""
         if not error_info:
             return {}
@@ -769,7 +769,7 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
 
         return error_context
 
-    def get_patterns_for_error_type(self, error_type: str) -> List[str]:
+    def get_patterns_for_error_type(self, error_type: str) -> list[str]:
         """Get relevant patterns based on error type."""
         error_type_patterns = {
             "TypeError": ["null_pointer", "data_corruption"],
@@ -790,7 +790,7 @@ class ErrorPatternAnalyzer(BaseAnalyzer):
 
 
 def main():
-    """Main entry point for command-line usage."""
+    """Run error patterns analyzer from the command line."""
     import argparse
 
     # Parse arguments first to get error info

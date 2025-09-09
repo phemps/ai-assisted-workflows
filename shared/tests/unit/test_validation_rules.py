@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from core.base.analyzer_base import validate_finding
 import pytest
+from core.base.analyzer_base import validate_finding
 
 
 def test_validate_finding_success():
@@ -31,9 +31,8 @@ def test_validate_finding_missing_required_field(missing_field):
         "recommendation": "C",
     }
     finding.pop(missing_field)
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="Missing required field"):
         validate_finding(finding)
-    assert "Missing required field" in str(exc.value)
 
 
 def test_validate_finding_placeholder_values_rejected():
@@ -46,7 +45,8 @@ def test_validate_finding_placeholder_values_rejected():
         "recommendation": "Review issue",
         "metadata": {},
     }
-    with pytest.raises(ValueError):
+    # Multiple placeholder violations are possible; accept either message
+    with pytest.raises(ValueError, match="(Generic placeholder title|unknown)"):
         validate_finding(finding)
 
 
@@ -62,3 +62,29 @@ def test_validate_finding_line_zero_needs_error_metadata():
     }
     # Should pass because error metadata is provided
     assert validate_finding(finding) is True
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "errmsg"),
+    [
+        ("title", "", "non-empty string"),
+        ("description", " ", "non-empty string"),
+        ("recommendation", "", "non-empty string"),
+        ("file_path", " ", "non-empty string"),
+        ("line_number", -1, "non-negative"),
+        ("severity", "urgent", "Invalid severity"),
+    ],
+)
+def test_field_type_and_severity_errors(field, value, errmsg):
+    finding = {
+        "title": "t",
+        "description": "d",
+        "severity": "low",
+        "file_path": "x.py",
+        "line_number": 1,
+        "recommendation": "r",
+        "metadata": {},
+    }
+    finding[field] = value
+    with pytest.raises(ValueError, match=errmsg):
+        validate_finding(finding)

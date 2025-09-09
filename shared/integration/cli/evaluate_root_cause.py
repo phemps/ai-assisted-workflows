@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """
-Root Cause Analysis Evaluator (CLI)
-===================================
+Root Cause Analysis Evaluator (CLI).
 
 Runs the reactive root cause analysis workflow end-to-end and reports results.
 This script is intended for direct execution and is placed in
 shared/integration/cli outside pytest's test discovery path.
 """
 
-import sys
 import json
-import tempfile
 import os
+import sys
+import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 # Setup import paths and import utilities
 try:
-    from core.base import AnalyzerRegistry, create_analyzer_config
     import core.base.registry_bootstrap  # noqa: F401 - ensure registration
+    from core.base import AnalyzerRegistry, create_analyzer_config
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)
@@ -66,7 +65,7 @@ class RootCauseAnalysisIntegrationTest:
             },
         ]
 
-    def test_analyzer_without_error_info(self) -> Dict[str, Any]:
+    def test_analyzer_without_error_info(self) -> dict[str, Any]:
         """Without error context, analyzer should produce minimal/no findings but not crash."""
         with tempfile.TemporaryDirectory() as temp_dir:
             cfg = create_analyzer_config(target_path=temp_dir, output_format="json")
@@ -81,8 +80,8 @@ class RootCauseAnalysisIntegrationTest:
             }
 
     def test_error_parsing(
-        self, analyzer_script: str, scenario: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, analyzer_script: str, scenario: dict[str, Any]
+    ) -> dict[str, Any]:
         """Test that analyzer correctly parses error information."""
         print(f"Testing {analyzer_script} error parsing for {scenario['name']}...")
 
@@ -142,16 +141,15 @@ function testFunction() {{
                     if "error_context" in metadata:
                         error_context = metadata["error_context"]
                         # Verify error type parsing
-                        if scenario["expected_error_type"] != "unknown":
-                            if (
-                                error_context.get("error_type")
-                                != scenario["expected_error_type"]
-                            ):
-                                return {
-                                    "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
-                                    "status": "FAIL",
-                                    "reason": f"Error type mismatch: {error_context.get('error_type')} != {scenario['expected_error_type']}",
-                                }
+                        if scenario["expected_error_type"] != "unknown" and (
+                            error_context.get("error_type")
+                            != scenario["expected_error_type"]
+                        ):
+                            return {
+                                "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
+                                "status": "FAIL",
+                                "reason": f"Error type mismatch: {error_context.get('error_type')} != {scenario['expected_error_type']}",
+                            }
 
             return {
                 "test": f"{analyzer_script}_parse_{scenario['name'].replace(' ', '_')}",
@@ -161,7 +159,7 @@ function testFunction() {{
                 "has_error_context": has_error_context,
             }
 
-    def test_targeted_file_scanning(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    def test_targeted_file_scanning(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """Test that analyzers only scan files related to the error."""
         print(f"Testing targeted file scanning for {scenario['name']}...")
 
@@ -240,7 +238,7 @@ function otherFunction() {
                     "reason": str(e),
                 }
 
-    def test_complete_workflow(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    def test_complete_workflow(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """Test complete root cause analysis workflow with all three analyzers."""
         print(f"Testing complete workflow for {scenario['name']}...")
 
@@ -319,7 +317,7 @@ function errorProneFunction() {{
                 "total_findings": total_findings,
             }
 
-    def run_all_tests(self) -> Dict[str, Any]:
+    def run_all_tests(self) -> dict[str, Any]:
         """Run all integration tests for root cause analysis."""
         print("🚀 Root Cause Analysis Integration Tests")
         print("=" * 60)
@@ -364,7 +362,7 @@ function errorProneFunction() {{
 
 
 def main():
-    """Main entry point for integration test."""
+    """Run integration test for root cause analysis."""
     import argparse
 
     parser = argparse.ArgumentParser(

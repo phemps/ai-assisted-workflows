@@ -1,3 +1,7 @@
+---
+argument-hint: <prompt-text>
+---
+
 # Improve GPT-5 Prompt
 
 This command takes a user's initial request and transforms it into a sophisticated GPT-5 prompt that leverages advanced reasoning patterns, structured thinking, and comprehensive planning phases. The resulting prompt will be more likely to produce thorough, accurate, and well-structured responses.

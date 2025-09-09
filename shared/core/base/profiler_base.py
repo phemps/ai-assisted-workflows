@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Base Profiler Class for Performance Analysis
-===========================================
+Base Profiler Class for Performance Analysis.
 
 PURPOSE: Shared infrastructure for performance profiling tools, eliminating common code duplication.
 Part of the shared/core/base suite for consistent analyzer patterns.
@@ -20,12 +19,11 @@ ELIMINATES DUPLICATION FROM:
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Optional
 
 from .module_base import CIAnalysisModule
-from .config_factory import ConfigFactory
 
 
 @dataclass
@@ -39,7 +37,7 @@ class ProfilerConfig:
     summary_mode: bool = False
 
     # File filtering
-    code_extensions: Set[str] = field(
+    code_extensions: set[str] = field(
         default_factory=lambda: {
             ".py",
             ".js",
@@ -65,7 +63,7 @@ class ProfilerConfig:
         }
     )
 
-    skip_patterns: Set[str] = field(
+    skip_patterns: set[str] = field(
         default_factory=lambda: {
             "node_modules",
             ".git",
@@ -96,7 +94,7 @@ class ProfilerConfig:
     timeout_seconds: Optional[int] = None
 
     # Analysis settings
-    severity_thresholds: Dict[str, float] = field(
+    severity_thresholds: dict[str, float] = field(
         default_factory=lambda: {
             "critical": 0.9,
             "high": 0.7,
@@ -166,24 +164,26 @@ class BaseProfiler(CIAnalysisModule, ABC):
         )
 
     @abstractmethod
-    def profile_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def profile_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement specific profiling logic for the target path.
 
         Args:
             target_path: Path to analyze
 
-        Returns:
+        Returns
+        -------
             List of profiling findings as dictionaries
         """
         pass
 
     @abstractmethod
-    def get_profiler_metadata(self) -> Dict[str, Any]:
+    def get_profiler_metadata(self) -> dict[str, Any]:
         """
         Get profiler-specific metadata for results.
 
-        Returns:
+        Returns
+        -------
             Dictionary with profiler-specific metadata
         """
         pass
@@ -195,7 +195,8 @@ class BaseProfiler(CIAnalysisModule, ABC):
         Args:
             file_path: Path to check
 
-        Returns:
+        Returns
+        -------
             True if file should be scanned
         """
         # Check if file is in skip patterns
@@ -222,14 +223,15 @@ class BaseProfiler(CIAnalysisModule, ABC):
 
         return True
 
-    def scan_directory(self, target_path: str) -> List[Path]:
+    def scan_directory(self, target_path: str) -> list[Path]:
         """
         Scan directory for files matching profiler criteria.
 
         Args:
             target_path: Directory to scan
 
-        Returns:
+        Returns
+        -------
             List of file paths to analyze
         """
         target = Path(target_path)
@@ -259,14 +261,15 @@ class BaseProfiler(CIAnalysisModule, ABC):
 
         return files_to_scan
 
-    def process_files_batch(self, files: List[Path]) -> List[Dict[str, Any]]:
+    def process_files_batch(self, files: list[Path]) -> list[dict[str, Any]]:
         """
         Process files in batches for memory efficiency.
 
         Args:
             files: List of files to process
 
-        Returns:
+        Returns
+        -------
             Combined findings from all files
         """
         all_findings = []
@@ -287,7 +290,7 @@ class BaseProfiler(CIAnalysisModule, ABC):
 
         return all_findings
 
-    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+    def _process_batch(self, batch: list[Path]) -> list[dict[str, Any]]:
         """Process a single batch of files."""
         batch_findings = []
 
@@ -306,12 +309,13 @@ class BaseProfiler(CIAnalysisModule, ABC):
 
     def analyze(self, target_path: Optional[str] = None) -> Any:
         """
-        Main analysis entry point with full profiling pipeline.
+        Run main analysis entry point with full profiling pipeline.
 
         Args:
             target_path: Path to analyze (uses config.target_path if None)
 
-        Returns:
+        Returns
+        -------
             AnalysisResult object with findings and metadata
         """
         self.start_analysis()
@@ -345,7 +349,7 @@ class BaseProfiler(CIAnalysisModule, ABC):
         return self.complete_analysis(result)
 
     def _add_findings_to_result(
-        self, result: Any, findings: List[Dict[str, Any]]
+        self, result: Any, findings: list[dict[str, Any]]
     ) -> None:
         """Convert raw findings to Finding objects and add to result."""
         finding_id = 1
@@ -376,7 +380,7 @@ class BaseProfiler(CIAnalysisModule, ABC):
                 self.logger.error(f"Finding data keys: {list(finding_data.keys())}")
                 raise ValueError(
                     f"Profiler {self.profiler_type} returned finding missing required field: {e}"
-                )
+                ) from e
             except Exception as e:
                 self.logger.error(f"Error creating finding {finding_id}: {e}")
                 raise
@@ -385,8 +389,8 @@ class BaseProfiler(CIAnalysisModule, ABC):
         self,
         result: Any,
         target_path: str,
-        files: List[Path],
-        findings: List[Dict[str, Any]],
+        files: list[Path],
+        findings: list[dict[str, Any]],
     ) -> None:
         """Add comprehensive metadata to result."""
         profiler_metadata = self.get_profiler_metadata()
@@ -410,8 +414,8 @@ class BaseProfiler(CIAnalysisModule, ABC):
         }
 
     def _calculate_severity_breakdown(
-        self, findings: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
+        self, findings: list[dict[str, Any]]
+    ) -> dict[str, int]:
         """Calculate breakdown of findings by severity."""
         breakdown = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
 
@@ -427,12 +431,13 @@ class BaseProfiler(CIAnalysisModule, ABC):
 
 def create_profiler_config(**kwargs) -> ProfilerConfig:
     """
-    Factory function for creating ProfilerConfig with validation.
+    Create a ProfilerConfig with validation.
 
     Args:
         **kwargs: Configuration parameters
 
-    Returns:
+    Returns
+    -------
         Validated ProfilerConfig instance
     """
-    return ConfigFactory.create_config("profiler", ProfilerConfig, **kwargs)
+    return ProfilerConfig(**kwargs)

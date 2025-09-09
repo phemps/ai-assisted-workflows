@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple Path Resolution System
-============================
+Simple Path Resolution System.
 
 Lightweight helpers to work with paths relative to the package root.
 Works across all deployment scenarios without mutating sys.path:
@@ -45,7 +44,8 @@ def get_analyzers_dir(category: Optional[str] = None) -> Path:
     Args:
         category: Optional category name (e.g., 'security', 'performance', 'root_cause')
 
-    Returns:
+    Returns
+    -------
         Path to the analyzers directory or specific category
     """
     analyzers_path = PACKAGE_ROOT / "analyzers"
@@ -61,7 +61,8 @@ def get_ci_dir(subdir: Optional[str] = None) -> Path:
     Args:
         subdir: Optional subdirectory name (e.g., 'core', 'integration', 'workflows')
 
-    Returns:
+    Returns
+    -------
         Path to the CI directory or specific subdirectory
     """
     ci_path = PACKAGE_ROOT / "ci"
@@ -78,7 +79,8 @@ def get_analyzer_script_path(category: str, script_name: str) -> Path:
         category: Category name (e.g., 'security', 'performance')
         script_name: Script filename (e.g., 'detect_secrets_analyzer.py')
 
-    Returns:
+    Returns
+    -------
         Full path to the analyzer script
     """
     return get_analyzers_dir(category) / script_name
@@ -91,7 +93,8 @@ def get_test_codebase_dir(subdir: Optional[str] = None) -> Path:
     Args:
         subdir: Optional subdirectory (e.g., 'vulnerable-apps', 'clean-apps')
 
-    Returns:
+    Returns
+    -------
         Path to the test codebase or specific subdirectory
     """
     test_dir = get_project_root() / "test_codebase"

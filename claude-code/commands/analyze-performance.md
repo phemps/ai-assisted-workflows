@@ -1,3 +1,7 @@
+---
+argument-hint: [target-path]
+---
+
 # analyze-performance v0.4
 
 **Mindset**: "Where are the bottlenecks?" - Combine static analysis with live performance monitoring.

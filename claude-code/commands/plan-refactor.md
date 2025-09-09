@@ -1,3 +1,7 @@
+---
+argument-hint: <refactor-scope-or-area>
+---
+
 # plan-refactor v0.4
 
 **Mindset**: "Improve without breaking" - Strategic technical debt reduction and modernization planning through automated analysis, proven patterns, and comprehensive testing frameworks.

@@ -1,6 +1,6 @@
-from flask import Flask, request, render_template_string, jsonify
 import sqlite3
-import os
+
+from flask import Flask, jsonify, render_template_string, request
 
 app = Flask(__name__)
 
@@ -26,17 +26,17 @@ def home():
 def login():
     username = request.form.get('username', '')
     password = request.form.get('password', '')
-    
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
-    
+
     try:
         cursor.execute(query)
         result = cursor.fetchone()
         conn.close()
-        
+
         if result:
             return jsonify({'success': True, 'message': 'Login successful'})
         else:
@@ -49,22 +49,22 @@ def login():
 def render_user_template():
     user_template = request.form.get('template', 'Hello {{name}}!')
     name = request.form.get('name', 'User')
-    
+
     rendered = render_template_string(user_template, name=name)
-    
+
     return jsonify({'rendered': rendered, 'template': user_template})
 
 @app.route('/register', methods=['POST'])
 def register():
-    username = request.form.get('username', '')
+    request.form.get('username', '')
     password = request.form.get('password', '')
-    
+
     if len(password) < MIN_PASSWORD_LENGTH:
         return jsonify({
-            'success': False, 
+            'success': False,
             'message': f'Password too short. Minimum length: {MIN_PASSWORD_LENGTH}'
         })
-    
+
     return jsonify({'success': True, 'message': 'Registration successful'})
 
 @app.errorhandler(500)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-BaseAnalyzer - Shared Infrastructure for Analysis Tools
-=======================================================
+BaseAnalyzer - Shared Infrastructure for Analysis Tools.
 
 PURPOSE: Abstract base class providing common functionality for all analysis tools.
 Part of the shared/analyzers/ suite - eliminates duplication across analysis categories.
@@ -29,20 +28,20 @@ EXTENDS: Similar to BaseProfiler but for general analysis tools
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Optional
 
 from .module_base import CIAnalysisModule
-from .vendor_detector import VendorDetector
 from .validation_rules import (
-    ValidationRule,
-    RequiredFieldsRule,
     FieldTypesRule,
-    SeverityRule,
-    PlaceholderRule,
     PathAndLineRules,
+    PlaceholderRule,
+    RequiredFieldsRule,
+    SeverityRule,
+    ValidationRule,
 )
+from .vendor_detector import VendorDetector
 
 
 @dataclass
@@ -56,7 +55,7 @@ class AnalyzerConfig:
     summary_mode: bool = False
 
     # File filtering
-    code_extensions: Set[str] = field(
+    code_extensions: set[str] = field(
         default_factory=lambda: {
             ".py",
             ".js",
@@ -87,7 +86,7 @@ class AnalyzerConfig:
         }
     )
 
-    skip_patterns: Set[str] = field(
+    skip_patterns: set[str] = field(
         default_factory=lambda: {
             "node_modules",
             ".git",
@@ -122,7 +121,7 @@ class AnalyzerConfig:
     timeout_seconds: Optional[int] = None
 
     # Severity filtering
-    severity_thresholds: Dict[str, float] = field(
+    severity_thresholds: dict[str, float] = field(
         default_factory=lambda: {
             "critical": 0.9,
             "high": 0.7,
@@ -200,24 +199,26 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
         )
 
     @abstractmethod
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Implement specific analysis logic for the target path.
 
         Args:
             target_path: Path to analyze
 
-        Returns:
+        Returns
+        -------
             List of analysis findings as dictionaries
         """
         pass
 
     @abstractmethod
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """
         Get analyzer-specific metadata for results.
 
-        Returns:
+        Returns
+        -------
             Dictionary with analyzer-specific metadata
         """
         pass
@@ -229,7 +230,8 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
         Args:
             file_path: Path to check
 
-        Returns:
+        Returns
+        -------
             True if file should be scanned
         """
         # Check if file path matches any skip patterns
@@ -300,14 +302,15 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
         return True
 
-    def scan_directory(self, target_path: str) -> List[Path]:
+    def scan_directory(self, target_path: str) -> list[Path]:
         """
         Scan directory for files matching analyzer criteria.
 
         Args:
             target_path: Directory to scan
 
-        Returns:
+        Returns
+        -------
             List of file paths to analyze
         """
         target = Path(target_path)
@@ -337,14 +340,15 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
         return files_to_scan
 
-    def process_files_batch(self, files: List[Path]) -> List[Dict[str, Any]]:
+    def process_files_batch(self, files: list[Path]) -> list[dict[str, Any]]:
         """
         Process files in batches for memory efficiency.
 
         Args:
             files: List of files to process
 
-        Returns:
+        Returns
+        -------
             Combined findings from all files
         """
         all_findings = []
@@ -365,7 +369,7 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
         return all_findings
 
-    def _process_batch(self, batch: List[Path]) -> List[Dict[str, Any]]:
+    def _process_batch(self, batch: list[Path]) -> list[dict[str, Any]]:
         """Process a single batch of files."""
         batch_findings = []
 
@@ -384,12 +388,13 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
     def analyze(self, target_path: Optional[str] = None) -> Any:
         """
-        Main analysis entry point with full analysis pipeline.
+        Run main analysis entry point with full analysis pipeline.
 
         Args:
             target_path: Path to analyze (uses config.target_path if None)
 
-        Returns:
+        Returns
+        -------
             AnalysisResult object with findings and metadata
         """
         self.start_analysis()
@@ -424,7 +429,7 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
         return self.complete_analysis(result)
 
     def _add_findings_to_result(
-        self, result: Any, findings: List[Dict[str, Any]]
+        self, result: Any, findings: list[dict[str, Any]]
     ) -> None:
         """Convert raw findings to Finding objects and add to result."""
         finding_id = 1
@@ -455,7 +460,7 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
                 self.logger.error(f"Finding data keys: {list(finding_data.keys())}")
                 raise ValueError(
                     f"Analyzer {self.analyzer_type} returned finding missing required field: {e}"
-                )
+                ) from e
             except Exception as e:
                 self.logger.error(f"Error creating finding {finding_id}: {e}")
                 raise
@@ -464,8 +469,8 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
         self,
         result: Any,
         target_path: str,
-        files: List[Path],
-        findings: List[Dict[str, Any]],
+        files: list[Path],
+        findings: list[dict[str, Any]],
     ) -> None:
         """Add comprehensive metadata to result."""
         analyzer_metadata = self.get_analyzer_metadata()
@@ -489,8 +494,8 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
         }
 
     def _calculate_severity_breakdown(
-        self, findings: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
+        self, findings: list[dict[str, Any]]
+    ) -> dict[str, int]:
         """Calculate breakdown of findings by severity."""
         breakdown = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
 
@@ -506,12 +511,13 @@ class BaseAnalyzer(CIAnalysisModule, ABC):
 
 def create_analyzer_config(**kwargs) -> AnalyzerConfig:
     """
-    Factory function for creating AnalyzerConfig with validation.
+    Create an AnalyzerConfig with validation.
 
     Args:
         **kwargs: Configuration parameters
 
-    Returns:
+    Returns
+    -------
         Validated AnalyzerConfig instance
     """
     # ConfigFactory.create() expects a registered type; AnalyzerConfig is direct here
@@ -528,10 +534,10 @@ def create_standard_finding(
     file_path: str,
     line_number: int,
     recommendation: str,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    metadata: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
-    Helper to create properly formatted findings for BaseAnalyzer/BaseProfiler.
+    Create a properly formatted finding for BaseAnalyzer/BaseProfiler.
 
     This function ensures all findings have the required fields with proper naming
     and validation, preventing common implementation errors.
@@ -545,10 +551,12 @@ def create_standard_finding(
         recommendation: Suggested action to take (specific, not "Review issue")
         metadata: Additional context (optional)
 
-    Returns:
+    Returns
+    -------
         Properly formatted finding dictionary with all required fields
 
-    Raises:
+    Raises
+    ------
         ValueError: If severity is invalid or required fields are empty
 
     Example:
@@ -621,7 +629,7 @@ def create_standard_finding(
     }
 
 
-def validate_finding(finding: Dict[str, Any]) -> bool:
+def validate_finding(finding: dict[str, Any]) -> bool:
     """
     Validate finding has all required fields with proper values.
 
@@ -631,10 +639,12 @@ def validate_finding(finding: Dict[str, Any]) -> bool:
     Args:
         finding: Finding dictionary to validate
 
-    Returns:
+    Returns
+    -------
         True if valid
 
-    Raises:
+    Raises
+    ------
         ValueError: If finding is invalid with specific error message
 
     Example:
@@ -646,7 +656,7 @@ def validate_finding(finding: Dict[str, Any]) -> bool:
     if not isinstance(finding, dict):
         raise ValueError(f"Finding must be a dictionary, got {type(finding)}")
 
-    rules: List[ValidationRule] = [
+    rules: list[ValidationRule] = [
         RequiredFieldsRule(
             [
                 "title",
@@ -669,14 +679,15 @@ def validate_finding(finding: Dict[str, Any]) -> bool:
     return True
 
 
-def batch_validate_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def batch_validate_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Validate a list of findings and return only valid ones.
 
     Args:
         findings: List of finding dictionaries to validate
 
-    Returns:
+    Returns
+    -------
         List of valid findings (invalid ones are filtered out with logging)
     """
     import logging

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test data builders for shared unit tests."""
 
-from typing import Dict, Any
+from typing import Any
 
 
 def build_finding(
@@ -12,7 +12,7 @@ def build_finding(
     line_number: int = 10,
     recommendation: str = "Do something helpful",
     **metadata: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "title": title,
         "description": description,

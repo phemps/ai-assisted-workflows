@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+
 from core.utils.architectural_pattern_detector import ArchitecturalPatternDetector
 
 

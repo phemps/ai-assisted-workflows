@@ -8,11 +8,12 @@ composes these rules to replace the previous monolithic validator.
 
 from __future__ import annotations
 
-from typing import Dict, Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class ValidationRule:
-    def validate(self, finding: Dict[str, Any]) -> None:  # pragma: no cover
+    def validate(self, finding: dict[str, Any]) -> None:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -20,7 +21,7 @@ class RequiredFieldsRule(ValidationRule):
     def __init__(self, required: Iterable[str]):
         self.required = list(required)
 
-    def validate(self, finding: Dict[str, Any]) -> None:
+    def validate(self, finding: dict[str, Any]) -> None:
         for f in self.required:
             if f not in finding:
                 available = list(finding.keys())
@@ -30,7 +31,7 @@ class RequiredFieldsRule(ValidationRule):
 
 
 class FieldTypesRule(ValidationRule):
-    def validate(self, finding: Dict[str, Any]) -> None:
+    def validate(self, finding: dict[str, Any]) -> None:
         if not isinstance(finding["title"], str) or not finding["title"].strip():
             raise ValueError("Field 'title' must be a non-empty string")
         if (
@@ -55,7 +56,7 @@ class FieldTypesRule(ValidationRule):
 class SeverityRule(ValidationRule):
     VALID = {"critical", "high", "medium", "low", "info"}
 
-    def validate(self, finding: Dict[str, Any]) -> None:
+    def validate(self, finding: dict[str, Any]) -> None:
         if finding["severity"] not in self.VALID:
             raise ValueError(
                 f"Invalid severity '{finding['severity']}'. Must be one of: {self.VALID}"
@@ -75,7 +76,7 @@ class PlaceholderRule(ValidationRule):
         "problem detected",
     }
 
-    def validate(self, finding: Dict[str, Any]) -> None:
+    def validate(self, finding: dict[str, Any]) -> None:
         if finding["title"].lower() in self.GENERIC_TITLES:
             raise ValueError(
                 f"Generic placeholder title '{finding['title']}' not allowed. Use specific finding title."
@@ -87,7 +88,7 @@ class PlaceholderRule(ValidationRule):
 
 
 class PathAndLineRules(ValidationRule):
-    def validate(self, finding: Dict[str, Any]) -> None:
+    def validate(self, finding: dict[str, Any]) -> None:
         if finding["file_path"] == "unknown":
             raise ValueError(
                 "Placeholder file_path 'unknown' not allowed. Use actual file path."

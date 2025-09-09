@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Tech Stack Detection and Filtering Utility
+Tech Stack Detection and Filtering Utility.
+
 Automatically detects project technology stack and provides appropriate filtering rules.
 """
 
 import json
-from pathlib import Path
-from typing import List, Set, Dict
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
-from core.config.loader import load_tech_stacks, ConfigError
+from core.config.loader import ConfigError, load_tech_stacks
 
 
 @dataclass
@@ -17,13 +18,13 @@ class TechStackConfig:
     """Configuration for a specific technology stack."""
 
     name: str
-    primary_languages: Set[str]
-    exclude_patterns: Set[str]
-    dependency_dirs: Set[str]
-    config_files: Set[str]
-    source_patterns: Set[str]
-    build_artifacts: Set[str]
-    boilerplate_patterns: Set[str] = None
+    primary_languages: set[str]
+    exclude_patterns: set[str]
+    dependency_dirs: set[str]
+    config_files: set[str]
+    source_patterns: set[str]
+    build_artifacts: set[str]
+    boilerplate_patterns: set[str] = None
 
     def __post_init__(self):
         if self.boilerplate_patterns is None:
@@ -43,12 +44,12 @@ class TechStackDetector:
                 / "tech_stacks.json"
             )
         try:
-            stacks_raw: Dict[str, Dict] = load_tech_stacks(config_path)
+            stacks_raw: dict[str, dict[str, Any]] = load_tech_stacks(config_path)
         except ConfigError as e:
-            raise RuntimeError(f"Tech stacks config error: {e}")
+            raise RuntimeError(f"Tech stacks config error: {e}") from e
 
         # Materialize dataclass configs, ensure sets
-        self.tech_stacks: Dict[str, TechStackConfig] = {}
+        self.tech_stacks: dict[str, TechStackConfig] = {}
         for key, spec in stacks_raw.items():
             self.tech_stacks[key] = TechStackConfig(
                 name=spec["name"],
@@ -67,14 +68,15 @@ class TechStackDetector:
     def from_config(cls, config_path: Path) -> "TechStackDetector":
         return cls(config_path=config_path)
 
-    def detect_tech_stack(self, project_path: str) -> List[str]:
+    def detect_tech_stack(self, project_path: str) -> list[str]:
         """
         Detect technology stacks in the project.
 
         Args:
             project_path: Path to the project root
 
-        Returns:
+        Returns
+        -------
             List of detected technology stack names
         """
         detected_stacks = []
@@ -116,7 +118,8 @@ class TechStackDetector:
         """
         Get simple, reliable exclusion lists by tech stack.
 
-        Returns:
+        Returns
+        -------
             dict with 'directories' and 'files' to exclude
         """
         detected_stacks = self.detect_tech_stack(project_path)
@@ -235,32 +238,48 @@ class TechStackDetector:
 
     def should_analyze_file(self, file_path: str, project_path: str = "") -> bool:
         """
-        Universal method to determine if a file should be analyzed.
+        Determine if a file should be analyzed.
+
         Combines simple directory exclusions with content-based detection.
 
         Args:
             file_path: Path to the file to check
             project_path: Project root path (for relative path calculation)
 
-        Returns:
+        Returns
+        -------
             True if file should be analyzed, False if it should be excluded
         """
         import os
         from pathlib import Path
 
-        # Get exclusion lists
-        exclusions = self.get_simple_exclusions(
-            project_path or os.path.dirname(file_path)
-        )
+        # Get exclusion lists (based on detected stacks at project root)
+        project_root = Path(project_path or os.path.dirname(file_path)).resolve()
+        exclusions = self.get_simple_exclusions(str(project_root))
 
         # Convert to Path object for easier manipulation
-        path_obj = Path(file_path)
+        path_obj = Path(file_path).resolve()
+        # Prefer checking relative-to-root to avoid false positives from OS dirs like '/tmp'
+        try:
+            rel_parts = Path(path_obj).relative_to(project_root).parts
+            rel_parts_lower = {p.lower() for p in rel_parts}
+            rel_path_str = "/".join(rel_parts).lower()
+        except Exception:
+            # Fall back to absolute path if not under project_root
+            rel_parts_lower = {p.lower() for p in path_obj.parts}
+            rel_path_str = str(path_obj).lower()
 
-        # Check if file is in an excluded directory (dead simple - just check if name appears in path)
-        path_str = str(path_obj).lower()
-        for excluded_dir in exclusions["directories"]:
-            if excluded_dir.lower() in path_str:
-                return False
+        # Check if file is in an excluded directory
+        # - Single-segment directories must match a path part exactly
+        # - Multi-segment patterns (e.g. 'ios/Pods') match as a substring of the path
+        for d in exclusions["directories"]:
+            d_low = d.lower()
+            if "/" in d_low:
+                if d_low in rel_path_str:
+                    return False
+            else:
+                if d_low in rel_parts_lower:
+                    return False
 
         # Check excluded files by name
         if path_obj.name.lower() in {f.lower() for f in exclusions["files"]}:
@@ -271,14 +290,16 @@ class TechStackDetector:
             return False
 
         # Content-based detection for remaining files
-        return not self._is_generated_or_vendor_code(file_path)
+        return not self._is_generated_or_vendor_code(
+            str(path_obj), dev_dir_parts=rel_parts_lower
+        )
 
-    def _is_generated_or_vendor_code(self, file_path: str) -> bool:
-        """
-        Detect if file is generated or vendor code based on content analysis.
-        """
+    def _is_generated_or_vendor_code(
+        self, file_path: str, dev_dir_parts: set[str] | None = None
+    ) -> bool:
+        """Detect if file is generated or vendor code based on content analysis."""
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 # Read first few lines to check for generation markers
                 first_lines = [f.readline().strip() for _ in range(10)]
                 content_sample = "\n".join(first_lines)
@@ -330,14 +351,19 @@ class TechStackDetector:
             if any(marker in content_lower for marker in vendor_markers):
                 # Additional check: if it's in a clearly non-vendor location, keep it
                 path_lower = file_path.lower()
-                if any(
+                in_dev_dir = any(
                     dev_dir in path_lower
                     for dev_dir in ["/src/", "/app/", "/components/", "/pages/"]
-                ):
-                    return False
-                return True
+                )
+                # Also check by path parts for robustness across platforms
+                if dev_dir_parts is None:
+                    dev_dir_parts = set()
+                return not (
+                    in_dev_dir
+                    or (dev_dir_parts & {"src", "app", "components", "pages"})
+                )
 
-        except (IOError, UnicodeDecodeError, PermissionError):
+        except (OSError, UnicodeDecodeError, PermissionError):
             # If we can't read the file, err on the side of analyzing it
             pass
 

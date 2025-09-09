@@ -29,7 +29,6 @@ OPTIONS:
     -h, --help      Show this help message
     -v, --verbose   Enable verbose output
     -n, --dry-run   Show what would be done without making changes
-    --skip-mcp      Skip MCP tools installation
     --skip-python   Skip Python dependencies installation
 
 EXAMPLES:
@@ -45,13 +44,9 @@ EXAMPLES:
     # Dry run to see what would happen
     ./install.sh --dry-run
 
-    # Install without MCP tools
-    ./install.sh --skip-mcp
-
 REQUIREMENTS:
-    - Python 3.7+
-    - Node.js (for MCP tools)
-    - Claude CLI (for MCP tools)
+    - Python 3.11+
+    - Node.js (for frontend analysis)
     - Internet connection for dependencies
 
 EOF
@@ -60,7 +55,6 @@ EOF
 # Global variables
 VERBOSE=false
 DRY_RUN=false
-SKIP_MCP=false
 SKIP_PYTHON=false
 # Optional non-interactive mode selection for existing installs: fresh|merge|update|cancel
 INSTALL_MODE=""
@@ -71,10 +65,11 @@ UPDATE_WORKFLOWS_ONLY=false
 # Performance optimization: cache pip list
 PIP_LIST_CACHE=""
 
-# Loading spinner function
+# Loading spinner function with optional timeout
 spinner() {
     local pid=$1
     local desc=$2
+    local timeout=${3:-0}  # Optional timeout in seconds, 0 means no timeout
     local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
     local i=0
     local start_time=$(date +%s)
@@ -86,6 +81,15 @@ spinner() {
     while kill -0 $pid 2>/dev/null; do
         local elapsed=$(($(date +%s) - start_time))
         # The \r at the beginning returns cursor to line start
+
+        # Check timeout if specified
+        if [[ $timeout -gt 0 && $elapsed -gt $timeout ]]; then
+            printf "\r%-60s\r" " "  # Clear line
+            log_error "Operation timed out after ${timeout}s"
+            kill $pid 2>/dev/null
+            return 124  # Standard timeout exit code
+        fi
+
         printf "\r %s %s [%02d:%02d]" "${spin:$((i++ % ${#spin})):1}" "$desc" $((elapsed/60)) $((elapsed%60))
         sleep 0.1
     done
@@ -139,10 +143,6 @@ parse_args() {
                 ;;
             -n|--dry-run)
                 DRY_RUN=true
-                shift
-                ;;
-            --skip-mcp)
-                SKIP_MCP=true
                 shift
                 ;;
             --skip-python)
@@ -233,7 +233,7 @@ check_python() {
 
     if ! command -v python3 &> /dev/null; then
         log_error "Python 3 is required but not installed"
-        echo "Please install Python 3.7+ and try again"
+        echo "Please install Python 3.11+ and try again"
         exit 1
     fi
 
@@ -241,8 +241,9 @@ check_python() {
     python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
     log_verbose "Found Python $python_version"
 
-    if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)"; then
-        log_error "Python 3.7+ is required, found Python $python_version"
+    if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"; then
+        log_error "Python 3.11+ is required, found Python $python_version"
+        echo "Please upgrade to Python 3.11 or later: https://www.python.org/downloads/"
         exit 1
     fi
 
@@ -279,24 +280,6 @@ check_node() {
     log_verbose "Found Node.js $node_version, npm $npm_version"
 }
 
-check_claude_cli() {
-    if [[ "$SKIP_MCP" == "true" ]]; then
-        log_verbose "Skipping Claude CLI check (MCP installation disabled)"
-        return 0
-    fi
-
-    log_verbose "Checking Claude CLI installation..."
-
-    if ! command -v claude &> /dev/null; then
-        log_error "Claude CLI is required for MCP tools but not installed"
-        echo "Install Claude CLI from https://claude.ai/code or use --skip-mcp to skip MCP tools"
-        exit 1
-    fi
-
-    local claude_version
-    claude_version=$(claude --version 2>/dev/null || echo "unknown")
-    log_verbose "Found Claude CLI $claude_version"
-}
 
 check_eslint() {
     log "Checking ESLint installation (required for frontend analysis)..."
@@ -371,7 +354,7 @@ EOF
 
     # Install ESLint and required plugins
     log_verbose "Installing ESLint packages..."
-    ( npm install --save-dev \
+    ( npm install --save-dev --no-audit --no-fund \
         eslint@latest \
         @typescript-eslint/parser@latest \
         @typescript-eslint/eslint-plugin@latest \
@@ -380,10 +363,20 @@ EOF
         eslint-plugin-import@latest \
         eslint-plugin-vue@latest \
         eslint-plugin-svelte@latest > /tmp/npm_install.log 2>&1 ) &
-    if spinner $! "Installing ESLint packages"; then
+    if spinner $! "Installing ESLint packages" 120; then  # 2 minute timeout
         log "ESLint packages installed successfully"
+        # Clean up successful install log
+        rm -f /tmp/npm_install.log
     else
+        local exit_code=$?
         log_error "Failed to install ESLint packages"
+        if [[ $exit_code -eq 124 ]]; then
+            log_error "Installation timed out after 2 minutes"
+        fi
+        if [[ -f /tmp/npm_install.log ]]; then
+            echo "npm install output:"
+            cat /tmp/npm_install.log
+        fi
         echo "Please install manually with:"
         echo "  npm install -g eslint @typescript-eslint/parser eslint-plugin-react eslint-plugin-vue eslint-plugin-import"
         exit 1
@@ -822,29 +815,10 @@ EOF
         done < "$requirements_file"
     fi
 
-    # Check which MCP servers were already installed
-    cat >> "$log_file" << EOF
-
-[PRE_EXISTING_MCP_SERVERS]
-EOF
-
-    if command -v claude &> /dev/null; then
-        # Check our MCP servers
-        local our_mcp_servers=("sequential-thinking" "grep")
-        for server in "${our_mcp_servers[@]}"; do
-            if claude mcp list 2>/dev/null | grep -q "^$server"; then
-                echo "$server" >> "$log_file"
-                log_verbose "Pre-existing MCP server: $server"
-            fi
-        done
-    fi
-
     # Initialize sections for newly installed items
     cat >> "$log_file" << EOF
 
 [NEWLY_INSTALLED_PYTHON_PACKAGES]
-
-[NEWLY_INSTALLED_MCP_SERVERS]
 EOF
 
     log_verbose "Installation log created: installation-log.txt"
@@ -872,25 +846,6 @@ update_installation_log() {
             log_verbose "Added to installation log: $item_type - $item_name"
         else
             log_verbose "Warning: Failed to add Python package to installation log: $item_name"
-        fi
-    elif [[ "$item_type" == "mcp" ]]; then
-        # Find the line number of the section and insert after it
-        local line_num=$(grep -n "^\[NEWLY_INSTALLED_MCP_SERVERS\]" "$log_file" | cut -d: -f1)
-        if [[ -n "$line_num" ]]; then
-            # Use a more robust approach that works cross-platform
-            local temp_file=$(mktemp)
-            if head -n "$line_num" "$log_file" > "$temp_file" && \
-               echo "$item_name" >> "$temp_file" && \
-               tail -n +$((line_num + 1)) "$log_file" >> "$temp_file" && \
-               mv "$temp_file" "$log_file"; then
-                log_verbose "Added to installation log: $item_type - $item_name"
-            else
-                log_verbose "Warning: Failed to add MCP server to installation log: $item_name"
-                # Clean up temp file if it exists
-                [[ -f "$temp_file" ]] && rm -f "$temp_file"
-            fi
-        else
-            log_verbose "Warning: Could not find NEWLY_INSTALLED_MCP_SERVERS section in log file"
         fi
     else
         log_verbose "Warning: Unknown item type for installation log: $item_type"
@@ -1092,15 +1047,6 @@ verify_installation() {
         fi
     fi
 
-    # Test MCP tools
-    if [[ "$DRY_RUN" != "true" ]] && [[ "$SKIP_MCP" != "true" ]]; then
-        log_verbose "Testing MCP tools..."
-        if claude mcp list 2>/dev/null | grep -q "sequential-thinking"; then
-            log_verbose "MCP tools verification passed"
-        else
-            log "Warning: MCP tools verification failed (this is non-critical)"
-        fi
-    fi
 
     # Test file structure
     if [[ "$DRY_RUN" != "true" ]]; then
@@ -1159,13 +1105,6 @@ show_completion() {
     echo "  /fix-bug --tdd     (test-driven bug fixing)"
     echo ""
 
-    if [[ "$SKIP_MCP" != "true" ]]; then
-        echo "MCP Tools available:"
-        echo "  --seq (sequential thinking for complex analysis)"
-        echo "  --gitgrep (grep for GitHub repository search)"
-        echo ""
-    fi
-
     echo "Enable Codebase-Expert Agent (AI-powered code search):"
     echo "  1. /setup-ci-monitoring    (index codebase for semantic search)"
     echo "  2. /setup-serena-mcp       (enable enhanced LSP support)"
@@ -1190,8 +1129,7 @@ cleanup() {
         echo "Common solutions:"
         echo "  1. Ensure Python 3.7+ is installed"
         echo "  2. Check internet connectivity"
-        echo "  3. Run with --skip-mcp if MCP tools are causing issues"
-        echo "  4. Run with --skip-python if Python deps are causing issues"
+        echo "  3. Run with --skip-python if Python deps are causing issues"
         echo ""
     fi
 }
@@ -1221,33 +1159,29 @@ main() {
     fi
 
     # Run installation steps with progress display
-    show_phase 1 8 "Checking system requirements"
+    show_phase 1 7 "Checking system requirements"
     detect_platform
     check_python &
     check_node &
-    check_claude_cli &
     wait
 
-    show_phase 2 8 "Checking analysis tools"
+    show_phase 2 7 "Checking analysis tools"
     check_security_tools
 
-    show_phase 3 8 "Setting up directories"
+    show_phase 3 7 "Setting up directories"
     setup_install_dir
 
-    show_phase 4 8 "Copying workflow files"
+    show_phase 4 7 "Copying workflow files"
     copy_files
 
-    show_phase 5 8 "Creating installation tracking"
+    show_phase 5 7 "Creating installation tracking"
     create_installation_log
 
-    show_phase 6 8 "Installing dependencies"
+    show_phase 6 7 "Installing dependencies"
     install_python_deps
     check_eslint
 
-    show_phase 7 8 "Installing MCP tools"
-    install_mcp_tools
-
-    show_phase 8 8 "Verifying installation"
+    show_phase 7 7 "Verifying installation"
     verify_installation
 
     if [[ "$DRY_RUN" != "true" ]]; then

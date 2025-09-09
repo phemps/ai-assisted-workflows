@@ -1,41 +1,42 @@
 #!/usr/bin/env python3
 """
-Base utilities for Continuous Improvement Framework
+Base utilities for Continuous Improvement Framework.
+
 Provides common functionality to eliminate code duplication.
 """
 
-from .error_handler import CIErrorHandler, CIErrorCode, CIErrorContext
-from .module_base import CIModuleBase, CIAnalysisModule, CIConfigModule
+from .analyzer_base import AnalyzerConfig, BaseAnalyzer, create_analyzer_config
+from .analyzer_registry import AnalyzerRegistry, register_analyzer
 from .config_factory import (
-    ConfigFactory,
     ConfigBase,
-    EmbeddingConfig,
-    SimilarityConfig,
-    RegistryConfig,
+    ConfigFactory,
     DetectionConfig,
-    QualityGateConfig,
+    EmbeddingConfig,
     MetricsConfig,
+    QualityGateConfig,
+    RegistryConfig,
+    SimilarityConfig,
 )
-from .timing_utils import (
-    TimingResult,
-    PerformanceTracker,
-    get_performance_tracker,
-    timed_operation,
-    time_operation,
-    OperationTimer,
-    BatchTimer,
-    create_performance_report,
-)
+from .error_handler import CIErrorCode, CIErrorContext, CIErrorHandler
 from .fs_utils import (
+    DirectoryWatcher,
     FileSystemUtils,
     TemporaryDirectory,
     atomic_write,
-    DirectoryWatcher,
     process_files_in_batches,
 )
+from .module_base import CIAnalysisModule, CIConfigModule, CIModuleBase
 from .profiler_base import BaseProfiler, ProfilerConfig, create_profiler_config
-from .analyzer_base import BaseAnalyzer, AnalyzerConfig, create_analyzer_config
-from .analyzer_registry import AnalyzerRegistry, register_analyzer
+from .timing_utils import (
+    BatchTimer,
+    OperationTimer,
+    PerformanceTracker,
+    TimingResult,
+    create_performance_report,
+    get_performance_tracker,
+    time_operation,
+    timed_operation,
+)
 
 __all__ = [
     # Error handling

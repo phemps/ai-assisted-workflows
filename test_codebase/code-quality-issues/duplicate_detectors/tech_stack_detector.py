@@ -5,9 +5,8 @@ Automatically detects project technology stack and provides appropriate filterin
 """
 
 import json
-from pathlib import Path
-from typing import List, Set
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -15,12 +14,12 @@ class TechStackConfig:
     """Configuration for a specific technology stack."""
 
     name: str
-    primary_languages: Set[str]
-    exclude_patterns: Set[str]
-    dependency_dirs: Set[str]
-    config_files: Set[str]
-    source_patterns: Set[str]
-    build_artifacts: Set[str]
+    primary_languages: set[str]
+    exclude_patterns: set[str]
+    dependency_dirs: set[str]
+    config_files: set[str]
+    source_patterns: set[str]
+    build_artifacts: set[str]
 
 
 class TechStackDetector:
@@ -283,7 +282,7 @@ class TechStackDetector:
             ),
         }
 
-    def detect_tech_stack(self, project_path: str) -> List[str]:
+    def detect_tech_stack(self, project_path: str) -> list[str]:
         """
         Detect technology stacks in the project.
 
@@ -488,7 +487,7 @@ class TechStackDetector:
         Detect if file is generated or vendor code based on content analysis.
         """
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 # Read first few lines to check for generation markers
                 first_lines = [f.readline().strip() for _ in range(10)]
                 content_sample = "\n".join(first_lines)
@@ -540,14 +539,9 @@ class TechStackDetector:
             if any(marker in content_lower for marker in vendor_markers):
                 # Additional check: if it's in a clearly non-vendor location, keep it
                 path_lower = file_path.lower()
-                if any(
-                    dev_dir in path_lower
-                    for dev_dir in ["/src/", "/app/", "/components/", "/pages/"]
-                ):
-                    return False
-                return True
+                return not any(dev_dir in path_lower for dev_dir in ["/src/", "/app/", "/components/", "/pages/"])
 
-        except (IOError, UnicodeDecodeError, PermissionError):
+        except (OSError, UnicodeDecodeError, PermissionError):
             # If we can't read the file, err on the side of analyzing it
             pass
 

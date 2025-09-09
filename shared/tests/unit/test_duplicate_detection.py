@@ -8,15 +8,15 @@ import sys
 
 # Setup import paths and import code duplication analyzer
 try:
-    from utils import path_resolver  # noqa: F401
     from analyzers.quality.code_duplication_analyzer import (
         CodeBlock,
-        ExactDuplicateDetector,
-        StructuralDuplicateDetector,
-        SemanticDuplicateDetector,
         CompositeDuplicateDetector,
         DuplicateAnalysisReport,
+        ExactDuplicateDetector,
+        SemanticDuplicateDetector,
+        StructuralDuplicateDetector,
     )
+    from utils import path_resolver  # noqa: F401
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     sys.exit(1)

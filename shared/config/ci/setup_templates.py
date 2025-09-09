@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Template Setup Utility for Continuous Improvement
+Template Setup Utility for Continuous Improvement.
+
 Replaces inline file creation with template copying and variable substitution.
 """
 
@@ -22,14 +23,15 @@ class TemplateSetup:
         self, project_name: str, threshold: float = 0.85, auto_refactor: bool = False
     ) -> bool:
         """
-        Setup continuous improvement configuration using templates.
+        Set up continuous improvement configuration using templates.
 
         Args:
             project_name: Name of the project
             threshold: Duplicate detection threshold
             auto_refactor: Whether to enable automatic refactoring
 
-        Returns:
+        Returns
+        -------
             True if setup succeeded, False otherwise
         """
         try:
@@ -52,7 +54,7 @@ class TemplateSetup:
     def _setup_config_json(
         self, project_name: str, threshold: float, auto_refactor: bool
     ) -> None:
-        """Setup config.json from template."""
+        """Set up config.json from template."""
         template_path = self.templates_dir / "config.json.template"
         target_path = self.project_root / ".ci-registry" / "config.json"
 
@@ -71,7 +73,7 @@ class TemplateSetup:
         print(f"✅ Created config.json at {target_path}")
 
     def _setup_github_workflows(self) -> None:
-        """Setup GitHub workflows from templates."""
+        """Set up GitHub workflows from templates."""
         # Create .github/workflows directory
         workflows_target = self.project_root / ".github" / "workflows"
         workflows_target.mkdir(parents=True, exist_ok=True)
@@ -84,7 +86,7 @@ class TemplateSetup:
 
 
 def main():
-    """Main entry point for template setup."""
+    """Run template setup from the command line."""
     import argparse
 
     parser = argparse.ArgumentParser(

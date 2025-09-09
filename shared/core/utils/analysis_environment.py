@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
 Analysis environment validation and configuration utilities.
+
 Ensures safe analysis conditions: valid directories, files, git repos, and environment setup.
 """
 
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Optional
 
 
 def validate_target_directory(
     target_path: str,
-) -> Tuple[bool, Optional[str], Optional[Path]]:
+) -> tuple[bool, Optional[str], Optional[Path]]:
     """Validate target directory for analysis."""
     try:
         target_dir = Path(target_path).resolve()
@@ -35,7 +36,7 @@ def validate_target_directory(
         return False, f"Error validating directory: {str(e)}", None
 
 
-def validate_git_repository(repo_path: Path) -> Tuple[bool, Optional[str]]:
+def validate_git_repository(repo_path: Path) -> tuple[bool, Optional[str]]:
     """Validate that directory is a git repository."""
     try:
         git_dir = repo_path / ".git"
@@ -71,7 +72,7 @@ def validate_git_repository(repo_path: Path) -> Tuple[bool, Optional[str]]:
 
 def validate_file_access(
     file_path: Path, max_size_mb: int = 10
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, Optional[str]]:
     """Validate file can be safely analyzed."""
     try:
         if not file_path.exists():
@@ -94,7 +95,7 @@ def validate_file_access(
 
         # Test read permissions
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 f.read(1)  # Try to read first byte
         except (PermissionError, OSError) as e:
             return False, f"Cannot read file: {str(e)}"
@@ -105,7 +106,7 @@ def validate_file_access(
         return False, f"Error validating file: {str(e)}"
 
 
-def validate_environment_config() -> Dict[str, Any]:
+def validate_environment_config() -> dict[str, Any]:
     """Validate and return environment configuration."""
     config = {}
 
@@ -144,7 +145,7 @@ def validate_environment_config() -> Dict[str, Any]:
         "SKIP_LARGE_FILES": True,
     }
 
-    for key, default in bool_configs.items():
+    for key, _default in bool_configs.items():
         config[key] = os.environ.get(key, "").lower() in ("true", "1", "yes", "on")
 
     return config
@@ -162,7 +163,7 @@ def create_safe_filename(name: str) -> str:
     return safe_name
 
 
-def log_debug(message: str, config: Dict[str, Any]):
+def log_debug(message: str, config: dict[str, Any]):
     """Log debug message if debug is enabled."""
     if config.get("ENABLE_DEBUG", False):
         print(f"DEBUG: {message}", file=sys.stderr)

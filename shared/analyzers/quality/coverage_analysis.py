@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Language-agnostic test coverage analysis script.
+
 Analyzes test coverage across multiple programming languages and frameworks.
 
 Converted to use BaseAnalyzer infrastructure for standardized CLI, file scanning,
@@ -9,10 +10,10 @@ error handling, and result formatting patterns.
 
 import re
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
 
 # Import base analyzer (package root must be on PYTHONPATH)
-from core.base.analyzer_base import BaseAnalyzer, AnalyzerConfig
+from core.base.analyzer_base import AnalyzerConfig, BaseAnalyzer
 from core.base.analyzer_registry import register_analyzer
 
 
@@ -170,14 +171,15 @@ class TestCoverageAnalyzer(BaseAnalyzer):
             r"def test_",
         ]
 
-    def analyze_target(self, target_path: str) -> List[Dict[str, Any]]:
+    def analyze_target(self, target_path: str) -> list[dict[str, Any]]:
         """
         Analyze a single file for coverage patterns - called by BaseAnalyzer for each file.
 
         Args:
             target_path: Single file path to analyze
 
-        Returns:
+        Returns
+        -------
             List of coverage analysis findings for this specific file
         """
         target = Path(target_path)
@@ -212,7 +214,7 @@ class TestCoverageAnalyzer(BaseAnalyzer):
 
         return findings
 
-    def categorize_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
+    def categorize_file(self, file_path: Path) -> Optional[dict[str, Any]]:
         """Categorize a file as test or source for a specific language."""
         # Map file extensions to languages
         ext_map = {
@@ -268,7 +270,7 @@ class TestCoverageAnalyzer(BaseAnalyzer):
 
         return None
 
-    def get_analyzer_metadata(self) -> Dict[str, Any]:
+    def get_analyzer_metadata(self) -> dict[str, Any]:
         """Get coverage analyzer-specific metadata."""
         return {
             "analyzer_name": "TestCoverageAnalyzer",
@@ -293,7 +295,8 @@ def analyze_coverage(target_path: str, output_format: str = "json") -> dict:
         target_path: Path to analyze
         output_format: Output format ("json" or "console")
 
-    Returns:
+    Returns
+    -------
         Analysis results dictionary
     """
     config = AnalyzerConfig(target_path=target_path, output_format=output_format)

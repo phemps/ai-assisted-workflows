@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Vendor/Third-party Code Detection Utility
-=========================================
+Vendor/Third-party Code Detection Utility.
 
 PURPOSE: Automatically detect vendor, third-party, or external library code
 to avoid analyzing it as application code.
@@ -18,11 +17,11 @@ This helps reduce false positives by excluding code that shouldn't be analyzed
 as part of the application codebase.
 """
 
-import re
 import json
-from pathlib import Path
-from typing import List, Optional, Set, Tuple
+import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
 
 
 @dataclass
@@ -31,7 +30,7 @@ class VendorDetection:
 
     is_vendor: bool
     confidence: float  # 0.0 to 1.0
-    reasons: List[str]
+    reasons: list[str]
     detected_library: Optional[str] = None
 
 
@@ -46,8 +45,8 @@ class VendorDetector:
             project_root: Root directory of the project to analyze
         """
         self.project_root = project_root
-        self._package_dependencies: Set[str] = set()
-        self._dependency_patterns: List[re.Pattern] = []
+        self._package_dependencies: set[str] = set()
+        self._dependency_patterns: list[re.Pattern] = []
 
         # Load dependencies if package.json exists
         if project_root:
@@ -64,7 +63,7 @@ class VendorDetector:
         # Find all package.json files
         for package_json in self.project_root.rglob("package.json"):
             try:
-                with open(package_json, "r", encoding="utf-8") as f:
+                with open(package_json, encoding="utf-8") as f:
                     data = json.load(f)
 
                 # Extract dependencies
@@ -75,7 +74,7 @@ class VendorDetector:
                     "optionalDependencies",
                 ]:
                     deps = data.get(dep_type, {})
-                    for dep_name in deps.keys():
+                    for dep_name in deps:
                         self._package_dependencies.add(dep_name)
 
                         # Also add variations (e.g., @types/react -> react)
@@ -100,7 +99,6 @@ class VendorDetector:
 
     def _compile_patterns(self) -> None:
         """Compile regex patterns for vendor detection."""
-
         # Copyright and license patterns
         self.copyright_patterns = [
             re.compile(r"@license\b", re.IGNORECASE),
@@ -188,7 +186,8 @@ class VendorDetector:
         Args:
             file_path: Path to the file to analyze
 
-        Returns:
+        Returns
+        -------
             VendorDetection result with confidence score and reasons
         """
         reasons = []
@@ -215,7 +214,7 @@ class VendorDetector:
         if confidence < 0.8:
             try:
                 # Read first 2KB for performance (headers usually at top)
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                with open(file_path, encoding="utf-8", errors="ignore") as f:
                     header_content = f.read(2048)
 
                 # Check for copyright/license markers
@@ -266,7 +265,7 @@ class VendorDetector:
 
     def _check_vendor_paths(
         self, file_path: Path
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check if file is in a vendor/third-party directory."""
         path_str = str(file_path).lower()
         reasons = []
@@ -287,7 +286,7 @@ class VendorDetector:
 
     def _check_filename_patterns(
         self, file_path: Path
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check filename patterns that indicate vendor code."""
         filename = file_path.name.lower()
         reasons = []
@@ -333,7 +332,7 @@ class VendorDetector:
 
     def _check_license_markers(
         self, content: str
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check for copyright and license markers."""
         reasons = []
 
@@ -346,7 +345,7 @@ class VendorDetector:
 
     def _check_library_signatures(
         self, content: str
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check for library-specific signatures."""
         reasons = []
 
@@ -359,7 +358,7 @@ class VendorDetector:
 
     def _check_minification(
         self, content: str
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check for minification patterns."""
         reasons = []
 
@@ -376,7 +375,7 @@ class VendorDetector:
 
     def _check_generated_markers(
         self, content: str
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check for generated file markers."""
         reasons = []
 
@@ -389,7 +388,7 @@ class VendorDetector:
 
     def _check_dependency_match(
         self, file_path: Path, content: str
-    ) -> Tuple[bool, float, List[str], Optional[str]]:
+    ) -> tuple[bool, float, list[str], Optional[str]]:
         """Check if file matches a known package dependency."""
         reasons = []
 
@@ -416,7 +415,8 @@ class VendorDetector:
             file_path: Path to check
             confidence_threshold: Minimum confidence to exclude file
 
-        Returns:
+        Returns
+        -------
             True if file should be excluded
         """
         detection = self.detect_vendor_code(file_path)

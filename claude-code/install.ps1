@@ -89,7 +89,7 @@ function Show-Usage {
     Write-Output "    .\install.ps1 -DryRun"
     Write-Output ""
     Write-Output "REQUIREMENTS:"
-    Write-Output "    - Python 3.7+"
+    Write-Output "    - Python 3.11+"
     Write-Output "    - Node.js (for frontend analysis)"
     Write-Output "    - Internet connection for dependencies"
 }
@@ -109,12 +109,12 @@ function Test-Prerequisites {
             if ($versionMatch -and $matches.Count -ge 3) {
                 $major = [int]$matches[1]
                 $minor = [int]$matches[2]
-                if (($major -eq 3 -and $minor -ge 7) -or $major -gt 3) {
+                if (($major -eq 3 -and $minor -ge 11) -or $major -gt 3) {
                     Write-ColorOutput "[OK] $pythonVersion found" -Color $Colors.Green
                     Write-Log "Python check passed: $pythonVersion"
                 } else {
-                    Write-ColorOutput "[ERROR] $pythonVersion found, but Python 3.7+ required" -Color $Colors.Red
-                    Write-Output "  Install: https://www.python.org/downloads/"
+                    Write-ColorOutput "[ERROR] $pythonVersion found, but Python 3.11+ required" -Color $Colors.Red
+                    Write-Output "  Please upgrade to Python 3.11 or later: https://www.python.org/downloads/"
                     Write-Log "Python version too old: $pythonVersion" -Level "ERROR"
                     $errors++
                 }
@@ -128,7 +128,7 @@ function Test-Prerequisites {
         }
     } catch {
         Write-ColorOutput "[ERROR] Python not found or not accessible" -Color $Colors.Red
-        Write-Output "  Install: https://www.python.org/downloads/"
+        Write-Output "  Install Python 3.11+: https://www.python.org/downloads/"
         Write-Output "  Make sure Python is in your PATH"
         Write-Log "Python not found: $($_.Exception.Message)" -Level "ERROR"
         $errors++
@@ -1274,7 +1274,7 @@ try {
     # Cleanup guidance
     Write-Output ""
     Write-ColorOutput "Installation failed. Common solutions:" -Color $Colors.Yellow
-    Write-Output "  1. Ensure Python 3.7+ is installed and in PATH"
+    Write-Output "  1. Ensure Python 3.11+ is installed and in PATH"
     Write-Output "  2. Check internet connectivity for package downloads"
     Write-Output "  3. Run PowerShell as Administrator if permission issues occur"
     Write-Output "  4. Use -SkipPython if Python dependencies are causing issues"

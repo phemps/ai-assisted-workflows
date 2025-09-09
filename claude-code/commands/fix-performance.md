@@ -1,4 +1,4 @@
-# fix-performance v0.2
+# fix-performance v0.4
 
 **Mindset**: "Optimize systematically" - Targeted performance issue resolution with measurable improvement validation.
 
@@ -48,33 +48,14 @@ Systematic performance issue resolution combining automated bottleneck detection
 
 Execute performance analysis scripts via Bash tool for systematic bottleneck detection:
 
-**FIRST - Resolve SCRIPT_PATH:**
-
-1. **Try project-level .claude folder**:
-
-   ```bash
-   Glob: ".claude/scripts/analyzers/performance/*.py"
-   ```
-
-2. **Try user-level .claude folder**:
-
-   ```bash
-   Bash: ls "$HOME/.claude/scripts/analyzers/performance/"
-   ```
-
-3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyzers/performance/` and `$HOME/.claude/scripts/analyzers/performance/`
-   - Ask user: "Could not locate performance analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (flake8_performance_analyzer.py, analyze_frontend.py, sqlfluff_analyzer.py)
-   - Set SCRIPT_PATH to user-provided location
-
-**THEN - Execute with resolved SCRIPT_PATH (module execution):**
-
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.flake8_performance_analyzer . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.analyze_frontend . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m analyzers.performance.sqlfluff_analyzer . --output-format json
+# Set paths and execute the analyzers
+export PYTHONPATH="$(pwd)/.claude/scripts"
+VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
+
+"$VENV_PYTHON" -m analyzers.performance.flake8_performance_analyzer . --output-format json
+"$VENV_PYTHON" -m analyzers.performance.analyze_frontend . --output-format json
+"$VENV_PYTHON" -m analyzers.performance.sqlfluff_analyzer . --output-format json
 ```
 
 ## Performance Areas

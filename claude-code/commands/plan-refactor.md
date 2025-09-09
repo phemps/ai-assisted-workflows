@@ -1,4 +1,4 @@
-# plan-refactor v0.3
+# plan-refactor v0.4
 
 **Mindset**: "Improve without breaking" - Strategic technical debt reduction and modernization planning through automated analysis, proven patterns, and comprehensive testing frameworks.
 
@@ -8,40 +8,14 @@
 
 1. **Execute automated analysis** - Run comprehensive technical debt assessment
 
-   **FIRST - Resolve SCRIPT_PATH:**
-
-   1. **Try project-level .claude folder**:
-
-      ```bash
-      Glob: ".claude/scripts/*.py"
-      Glob: ".claude/scripts/analyzers/**/*.py"
-      ```
-
-   2. **Try user-level .claude folder**:
-
-      ```bash
-      Bash: ls "$HOME/.claude/scripts/"
-      ```
-
-   3. **Interactive fallback if not found**:
-      - List searched locations: `.claude/scripts/` and `$HOME/.claude/scripts/`
-      - Ask user: "Could not locate analysis scripts. Please provide full path to the scripts directory:"
-      - Validate provided path contains expected scripts (quality/complexity_lizard.py, architecture/coupling_analysis.py, performance/performance_baseline.py)
-      - Set SCRIPT_PATH to user-provided location
-
-   **Pre-flight environment check (fail fast if imports not resolved):**
-
    ```bash
-   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-   PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-   ```
+   # Set paths and execute the analyzers
+   export PYTHONPATH="$(pwd)/.claude/scripts"
+   VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-   **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-   ```bash
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer quality:lizard --target . --output-format json
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target . --output-format json
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer performance:baseline --target . --output-format json
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer quality:lizard --target . --output-format json
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:coupling --target . --output-format json
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer performance:baseline --target . --output-format json
    ```
 
 2. **Identify refactoring priorities** - Analyze complexity hotspots and architectural debt
@@ -114,6 +88,51 @@ None currently defined.
 ## [System/Component] Refactoring Implementation
 
 ### Phase [PHASE-NUMBER]: [PHASE-TITLE]
+
+- [ ] [PHASE-TASK]
+- [ ] [PHASE-TASK]
+- [ ] [PHASE-TASK]
+```
+
+$ARGUMENTS
+
+TLE]
+
+- [ ] [PHASE-TASK]
+- [ ] [PHASE-TASK]
+- [ ] [PHASE-TASK]
+```
+
+$ARGUMENTS
+d prioritized
+   - [ ] Migration strategy validated against proven patterns
+   - [ ] Implementation phases include comprehensive rollback procedures
+   - [ ] Testing strategy covers regression prevention and performance validation
+   - [ ] All refactoring targets have defined success metrics
+
+3. **Transfer tasks to todos.md** - Generate actionable implementation tasks
+   - Append formatted tasks with clear phases to todos.md
+
+**STOP** → "Implementation plan complete and validated. Transfer to todos.md? (y/n)"
+
+## Enhanced Optional Flags
+
+None currently defined.
+
+## Task Format for todos.md Transfer
+
+```markdown
+## [System/Component] Refactoring Implementation
+
+### Phase [PHASE-NUMBER]: [PHASE-TITLE]
+
+- [ ] [PHASE-TASK]
+- [ ] [PHASE-TASK]
+- [ ] [PHASE-TASK]
+```
+
+$ARGUMENTS
+ITLE]
 
 - [ ] [PHASE-TASK]
 - [ ] [PHASE-TASK]

@@ -1,4 +1,4 @@
-# analyze-architecture v0.2
+# analyze-architecture v0.4
 
 **Mindset**: "Design for scale and maintainability" - Evaluate system architecture for scalability, maintainability, and best practices.
 
@@ -10,40 +10,15 @@ Comprehensive system architecture evaluation combining automated analysis with d
 
 Execute architecture analysis scripts via Bash tool for measurable design metrics:
 
-**FIRST - Resolve SCRIPT_PATH:**
-
-1. **Try project-level .claude folder**:
-
-   ```bash
-   Glob: ".claude/scripts/analyzers/architecture/*.py"
-   ```
-
-2. **Try user-level .claude folder**:
-
-   ```bash
-   Bash: ls "$HOME/.claude/scripts/analyzers/architecture/"
-   ```
-
-3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyzers/architecture/` and `$HOME/.claude/scripts/analyzers/architecture/`
-   - Ask user: "Could not locate architecture analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py, dependency_analysis.py)
-   - Set SCRIPT_PATH to user-provided location
-
-**Pre-flight environment check (fail fast if imports not resolved):**
-
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-```
+# Set paths and execute the analyzers
+export PYTHONPATH="$(pwd)/.claude/scripts"
+VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-**THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-```bash
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:patterns --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:scalability --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:dependency --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:patterns --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:scalability --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:coupling --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:dependency --target . --output-format json
 ```
 
 ### Architecture Assessment Areas

@@ -1,4 +1,4 @@
-# analyze-root-cause v0.2
+# analyze-root-cause v0.4
 
 **Mindset**: "Find the real problem" - Systematic root cause analysis using evidence-based investigation methodology.
 
@@ -28,39 +28,14 @@ Comprehensive root cause analysis combining automated investigation tools with s
 
 Execute root cause analysis scripts via Bash tool for systematic investigation:
 
-**FIRST - Resolve SCRIPT_PATH:**
-
-1. **Try project-level .claude folder**:
-
-   ```bash
-   Glob: ".claude/scripts/analyzers/root_cause/*.py"
-   ```
-
-2. **Try user-level .claude folder**:
-
-   ```bash
-   Bash: ls "$HOME/.claude/scripts/analyzers/root_cause/"
-   ```
-
-3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyzers/root_cause/` and `$HOME/.claude/scripts/analyzers/root_cause/`
-   - Ask user: "Could not locate root cause analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (trace_execution.py, recent_changes.py, error_patterns.py)
-   - Set SCRIPT_PATH to user-provided location
-
-**Pre-flight environment check (fail fast if imports not resolved):**
-
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-```
+# Set paths and execute the analyzers
+export PYTHONPATH="$(pwd)/.claude/scripts"
+VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-**THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-```bash
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer root_cause:trace_execution --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer root_cause:recent_changes --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer root_cause:error_patterns --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer root_cause:trace_execution --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer root_cause:recent_changes --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer root_cause:error_patterns --target . --output-format json
 ```
 
 ## Optional Flags

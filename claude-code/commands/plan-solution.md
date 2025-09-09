@@ -1,4 +1,4 @@
-# plan-solution v0.2
+# plan-solution v0.4
 
 **Purpose**: Research-driven technical challenge solving with systematic analysis and implementation planning.
 
@@ -55,19 +55,16 @@ Please provide your technical challenge and any relevant constraints, or confirm
       - Validate provided path contains expected scripts (pattern_evaluation.py, scalability_check.py, coupling_analysis.py)
       - Set SCRIPT_PATH to user-provided location
 
-   **Pre-flight environment check (fail fast if imports not resolved):**
+      **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
 
    ```bash
-   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-   PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-   ```
+   # Set paths and execute the analyzers
+   export PYTHONPATH="$(pwd)/.claude/scripts"
+   VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-   **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-   ```bash
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:patterns --target .
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:scalability --target .
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer architecture:coupling --target .
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:patterns --target .
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:scalability --target .
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer architecture:coupling --target .
    ```
 
 2. **Document findings**:

@@ -1,4 +1,4 @@
-# analyze-code-quality v0.2
+# analyze-code-quality v0.4
 
 **Mindset**: "Quality first" - Systematic code quality assessment with measurable metrics and improvement recommendations.
 
@@ -19,37 +19,12 @@ Comprehensive code quality analysis combining automated metrics with architectur
 
 Execute code quality analysis scripts via Bash tool for measurable quality metrics:
 
-**FIRST - Resolve SCRIPT_PATH:**
-
-1. **Try project-level .claude folder**:
-
-   ```bash
-   Glob: ".claude/scripts/analyzers/quality/*.py"
-   ```
-
-2. **Try user-level .claude folder**:
-
-   ```bash
-   Bash: ls "$HOME/.claude/scripts/analyzers/quality/"
-   ```
-
-3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyzers/quality/` and `$HOME/.claude/scripts/analyzers/quality/`
-   - Ask user: "Could not locate code_quality analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (complexity_lizard.py)
-   - Set SCRIPT_PATH to user-provided location
-
-**Pre-flight environment check (fail fast if imports not resolved):**
-
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-```
+# Set paths and execute the analyzer
+export PYTHONPATH="$(pwd)/.claude/scripts"
+VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-**THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-```bash
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer quality:lizard --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer quality:lizard --target . --output-format json
 ```
 
 ## Output Requirements

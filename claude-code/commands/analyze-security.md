@@ -1,4 +1,4 @@
-# analyze-security v0.3
+# analyze-security v0.5
 
 **Mindset**: "What could go wrong?" - Combine automated scanning with contextual threat assessment.
 
@@ -12,38 +12,13 @@ Comprehensive security analysis using OWASP Top 10 framework with automated scri
 
 1. **Execute automated security scripts** - Run comprehensive OWASP Top 10 vulnerability detection
 
-   **FIRST - Resolve SCRIPT_PATH:**
-
-   1. **Try project-level .claude folder**:
-
-      ```bash
-      Glob: ".claude/scripts/analyzers/security/*.py"
-      ```
-
-   2. **Try user-level .claude folder**:
-
-      ```bash
-      Bash: ls "$HOME/.claude/scripts/analyzers/security/"
-      ```
-
-   3. **Interactive fallback if not found**:
-      - List searched locations: `.claude/scripts/analyzers/security/` and `$HOME/.claude/scripts/analyzers/security/`
-      - Ask user: "Could not locate security analysis scripts. Please provide full path to the scripts directory:"
-      - Validate provided path contains expected scripts (semgrep_analyzer.py, detect_secrets_analyzer.py)
-      - Set SCRIPT_PATH to user-provided location
-
-   **Pre-flight environment check (fail fast if imports not resolved):**
-
    ```bash
-   SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-   PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-   ```
+   # Set paths and execute the analyzers
+   export PYTHONPATH="$(pwd)/.claude/scripts"
+   VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-   **THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-   ```bash
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer security:semgrep --target . --output-format json
-   PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer security:detect_secrets --target . --output-format json
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer security:semgrep --target . --output-format json
+   "$VENV_PYTHON" -m core.cli.run_analyzer --analyzer security:detect_secrets --target . --output-format json
    ```
 
 2. **Analyze script outputs** - Process automated findings against OWASP framework

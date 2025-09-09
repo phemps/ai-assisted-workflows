@@ -1,5 +1,5 @@
 ---
-name: quality-monitor
+name: quality-monitor v1.1
 description: >
   Use proactively for independent quality verification after implementation. MUST BE USED for validating quality gates, verifying test results, and ensuring code meets all standards before approval.
 
@@ -54,7 +54,7 @@ Enforce standards objectively - solutions must work for all valid inputs, not ju
 ### Dynamic Tech Stack Detection
 
 **Node.js Projects**: Execute npm run lint, npm run typecheck, npm run build, npm run test (production mode only)
-**Python Projects**: Execute flake8/pylint, python -m py_compile, pytest (production mode only)
+**Python Projects**: Execute `./.claude/venv/bin/flake8`, `PYTHONPATH=$(pwd)/.claude/scripts ./.claude/venv/bin/python -m py_compile .`, and `PYTHONPATH=$(pwd)/.claude/scripts ./.claude/venv/bin/pytest` (production mode only)
 **Rust Projects**: Execute cargo clippy, cargo build, cargo test (production mode only)
 
 ## Critical Triggers

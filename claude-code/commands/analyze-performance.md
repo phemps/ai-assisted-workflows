@@ -1,4 +1,4 @@
-# analyze-performance v0.2
+# analyze-performance v0.4
 
 **Mindset**: "Where are the bottlenecks?" - Combine static analysis with live performance monitoring.
 
@@ -10,39 +10,14 @@ Comprehensive performance analysis combining automated script analysis with live
 
 Execute performance analysis scripts via Bash tool for measurable bottleneck detection:
 
-**FIRST - Resolve SCRIPT_PATH:**
-
-1. **Try project-level .claude folder**:
-
-   ```bash
-   Glob: ".claude/scripts/analyzers/performance/*.py"
-   ```
-
-2. **Try user-level .claude folder**:
-
-   ```bash
-   Bash: ls "$HOME/.claude/scripts/analyzers/performance/"
-   ```
-
-3. **Interactive fallback if not found**:
-   - List searched locations: `.claude/scripts/analyzers/performance/` and `$HOME/.claude/scripts/analyzers/performance/`
-   - Ask user: "Could not locate performance analysis scripts. Please provide full path to the scripts directory:"
-   - Validate provided path contains expected scripts (flake8_performance_analyzer.py, analyze_frontend.py, sqlfluff_analyzer.py)
-   - Set SCRIPT_PATH to user-provided location
-
-**Pre-flight environment check (fail fast if imports not resolved):**
-
 ```bash
-SCRIPTS_ROOT="$(cd "$(dirname \"$SCRIPT_PATH\")/../.." && pwd)"
-PYTHONPATH="$SCRIPTS_ROOT" python -c "import core.base; print('env OK')"
-```
+# Set paths and execute the analyzers
+export PYTHONPATH="$(pwd)/.claude/scripts"
+VENV_PYTHON="$(pwd)/.claude/venv/bin/python"
 
-**THEN - Execute via the registry-driven CLI (no per-module CLIs):**
-
-```bash
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer performance:flake8-perf --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer performance:frontend --target . --output-format json
-PYTHONPATH="$SCRIPTS_ROOT" python -m core.cli.run_analyzer --analyzer performance:sqlfluff --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer performance:flake8-perf --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer performance:frontend --target . --output-format json
+"$VENV_PYTHON" -m core.cli.run_analyzer --analyzer performance:sqlfluff --target . --output-format json
 ```
 
 ### Performance Assessment Areas
